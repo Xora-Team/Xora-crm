@@ -1,11 +1,24 @@
-<div align="center">
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+# XORA CRM
 
-  <h1>Built with AI Studio</h2>
+Projet React moderne pour la gestion CRM des cuisinistes.
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## Installation locale
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+1. Clonez le dépôt
+2. Installez les dépendances : `npm install`
+3. Lancez le serveur de développement : `npm run dev`
 
-</div>
+## Déploiement Netlify
+
+1. Connectez votre repo GitHub à Netlify.
+2. Commande de build : `npm run build`
+3. Répertoire de sortie : `dist`
+4. Ajoutez vos variables d'environnement (si besoin) dans les paramètres du site.
+
+## Stack technique
+- React 19
+- Vite
+- Tailwind CSS
+- Firebase
+- Lucide React
