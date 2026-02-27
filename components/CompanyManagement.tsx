@@ -25,11 +25,18 @@ import {
   MessageSquare,
   Bell,
   Signpost,
-  Plug
+  Plug,
+  Eye,
+  MoreHorizontal,
+  X,
+  Gift,
+  Search
 } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, updateDoc, onSnapshot, collection, query, where } from '@firebase/firestore';
 import InviteCollaboratorModal from './InviteCollaboratorModal';
+import AddGiftModal from './AddGiftModal';
+import UserProfile from './UserProfile';
 
 interface CompanyManagementProps {
   userProfile: any;
@@ -42,15 +49,34 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isAddDocModalOpen, setIsAddDocModalOpen] = useState(false);
+  const [isAddGiftModalOpen, setIsAddGiftModalOpen] = useState(false);
+  const [isDocTypeDropdownOpen, setIsDocTypeDropdownOpen] = useState(false);
+  const [selectedMemberForEdit, setSelectedMemberForEdit] = useState<any>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [newDocIsPublic, setNewDocIsPublic] = useState(false);
+  const [newDocType, setNewDocType] = useState('');
+  const [newDocName, setNewDocName] = useState('');
   const [expandedAddress, setExpandedAddress] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const isFilled = (val: any) => val && val.toString().trim() !== '';
+
+  const docTypes = [
+    'Assurance',
+    'KBIS',
+    'Iban',
+    'Juridique',
+    'Social',
+    'Doc obligatoire',
+    'Convention collective'
+  ];
 
   const handleAddAddress = async () => {
     if (!userProfile?.companyId) return;
     const newAddress = {
       id: Math.random().toString(36).substr(2, 9),
-      type: 'Dépôt',
+      type: 'Siège social',
       address: ''
     };
     const currentAddresses = companyInfo?.addresses || [];
@@ -95,6 +121,110 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
       console.error(e);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAddDocument = () => {
+    setNewDocIsPublic(false);
+    setNewDocType('');
+    setNewDocName('');
+    setSelectedFile(null);
+    setIsDocTypeDropdownOpen(false);
+    setIsAddDocModalOpen(true);
+  };
+
+  const handleConfirmAddDocument = async () => {
+    if (!userProfile?.companyId || !newDocType || !selectedFile) return;
+    const newDoc = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: newDocName || selectedFile.name,
+      type: newDocType,
+      isPublic: newDocIsPublic,
+      date: new Date().toISOString()
+    };
+    const currentDocs = companyInfo?.legalDocuments || [];
+    const updatedDocs = [...currentDocs, newDoc];
+    
+    setIsSaving(true);
+    try {
+      await updateDoc(doc(db, 'companies', userProfile.companyId), { legalDocuments: updatedDocs });
+      setIsAddDocModalOpen(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteDocument = async (id: string) => {
+    if (!userProfile?.companyId || !companyInfo?.legalDocuments) return;
+    const updatedDocs = companyInfo.legalDocuments.filter((d: any) => d.id !== id);
+    
+    setIsSaving(true);
+    try {
+      await updateDoc(doc(db, 'companies', userProfile.companyId), { legalDocuments: updatedDocs });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteGift = async (id: string) => {
+    if (!userProfile?.companyId || !companyInfo?.loyaltyGifts) return;
+    const updatedGifts = companyInfo.loyaltyGifts.filter((g: any) => g.id !== id);
+    
+    setIsSaving(true);
+    try {
+      await updateDoc(doc(db, 'companies', userProfile.companyId), { loyaltyGifts: updatedGifts });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleGiftAdded = async (gift: any) => {
+    if (!userProfile?.companyId) return;
+    const currentGifts = companyInfo?.loyaltyGifts || [];
+    const updatedGifts = [...currentGifts, gift];
+    
+    setIsSaving(true);
+    try {
+      await updateDoc(doc(db, 'companies', userProfile.companyId), { loyaltyGifts: updatedGifts });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteMember = async (memberId: string) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir retirer ce collaborateur de l'équipe ?")) return;
+    
+    setIsSaving(true);
+    try {
+      await updateDoc(doc(db, 'users', memberId), { companyId: null });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdateDocumentName = async (id: string, name: string) => {
+    if (!userProfile?.companyId || !companyInfo?.legalDocuments) return;
+    const updatedDocs = companyInfo.legalDocuments.map((d: any) => 
+      d.id === id ? { ...d, name } : d
+    );
+    
+    // Optimistic update
+    setCompanyInfo({ ...companyInfo, legalDocuments: updatedDocs });
+    
+    try {
+      await updateDoc(doc(db, 'companies', userProfile.companyId), { legalDocuments: updatedDocs });
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -528,7 +658,147 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
               </div>
             )}
 
-              {activeSubTab !== 'Informations' && (
+              {activeSubTab === 'Documents légaux' && (
+                <div className="p-10 bg-[#F8F9FA] space-y-8">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-bold text-gray-900">Liste des documents</h3>
+                    <button 
+                      onClick={handleAddDocument}
+                      className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
+                    >
+                      <Plus size={16} /> Ajouter un document
+                    </button>
+                  </div>
+
+                  {companyInfo?.legalDocuments && companyInfo.legalDocuments.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {companyInfo.legalDocuments.map((doc: any) => (
+                        <div key={doc.id} className="bg-white border border-gray-100 p-4 rounded-xl flex items-center justify-between shadow-sm hover:shadow-md transition-all group">
+                          <div className="flex-1 mr-4">
+                            <input 
+                              type="text"
+                              className="w-full bg-transparent border-none p-0 text-sm font-medium text-gray-900 focus:ring-0 outline-none"
+                              value={doc.name}
+                              onChange={(e) => {
+                                const updated = companyInfo.legalDocuments.map((d: any) => d.id === doc.id ? { ...d, name: e.target.value } : d);
+                                setCompanyInfo({ ...companyInfo, legalDocuments: updated });
+                              }}
+                              onBlur={(e) => handleUpdateDocumentName(doc.id, e.target.value)}
+                            />
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
+                                {doc.type || 'Non spécifié'}
+                              </span>
+                              <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${doc.isPublic ? 'text-green-600 bg-green-50' : 'text-amber-600 bg-amber-50'}`}>
+                                {doc.isPublic ? 'Public' : 'Privé'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+                              <Eye size={18} />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteDocument(doc.id)}
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-20 text-gray-400 bg-white rounded-xl border border-gray-100 shadow-sm">
+                      <FileText size={48} className="mb-4 opacity-20" />
+                      <p className="text-sm font-medium">Aucun document enregistré pour le moment.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeSubTab === 'Fidélisation' && (
+                <div className="p-10 bg-[#F8F9FA] space-y-8 animate-in fade-in duration-500">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-bold text-gray-900">Liste des cadeaux offerts</h3>
+                    <button 
+                      onClick={() => setIsAddGiftModalOpen(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
+                    >
+                      <Plus size={16} /> Ajouter un cadeau
+                    </button>
+                  </div>
+
+                  {companyInfo?.loyaltyGifts && companyInfo.loyaltyGifts.length > 0 ? (
+                    <div className="space-y-3">
+                      {companyInfo.loyaltyGifts.map((gift: any) => (
+                        <div key={gift.id} className="bg-white border border-gray-100 p-4 rounded-xl flex items-center justify-between shadow-sm hover:shadow-md transition-all group">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-gray-50 rounded-lg text-gray-400 group-hover:bg-gray-900 group-hover:text-white transition-colors">
+                              <Gift size={18} />
+                            </div>
+                            <span className="text-sm font-medium text-gray-900">{gift.name}</span>
+                          </div>
+                          <button 
+                            onClick={() => handleDeleteGift(gift.id)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-20 text-gray-400 bg-white rounded-xl border border-gray-100 shadow-sm">
+                      <Gift size={48} className="mb-4 opacity-20" />
+                      <p className="text-sm font-medium">Aucun cadeau configuré pour le moment.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeSubTab === 'Présentation commerciale' && (
+                <div className="p-10 bg-[#F8F9FA] space-y-8 animate-in fade-in duration-500">
+                  <div className="bg-white border border-gray-100 rounded-3xl p-8 shadow-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                      {[
+                        { label: 'Background couleur', key: 'bgPresentation' },
+                        { label: 'Titre couleur', key: 'titlePresentation' },
+                        { label: 'Contenu couleur', key: 'contentPresentation' },
+                        { label: 'Autre couleur (pagination, etc...)', key: 'otherPresentation' }
+                      ].map((item) => (
+                        <div key={item.key} className="space-y-3">
+                          <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">{item.label}</label>
+                          <div className="flex items-center gap-3">
+                            <div 
+                              className="w-12 h-12 rounded-xl border border-gray-100 shadow-sm shrink-0"
+                              style={{ backgroundColor: companyInfo?.[item.key] || '#FFFFFF' }}
+                            />
+                            <div className="relative flex-1">
+                              <input 
+                                type="color"
+                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                value={companyInfo?.[item.key] || '#FFFFFF'}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setCompanyInfo({ ...companyInfo, [item.key]: val });
+                                }}
+                                onBlur={(e) => handleUpdateCompany(item.key, e.target.value)}
+                              />
+                              <div className="w-full flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 pointer-events-none">
+                                <span className="text-gray-400">Sélectionner</span>
+                                <ChevronDown size={18} className="text-gray-400" />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSubTab !== 'Informations' && activeSubTab !== 'Documents légaux' && activeSubTab !== 'Fidélisation' && activeSubTab !== 'Présentation commerciale' && (
                 <div className="flex flex-col items-center justify-center py-20 text-gray-400 bg-white rounded-xl border border-gray-100 shadow-sm">
                   <FileText size={48} className="mb-4 opacity-20" />
                   <p className="text-sm font-medium">Contenu pour "{activeSubTab}" en cours de développement.</p>
@@ -547,31 +817,123 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
           </div>
         );
       case 'Equipe':
+        if (selectedMemberForEdit) {
+          return (
+            <UserProfile 
+              userProfile={selectedMemberForEdit} 
+              setUserProfile={(updated) => {
+                setSelectedMemberForEdit(updated);
+                // The teamMembers list will be updated via onSnapshot
+              }}
+              onBack={() => setSelectedMemberForEdit(null)}
+            />
+          );
+        }
         return (
           <div className="p-10 bg-[#F8F9FA] min-h-full">
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-sm font-black uppercase tracking-widest text-gray-400">Membres de l'équipe ({teamMembers.length})</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Liste des collaborateurs ({teamMembers.length})</h3>
                 <button 
                   onClick={() => setIsInviteModalOpen(true)}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-xl text-[12px] font-bold hover:bg-black transition-all shadow-lg"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-[12px] font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
                 >
-                  <Plus size={16} /> Inviter un collaborateur
+                  <Plus size={16} /> Ajouter un Collaborateur
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {teamMembers.map(member => (
-                  <div key={member.uid} className="bg-white border border-gray-100 p-6 rounded-3xl flex items-center gap-5 shadow-sm hover:shadow-md transition-all group">
-                    <div className="relative">
-                      <img src={member.avatar} className="w-14 h-14 rounded-full border-2 border-white shadow-md object-cover" alt="" />
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[14px] font-bold text-gray-900 group-hover:text-indigo-600 transition-colors uppercase">{member.name}</p>
-                      <p className="text-[11px] text-gray-400 font-bold uppercase tracking-tight">{member.role}</p>
-                    </div>
-                  </div>
-                ))}
+
+              {/* Filters Bar */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input 
+                    type="text"
+                    placeholder="Rechercher"
+                    className="w-full bg-white border border-gray-200 rounded-xl pl-11 pr-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-gray-400 transition-all"
+                  />
+                </div>
+                <div className="relative">
+                  <select className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-gray-400 transition-all">
+                    <option>Type de métier</option>
+                  </select>
+                  <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+                <div className="relative">
+                  <select className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-gray-400 transition-all">
+                    <option>Rôle</option>
+                  </select>
+                  <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+                <div className="relative">
+                  <select className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-gray-400 transition-all">
+                    <option>Adhésion à Xora</option>
+                  </select>
+                  <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Table View */}
+              <div className="bg-white border border-gray-100 rounded-[32px] overflow-hidden shadow-sm">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-50 bg-gray-50/50">
+                      <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-center">Nom</th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-center">Métier</th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-center">Rôle</th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-center">Email</th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-center">Téléphone</th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-center">Adhésion Xora</th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-center"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {teamMembers.map(member => (
+                      <tr key={member.uid} className="hover:bg-gray-50/50 transition-colors group">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <img src={member.avatar} className="w-8 h-8 rounded-full object-cover shadow-sm" alt="" />
+                            <span className="text-sm font-bold text-gray-900 uppercase">{member.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="text-sm font-medium text-gray-600">{member.metier || 'Agenceur'}</span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="text-sm font-medium text-gray-600">{member.role || '-'}</span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="text-sm font-medium text-gray-600">{member.email || '-'}</span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="text-sm font-medium text-gray-600">{member.phone || '01 23 45 67 89'}</span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="flex justify-center">
+                            <div className="px-2 py-1 bg-gray-100 rounded-lg border border-gray-200">
+                              <span className="text-[10px] font-black text-gray-400 tracking-widest">XORA</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={() => setSelectedMemberForEdit(member)}
+                              className="p-2 text-gray-400 hover:text-gray-900 hover:bg-white rounded-lg transition-all border border-transparent hover:border-gray-100 shadow-sm"
+                            >
+                              <Eye size={18} />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteMember(member.uid)}
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all border border-transparent hover:border-red-100 shadow-sm"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -621,6 +983,138 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
         </div>
       </div>
 
+      {/* Add Document Modal */}
+      {isAddDocModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gray-50 rounded-lg">
+                  <FileText size={20} className="text-gray-600" />
+                </div>
+                <h2 className="text-lg font-bold text-gray-900">Ajouter un document</h2>
+              </div>
+              <button 
+                onClick={() => setIsAddDocModalOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X size={20} className="text-gray-400" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-8 space-y-6">
+              {/* Privacy Toggle */}
+              <div className="space-y-3">
+                <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Document privé/ public</label>
+                <div className="flex items-center gap-4">
+                  <span className={`text-sm font-medium ${!newDocIsPublic ? 'text-gray-900' : 'text-gray-400'}`}>Privé</span>
+                  <button 
+                    onClick={() => setNewDocIsPublic(!newDocIsPublic)}
+                    className={`relative w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none ${newDocIsPublic ? 'bg-gray-900' : 'bg-gray-200'}`}
+                  >
+                    <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-200 ${newDocIsPublic ? 'translate-x-6' : 'translate-x-0'}`} />
+                  </button>
+                  <span className={`text-sm font-medium ${newDocIsPublic ? 'text-gray-900' : 'text-gray-400'}`}>Public</span>
+                </div>
+              </div>
+
+              {/* Document Type Select */}
+              <div className="space-y-3">
+                <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Type de document</label>
+                <div className="relative">
+                  <button 
+                    onClick={() => setIsDocTypeDropdownOpen(!isDocTypeDropdownOpen)}
+                    className="w-full flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-gray-400 transition-all cursor-pointer"
+                  >
+                    <span className={!newDocType ? 'text-gray-400' : 'text-gray-900'}>
+                      {newDocType || 'Assurance'}
+                    </span>
+                    <ChevronDown size={18} className={`text-gray-400 transition-transform ${isDocTypeDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isDocTypeDropdownOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-xl shadow-xl z-50 py-2 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
+                      {docTypes.map(type => (
+                        <button
+                          key={type}
+                          onClick={() => {
+                            setNewDocType(type);
+                            setIsDocTypeDropdownOpen(false);
+                          }}
+                          className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          <span>{type}</span>
+                          {newDocType === type && <Check size={16} className="text-indigo-600" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Document Name */}
+              <div className="space-y-3">
+                <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Nom du document</label>
+                <input 
+                  type="text"
+                  placeholder="Saisir"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-gray-400 transition-all"
+                  value={newDocName}
+                  onChange={(e) => setNewDocName(e.target.value)}
+                />
+              </div>
+
+              {/* File Selection Area */}
+              <div className="bg-gray-50/50 border border-gray-100 rounded-2xl p-6 space-y-6">
+                <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 flex flex-col items-center justify-center text-center">
+                  <p className="text-xs font-medium text-gray-400 mb-2">
+                    Glisser et déposer votre document, ou sélectionner le directement
+                  </p>
+                  {selectedFile && (
+                    <p className="text-xs font-bold text-gray-900">
+                      {selectedFile.name}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex justify-center">
+                  <input 
+                    type="file" 
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  />
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
+                  >
+                    <Plus size={18} /> Sélectionner un fichier
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 bg-gray-50 border-t border-gray-100 rounded-b-2xl">
+              <button 
+                onClick={handleConfirmAddDocument}
+                disabled={isSaving || !newDocType || !selectedFile}
+                className="w-full flex items-center justify-center gap-2 py-3.5 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-black transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Check size={18} />
+                )}
+                Ajouter un document
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Content Area */}
       <div className="flex-1 border-t border-gray-100 -mt-px">
         {renderMainTabContent()}
@@ -631,6 +1125,14 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
         userProfile={userProfile}
+      />
+
+      {/* Modal d'ajout de cadeau */}
+      <AddGiftModal 
+        isOpen={isAddGiftModalOpen}
+        onClose={() => setIsAddGiftModalOpen(false)}
+        userProfile={userProfile}
+        onGiftAdded={handleGiftAdded}
       />
 
       {/* Saving Indicator */}

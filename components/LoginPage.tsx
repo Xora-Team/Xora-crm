@@ -46,6 +46,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     const inviteId = params.get('inviteId');
     const role = params.get('role');
     const email = params.get('email');
+    const firstName = params.get('firstName');
+    const lastName = params.get('lastName');
     const viewParam = params.get('view');
 
     if (viewParam === 'register') {
@@ -54,7 +56,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
     if (inviteId && role) {
       setInvitationData({ inviteId, role, email: email || '' });
-      setRegisterData(prev => ({ ...prev, email: email || '' }));
+      setRegisterData({
+        companyName: '',
+        activity: 'Cuisiniste',
+        firstName: firstName || '',
+        lastName: lastName || '',
+        email: email || '',
+        password: '',
+        confirmPassword: ''
+      });
       setView('register');
     }
   }, []);
