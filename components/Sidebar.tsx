@@ -169,7 +169,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'px-4'} py-4 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all group overflow-hidden`}
         >
           {!isCollapsed && <span className="text-[15px] font-bold whitespace-nowrap">Se déconnecter</span>}
-          <LogOut size={20} className={`${isCollapsed ? '' : 'ml-auto'} opacity-40 group-hover:opacity-100 transition-opacity`} />
+          <div className={`flex items-center justify-center ${isCollapsed ? '' : 'ml-auto'}`}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500 rotate-180"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+          </div>
         </button>
       </div>
     </div>

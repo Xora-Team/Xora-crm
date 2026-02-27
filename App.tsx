@@ -100,7 +100,7 @@ function App() {
       case 'articles': return 'Articles';
       case 'tasks': return 'Tâches & mémo';
       case 'projects': return 'Suivi projets';
-      case 'company': return 'Notre entreprise';
+      case 'company': return 'Paramètres';
       case 'profile': return 'Mon profil';
       case 'kpi': return 'KPI';
       default: return 'XORA';
@@ -306,8 +306,13 @@ function App() {
       />
       
       <div className="flex-1 flex flex-col h-screen overflow-hidden transition-all duration-300">
-        {(!selectedClient && !selectedProject && currentPage !== 'profile' && currentPage !== 'company' && currentPage !== 'kpi') && (
-          <Header title={getHeaderTitle(currentPage)} user={userProfile} onProfileClick={() => setCurrentPage('profile')} />
+        {(!selectedClient && !selectedProject && currentPage !== 'profile' && currentPage !== 'kpi') && (
+          <Header 
+            title={getHeaderTitle(currentPage)} 
+            user={userProfile} 
+            onProfileClick={() => setCurrentPage('profile')} 
+            onSettingsClick={() => setCurrentPage('company')}
+          />
         )}
         <main className="flex-1 overflow-auto bg-gray-50">
           {renderContent()}
