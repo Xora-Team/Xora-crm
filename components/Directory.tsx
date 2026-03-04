@@ -21,13 +21,15 @@ import {
   Check,
   Truck,
   Hammer,
-  Stamp
+  Stamp,
+  Upload
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, deleteDoc } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp } from '@firebase/firestore';
 import { Client } from '../types';
 import DirectoryMap from './DirectoryMap';
 import Modal from './Modal';
+import ClientImportModal from './ClientImportModal';
 
 interface FilterDropdownProps {
   label: string;
@@ -150,6 +152,8 @@ const Directory: React.FC<DirectoryProps> = ({
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   
   const toolbarRef = useRef<HTMLDivElement>(null);
 
@@ -263,6 +267,53 @@ const Directory: React.FC<DirectoryProps> = ({
     setFilterProject('');
   };
 
+  const handleImportClients = async (importedData: any[]) => {
+    if (!userProfile?.companyId) return;
+    setIsImporting(true);
+    try {
+      const batchPromises = importedData.map(async (item) => {
+        await addDoc(collection(db, 'clients'), {
+          name: `${item.firstName} ${item.lastName}`.trim(),
+          status: item.status,
+          origin: item.subOrigin || 'Import CSV', // Mappe 'Sous origine' vers client.origin (2ème niveau)
+          location: item.address,
+          addedBy: {
+            name: userProfile.name,
+            avatar: userProfile.avatar,
+            uid: userProfile.uid
+          },
+          dateAdded: new Date().toLocaleDateString('fr-FR'),
+          companyId: userProfile.companyId,
+          details: {
+            civility: item.civility,
+            lastName: item.lastName,
+            firstName: item.firstName,
+            email: item.email,
+            phone: item.phone,
+            fixed: item.fixed,
+            address: item.address,
+            
+            category: item.origin, // Mappe 'Origine' vers details.category (1er niveau)
+            origin: item.subOrigin, // Copie aussi dans details pour consistance
+            subOrigin: item.source, // Mappe 'Source' vers details.subOrigin (3ème niveau)
+            
+            referent: item.referent
+          },
+          createdAt: serverTimestamp(),
+          directoryType: mode
+        });
+      });
+
+      await Promise.all(batchPromises);
+      setIsImportModalOpen(false);
+    } catch (error) {
+      console.error("Error importing clients:", error);
+      alert("Erreur lors de l'importation");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const uniqueAgenceurs = useMemo(() => Array.from(new Set(clients.map(c => c.addedBy?.name).filter(Boolean))).sort(), [clients]);
   const uniqueOrigines = useMemo(() => Array.from(new Set(clients.map(c => c.origin).filter(Boolean))).sort(), [clients]);
   const uniqueLocations = useMemo(() => Array.from(new Set(clients.map(c => c.location).filter(Boolean))).sort(), [clients]);
@@ -295,13 +346,24 @@ const Directory: React.FC<DirectoryProps> = ({
              </div>
         </div>
 
-        <button 
-            onClick={onAddClick}
+        <div className="flex items-center gap-3">
+            {mode === 'contacts' && (
+                <button
+                    onClick={() => setIsImportModalOpen(true)}
+                    className="flex items-center px-4 py-3 bg-white text-gray-700 border border-gray-200 rounded-2xl text-sm font-bold hover:bg-gray-50 transition-all shadow-sm"
+                >
+                    <Upload size={18} className="mr-2" />
+                    Import CSV
+                </button>
+            )}
+            <button 
+                onClick={onAddClick}
             className="flex items-center px-6 py-3 bg-gray-900 text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-gray-200"
         >
             <Plus size={18} className="mr-2" />
             {config.addButton}
         </button>
+      </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-3 shrink-0 items-center" ref={toolbarRef}>
@@ -527,13 +589,6 @@ const Directory: React.FC<DirectoryProps> = ({
                                     {mode !== 'suppliers' && <td className="px-8 py-5 text-[13px] font-black text-gray-400 italic">{client.dateAdded}</td>}
                                     <td className="px-8 py-5" onClick={(e) => e.stopPropagation()}>
                                         <div className="flex justify-end gap-2 relative">
-                                            <button 
-                                                onClick={() => onClientClick(client)}
-                                                className="p-2 border border-gray-100 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-900 transition-all"
-                                                title="Détails"
-                                            >
-                                                <Eye size={16} />
-                                            </button>
                                             <div className="relative">
                                                 <button 
                                                     onClick={() => setActiveMenuId(activeMenuId === client.id ? null : client.id)}
@@ -607,6 +662,14 @@ const Directory: React.FC<DirectoryProps> = ({
       )}
 
       <Modal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setClientToEdit(null); }} userProfile={userProfile} clientToEdit={clientToEdit} />
+      
+      {/* Import Modal */}
+      <ClientImportModal 
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImport={handleImportClients}
+        isImporting={isImporting}
+      />
     </div>
   );
 };

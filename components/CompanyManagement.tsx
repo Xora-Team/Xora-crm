@@ -43,7 +43,7 @@ interface CompanyManagementProps {
 }
 
 const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) => {
-  const [activeMainTab, setActiveMainTab] = useState('Société');
+  const [activeMainTab, setActiveMainTab] = useState('Equipe');
   const [activeSubTab, setActiveSubTab] = useState('Informations');
   const [companyInfo, setCompanyInfo] = useState<any>(null);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -58,6 +58,12 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
   const [newDocType, setNewDocType] = useState('');
   const [newDocName, setNewDocName] = useState('');
   const [expandedAddress, setExpandedAddress] = useState<string | null>(null);
+  const [expandedBank, setExpandedBank] = useState<string | null>(null);
+  const [teamSearch, setTeamSearch] = useState('');
+  const [teamMetierFilter, setTeamMetierFilter] = useState('');
+  const [teamRoleFilter, setTeamRoleFilter] = useState('');
+  const [teamLicenceFilter, setTeamLicenceFilter] = useState('');
+  const [teamStatusFilter, setTeamStatusFilter] = useState('');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const isFilled = (val: any) => val && val.toString().trim() !== '';
@@ -117,6 +123,59 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
     try {
       await updateDoc(doc(db, 'companies', userProfile.companyId), { addresses: updatedAddresses });
       if (expandedAddress === id) setExpandedAddress(null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddBank = async () => {
+    if (!userProfile?.companyId) return;
+    const newBank = {
+      id: Math.random().toString(36).substr(2, 9),
+      bankName: '',
+      iban: '',
+      bic: ''
+    };
+    const currentBanks = companyInfo?.banks || [];
+    const updatedBanks = [...currentBanks, newBank];
+    
+    setIsSaving(true);
+    try {
+      await updateDoc(doc(db, 'companies', userProfile.companyId), { banks: updatedBanks });
+      setExpandedBank(newBank.id);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdateBank = async (id: string, field: string, value: string) => {
+    if (!userProfile?.companyId || !companyInfo?.banks) return;
+    const updatedBanks = companyInfo.banks.map((bank: any) => 
+      bank.id === id ? { ...bank, [field]: value } : bank
+    );
+    
+    // Optimistic update
+    setCompanyInfo({ ...companyInfo, banks: updatedBanks });
+    
+    try {
+      await updateDoc(doc(db, 'companies', userProfile.companyId), { banks: updatedBanks });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteBank = async (id: string) => {
+    if (!userProfile?.companyId || !companyInfo?.banks) return;
+    const updatedBanks = companyInfo.banks.filter((bank: any) => bank.id !== id);
+    
+    setIsSaving(true);
+    try {
+      await updateDoc(doc(db, 'companies', userProfile.companyId), { banks: updatedBanks });
+      if (expandedBank === id) setExpandedBank(null);
     } catch (e) {
       console.error(e);
     } finally {
@@ -231,8 +290,30 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
   // Charger les infos de la société
   useEffect(() => {
     if (!userProfile?.companyId) return;
-    const unsub = onSnapshot(doc(db, 'companies', userProfile.companyId), (docSnap) => {
-      if (docSnap.exists()) setCompanyInfo(docSnap.data());
+    const unsub = onSnapshot(doc(db, 'companies', userProfile.companyId), async (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setCompanyInfo(data);
+
+        // Migration logic for banks
+        if (!data.banks && (data.bankName || data.iban || data.bic)) {
+          const initialBank = {
+            id: Math.random().toString(36).substr(2, 9),
+            bankName: data.bankName || '',
+            iban: data.iban || '',
+            bic: data.bic || ''
+          };
+          try {
+            await updateDoc(doc(db, 'companies', userProfile.companyId), { 
+              banks: [initialBank],
+              // Optionally clear old fields to avoid re-migration, 
+              // but keeping them for safety for now is also fine if we check !data.banks
+            });
+          } catch (e) {
+            console.error('Migration error:', e);
+          }
+        }
+      }
     });
     return () => unsub();
   }, [userProfile?.companyId]);
@@ -260,7 +341,6 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
   };
 
   const mainTabs = [
-    { id: 'Société', icon: Building2 },
     { id: 'Rôle', icon: Signpost },
     { id: 'Equipe', icon: Users, count: teamMembers.length },
     { id: 'Connexion', icon: Plug }
@@ -333,13 +413,17 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                             className={`w-full appearance-none bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
                               isFilled(companyInfo?.legalForm) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200 text-gray-400'
                             }`}
-                            value={companyInfo?.legalForm || 'SARL'}
+                            value={companyInfo?.legalForm || ''}
                             onChange={(e) => handleUpdateCompany('legalForm', e.target.value)}
                           >
-                            <option>SARL</option>
-                            <option>SAS</option>
-                            <option>EURL</option>
-                            <option>Auto-entrepreneur</option>
+                            <option value="">Sélectionner</option>
+                            <option value="SA">SA</option>
+                            <option value="Sas">Sas</option>
+                            <option value="Sarl">Sarl</option>
+                            <option value="Nom propre">Nom propre</option>
+                            <option value="Auto entrepreneur">Auto entrepreneur</option>
+                            <option value="Eurl">Eurl</option>
+                            <option value="Snc">Snc</option>
                           </select>
                           <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                         </div>
@@ -377,11 +461,16 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                           <label className="text-[11px] font-medium text-gray-400">Téléphone</label>
                           <input 
                             type="text" 
+                            placeholder="01 23 45 67 89"
                             className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
                               isFilled(companyInfo?.phone) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
                             }`}
                             value={companyInfo?.phone || ''}
-                            onChange={(e) => setCompanyInfo({...companyInfo, phone: e.target.value})}
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/\D/g, '').substring(0, 10);
+                              const formatted = digits.match(/.{1,2}/g)?.join(' ') || digits;
+                              setCompanyInfo({...companyInfo, phone: formatted});
+                            }}
                             onBlur={(e) => handleUpdateCompany('phone', e.target.value)}
                           />
                         </div>
@@ -503,11 +592,16 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                         <label className="text-[11px] font-medium text-gray-400">SIREN</label>
                         <input 
                           type="text" 
+                          placeholder="123 456 789"
                           className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
                             isFilled(companyInfo?.siren) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
                           }`}
                           value={companyInfo?.siren || ''}
-                          onChange={(e) => setCompanyInfo({...companyInfo, siren: e.target.value})}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, '').substring(0, 9);
+                            const formatted = digits.replace(/(\d{3})(?=\d)/g, '$1 ');
+                            setCompanyInfo({...companyInfo, siren: formatted});
+                          }}
                           onBlur={(e) => handleUpdateCompany('siren', e.target.value)}
                         />
                       </div>
@@ -515,11 +609,16 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                         <label className="text-[11px] font-medium text-gray-400">SIRET</label>
                         <input 
                           type="text" 
+                          placeholder="123 456 789 00012"
                           className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
                             isFilled(companyInfo?.siret) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
                           }`}
                           value={companyInfo?.siret || ''}
-                          onChange={(e) => setCompanyInfo({...companyInfo, siret: e.target.value})}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, '').substring(0, 14);
+                            const formatted = digits.replace(/(\d{3})(\d{3})(\d{3})(\d{5})/, '$1 $2 $3 $4').trim();
+                            setCompanyInfo({...companyInfo, siret: formatted});
+                          }}
                           onBlur={(e) => handleUpdateCompany('siret', e.target.value)}
                         />
                       </div>
@@ -527,11 +626,23 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                         <label className="text-[11px] font-medium text-gray-400">N° de TVA</label>
                         <input 
                           type="text" 
+                          placeholder="FR 12 345678901"
                           className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
                             isFilled(companyInfo?.tva) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
                           }`}
                           value={companyInfo?.tva || ''}
-                          onChange={(e) => setCompanyInfo({...companyInfo, tva: e.target.value})}
+                          onChange={(e) => {
+                            let val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                            if (val.startsWith('FR')) {
+                              const digits = val.substring(2, 13);
+                              let formatted = 'FR';
+                              if (digits.length > 0) formatted += ' ' + digits.substring(0, 2);
+                              if (digits.length > 2) formatted += ' ' + digits.substring(2);
+                              setCompanyInfo({...companyInfo, tva: formatted});
+                            } else {
+                              setCompanyInfo({...companyInfo, tva: val});
+                            }
+                          }}
                           onBlur={(e) => handleUpdateCompany('tva', e.target.value)}
                         />
                       </div>
@@ -539,99 +650,27 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                         <label className="text-[11px] font-medium text-gray-400">Code APE</label>
                         <input 
                           type="text" 
+                          placeholder="7022Z"
                           className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
                             isFilled(companyInfo?.ape) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
                           }`}
                           value={companyInfo?.ape || ''}
-                          onChange={(e) => setCompanyInfo({...companyInfo, ape: e.target.value})}
+                          onChange={(e) => setCompanyInfo({...companyInfo, ape: e.target.value.toUpperCase()})}
                           onBlur={(e) => handleUpdateCompany('ape', e.target.value)}
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Banque Section */}
+                  {/* RCS & Capital Section */}
                   <div className="space-y-6">
-                    <h3 className="text-sm font-bold text-gray-900">Banque</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="space-y-1.5">
-                        <label className="text-[11px] font-medium text-gray-400">Nom banque</label>
-                        <input 
-                          type="text" 
-                          className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
-                            isFilled(companyInfo?.bankName) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
-                          }`}
-                          value={companyInfo?.bankName || ''}
-                          onChange={(e) => setCompanyInfo({...companyInfo, bankName: e.target.value})}
-                          onBlur={(e) => handleUpdateCompany('bankName', e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[11px] font-medium text-gray-400">Iban</label>
-                        <input 
-                          type="text" 
-                          className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
-                            isFilled(companyInfo?.iban) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
-                          }`}
-                          value={companyInfo?.iban || ''}
-                          onChange={(e) => setCompanyInfo({...companyInfo, iban: e.target.value})}
-                          onBlur={(e) => handleUpdateCompany('iban', e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[11px] font-medium text-gray-400">Code BIC</label>
-                        <input 
-                          type="text" 
-                          className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
-                            isFilled(companyInfo?.bic) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
-                          }`}
-                          value={companyInfo?.bic || ''}
-                          onChange={(e) => setCompanyInfo({...companyInfo, bic: e.target.value})}
-                          onBlur={(e) => handleUpdateCompany('bic', e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Assurance Section */}
-                  <div className="space-y-6">
-                    <h3 className="text-sm font-bold text-gray-900">Assurance</h3>
+                    <h3 className="text-sm font-bold text-gray-900">RCS & Capital</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-medium text-gray-400">Nom assurance</label>
+                        <label className="text-[11px] font-medium text-gray-400">RCS</label>
                         <input 
                           type="text" 
-                          className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
-                            isFilled(companyInfo?.insuranceName) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
-                          }`}
-                          value={companyInfo?.insuranceName || ''}
-                          onChange={(e) => setCompanyInfo({...companyInfo, insuranceName: e.target.value})}
-                          onBlur={(e) => handleUpdateCompany('insuranceName', e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[11px] font-medium text-gray-400">N° de contrat</label>
-                        <input 
-                          type="text" 
-                          className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
-                            isFilled(companyInfo?.insuranceNumber) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
-                          }`}
-                          value={companyInfo?.insuranceNumber || ''}
-                          onChange={(e) => setCompanyInfo({...companyInfo, insuranceNumber: e.target.value})}
-                          onBlur={(e) => handleUpdateCompany('insuranceNumber', e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* RC & Capital Section */}
-                  <div className="space-y-6">
-                    <h3 className="text-sm font-bold text-gray-900">RC & Capital</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-1.5">
-                        <label className="text-[11px] font-medium text-gray-400">RC</label>
-                        <input 
-                          type="text" 
+                          placeholder="RCS PARIS B 123 456 789"
                           className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
                             isFilled(companyInfo?.rcCity) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
                           }`}
@@ -644,16 +683,181 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                         <label className="text-[11px] font-medium text-gray-400">Capital</label>
                         <input 
                           type="text" 
+                          placeholder="10 000 €"
                           className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
                             isFilled(companyInfo?.capital) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
                           }`}
                           value={companyInfo?.capital || ''}
-                          onChange={(e) => setCompanyInfo({...companyInfo, capital: e.target.value})}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, '');
+                            if (digits === '') {
+                              setCompanyInfo({...companyInfo, capital: ''});
+                              return;
+                            }
+                            const formatted = new Intl.NumberFormat('fr-FR').format(parseInt(digits)) + ' €';
+                            setCompanyInfo({...companyInfo, capital: formatted});
+                          }}
                           onBlur={(e) => handleUpdateCompany('capital', e.target.value)}
                         />
                       </div>
                     </div>
                   </div>
+
+                  {/* Banque Section */}
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-gray-900">Banque</h3>
+                      <button 
+                        onClick={handleAddBank}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-[11px] font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
+                      >
+                        <Plus size={14} className="text-gray-400" /> Ajouter une banque
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {companyInfo?.banks?.map((bank: any) => (
+                        <div key={bank.id} className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                          <button 
+                            onClick={() => setExpandedBank(expandedBank === bank.id ? null : bank.id)}
+                            className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-all"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="p-2 bg-gray-50 rounded-lg text-gray-400">
+                                <Database size={18} />
+                              </div>
+                              <span className="text-sm font-bold text-gray-900">
+                                {bank.bankName || 'Nouvelle banque'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteBank(bank.id);
+                                }}
+                                className="p-2 text-gray-300 hover:text-red-500 transition-all"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                              <ChevronDown 
+                                size={20} 
+                                className={`text-gray-400 transition-all duration-300 ${expandedBank === bank.id ? 'rotate-180' : ''}`} 
+                              />
+                            </div>
+                          </button>
+
+                          {expandedBank === bank.id && (
+                            <div className="px-6 pb-6 pt-2 border-t border-gray-50 animate-in slide-in-from-top-2 duration-300">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="space-y-1.5">
+                                  <label className="text-[11px] font-medium text-gray-400">Nom banque</label>
+                                  <input 
+                                    type="text" 
+                                    className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
+                                      isFilled(bank.bankName) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
+                                    }`}
+                                    value={bank.bankName || ''}
+                                    onChange={(e) => handleUpdateBank(bank.id, 'bankName', e.target.value)}
+                                    placeholder="Ex: BNP Paribas"
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="text-[11px] font-medium text-gray-400">Iban</label>
+                                  <input 
+                                    type="text" 
+                                    className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
+                                      isFilled(bank.iban) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
+                                    }`}
+                                    value={bank.iban || ''}
+                                    onChange={(e) => handleUpdateBank(bank.id, 'iban', e.target.value)}
+                                    placeholder="FR76 ..."
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="text-[11px] font-medium text-gray-400">Code BIC</label>
+                                  <input 
+                                    type="text" 
+                                    className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
+                                      isFilled(bank.bic) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
+                                    }`}
+                                    value={bank.bic || ''}
+                                    onChange={(e) => handleUpdateBank(bank.id, 'bic', e.target.value)}
+                                    placeholder="Ex: BNPAFRPP"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {(!companyInfo?.banks || companyInfo.banks.length === 0) && (
+                        <div className="text-center py-8 border-2 border-dashed border-gray-100 rounded-xl">
+                          <p className="text-sm text-gray-400">Aucune banque enregistrée</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Assurance Section */}
+                  <div className="space-y-6">
+                    <h3 className="text-sm font-bold text-gray-900">Assurance</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-medium text-gray-400">Nom assurance décennale</label>
+                        <input 
+                          type="text" 
+                          placeholder="Ex: AXA, MAAF..."
+                          className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
+                            isFilled(companyInfo?.insuranceName) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
+                          }`}
+                          value={companyInfo?.insuranceName || ''}
+                          onChange={(e) => setCompanyInfo({...companyInfo, insuranceName: e.target.value})}
+                          onBlur={(e) => handleUpdateCompany('insuranceName', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-medium text-gray-400">N° de contrat décennale</label>
+                        <input 
+                          type="text" 
+                          className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
+                            isFilled(companyInfo?.insuranceNumber) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
+                          }`}
+                          value={companyInfo?.insuranceNumber || ''}
+                          onChange={(e) => setCompanyInfo({...companyInfo, insuranceNumber: e.target.value})}
+                          onBlur={(e) => handleUpdateCompany('insuranceNumber', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-medium text-gray-400">Nom assurance responsabilité civile</label>
+                        <input 
+                          type="text" 
+                          placeholder="Ex: Allianz, MMA..."
+                          className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
+                            isFilled(companyInfo?.insuranceRcName) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
+                          }`}
+                          value={companyInfo?.insuranceRcName || ''}
+                          onChange={(e) => setCompanyInfo({...companyInfo, insuranceRcName: e.target.value})}
+                          onBlur={(e) => handleUpdateCompany('insuranceRcName', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-medium text-gray-400">N° de contrat RC</label>
+                        <input 
+                          type="text" 
+                          className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
+                            isFilled(companyInfo?.insuranceRcNumber) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
+                          }`}
+                          value={companyInfo?.insuranceRcNumber || ''}
+                          onChange={(e) => setCompanyInfo({...companyInfo, insuranceRcNumber: e.target.value})}
+                          onBlur={(e) => handleUpdateCompany('insuranceRcNumber', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             )}
@@ -821,6 +1025,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
           return (
             <UserProfile 
               userProfile={selectedMemberForEdit} 
+              adminProfile={userProfile}
               setUserProfile={(updated) => {
                 setSelectedMemberForEdit(updated);
                 // The teamMembers list will be updated via onSnapshot
@@ -829,11 +1034,61 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
             />
           );
         }
+        const filteredTeam = teamMembers.filter(member => {
+          const searchMatch = !teamSearch || 
+            member.name?.toLowerCase().includes(teamSearch.toLowerCase()) ||
+            member.email?.toLowerCase().includes(teamSearch.toLowerCase());
+          
+          const metierMatch = !teamMetierFilter || (
+            Array.isArray(member.metier) 
+              ? member.metier.includes(teamMetierFilter)
+              : (member.metier || 'Agenceur') === teamMetierFilter
+          );
+
+          const roleMatch = !teamRoleFilter || member.role === teamRoleFilter;
+
+          const licenceMatch = !teamLicenceFilter || (
+            teamLicenceFilter === 'Active' ? member.isSubscriptionActive : !member.isSubscriptionActive
+          );
+
+          const statusMatch = !teamStatusFilter || (
+            teamStatusFilter === 'En poste' ? !member.hasLeft : member.hasLeft
+          );
+
+          return searchMatch && metierMatch && roleMatch && licenceMatch && statusMatch;
+        });
+
+        const allMetiers = [
+          'Agenceur',
+          'Concepteur.rice',
+          'Assistant.e commercial.e',
+          'Adv',
+          'Assistant.e de direction',
+          'Poseur',
+          'Métreur',
+          'Secrétaire',
+          'Magasinier.e',
+          'Directeur.rice',
+          'Chef.fe d\'entreprise',
+          'Cuisiniste',
+          'Bainiste',
+          'Décorateur',
+          'Architecte d\'intérieur',
+          'Marbrier'
+        ].sort();
+        
+        const allRoles = [
+          'Administrateur',
+          'Agenceur',
+          'Métreur',
+          'Poseur'
+        ].sort();
+
         return (
           <div className="p-10 bg-[#F8F9FA] min-h-full">
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-[15px] font-bold text-gray-900">Liste des collaborateurs ({teamMembers.length})</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Liste des membres de l'équipe de {companyInfo?.name || '...'} ({filteredTeam.length})</h3>
                 <button 
                   onClick={() => setIsInviteModalOpen(true)}
                   className="flex items-center gap-2 px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-[12px] font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
@@ -843,30 +1098,60 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
               </div>
 
               {/* Filters Bar */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input 
                     type="text"
                     placeholder="Rechercher"
+                    value={teamSearch}
+                    onChange={(e) => setTeamSearch(e.target.value)}
                     className="w-full bg-white border border-gray-200 rounded-xl pl-11 pr-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-gray-400 transition-all"
                   />
                 </div>
                 <div className="relative">
-                  <select className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-gray-400 transition-all">
-                    <option>Type de métier</option>
+                  <select 
+                    value={teamMetierFilter}
+                    onChange={(e) => setTeamMetierFilter(e.target.value)}
+                    className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-gray-400 transition-all"
+                  >
+                    <option value="">Tous les métiers</option>
+                    {allMetiers.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                   <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 </div>
                 <div className="relative">
-                  <select className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-gray-400 transition-all">
-                    <option>Rôle</option>
+                  <select 
+                    value={teamRoleFilter}
+                    onChange={(e) => setTeamRoleFilter(e.target.value)}
+                    className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-gray-400 transition-all"
+                  >
+                    <option value="">Tous les rôles</option>
+                    {allRoles.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
                   <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 </div>
                 <div className="relative">
-                  <select className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-gray-400 transition-all">
-                    <option>Adhésion à Xora</option>
+                  <select 
+                    value={teamLicenceFilter}
+                    onChange={(e) => setTeamLicenceFilter(e.target.value)}
+                    className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-gray-400 transition-all"
+                  >
+                    <option value="">Toutes les licences</option>
+                    <option value="Active">Licence active</option>
+                    <option value="Inactive">Licence inactive</option>
+                  </select>
+                  <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+                <div className="relative">
+                  <select 
+                    value={teamStatusFilter}
+                    onChange={(e) => setTeamStatusFilter(e.target.value)}
+                    className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-gray-400 transition-all"
+                  >
+                    <option value="">Tous les statuts</option>
+                    <option value="En poste">En poste</option>
+                    <option value="Sortis">Sortis</option>
                   </select>
                   <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 </div>
@@ -882,13 +1167,14 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                       <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-center">Rôle</th>
                       <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-center">Email</th>
                       <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-center">Téléphone</th>
-                      <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-center">Adhésion Xora</th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-center">Licence active Xora</th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-center">Statut</th>
                       <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-center"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {teamMembers.map(member => (
-                      <tr key={member.uid} className="hover:bg-gray-50/50 transition-colors group">
+                    {filteredTeam.map(member => (
+                      <tr key={member.uid} className={`transition-colors group ${member.hasLeft ? 'bg-gray-50/80 opacity-60' : 'hover:bg-gray-50/50'}`}>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <img src={member.avatar} className="w-8 h-8 rounded-full object-cover shadow-sm" alt="" />
@@ -896,22 +1182,41 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className="text-sm font-medium text-gray-600">{member.metier || 'Agenceur'}</span>
+                          <span className="text-sm font-medium text-gray-600">
+                            {Array.isArray(member.metier) ? member.metier.join(', ') : (member.metier || 'Agenceur')}
+                          </span>
                         </td>
                         <td className="px-6 py-4 text-center">
                           <span className="text-sm font-medium text-gray-600">{member.role || '-'}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className="text-sm font-medium text-gray-600">{member.email || '-'}</span>
+                          <span className="text-sm font-medium text-gray-600">{member.email || ''}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className="text-sm font-medium text-gray-600">{member.phone || '01 23 45 67 89'}</span>
+                          <span className="text-sm font-medium text-gray-600">{member.portable || member.phone || ''}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
                           <div className="flex justify-center">
-                            <div className="px-2 py-1 bg-gray-100 rounded-lg border border-gray-200">
-                              <span className="text-[10px] font-black text-gray-400 tracking-widest">XORA</span>
-                            </div>
+                            {member.isSubscriptionActive ? (
+                              <div className="px-2 py-1 bg-gradient-to-r from-orange-400 via-purple-500 to-blue-500 rounded-lg shadow-sm">
+                                <span className="text-[10px] font-black text-white tracking-widest">XORA</span>
+                              </div>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="flex justify-center">
+                            {member.hasLeft ? (
+                              <div className="px-3 py-1 bg-red-50 border border-red-100 rounded-full">
+                                <span className="text-[10px] font-bold text-red-600 uppercase">
+                                  Sorti le {member.departureDate ? new Date(member.departureDate).toLocaleDateString('fr-FR') : '??/??/????'}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="px-3 py-1 bg-green-50 border border-green-100 rounded-full">
+                                <span className="text-[10px] font-bold text-green-600 uppercase">En poste</span>
+                              </div>
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4">

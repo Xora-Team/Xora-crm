@@ -15,7 +15,8 @@ import {
   Truck,
   Hammer,
   Stamp,
-  Users
+  Users,
+  Building2
 } from 'lucide-react';
 import { Page } from '../types';
 
@@ -141,7 +142,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             { id: 'articles', label: 'Articles', icon: Box, page: 'articles' as Page },
             { id: 'agenda', label: 'Agenda', icon: Calendar, page: 'agenda' as Page },
             { id: 'kpi', label: 'KPI', icon: BarChart2, page: 'kpi' as Page },
-            { id: 'company', label: 'Notre entreprise', icon: Briefcase, page: 'company' as Page },
+            { id: 'our_company', label: 'Notre entreprise', icon: Building2, page: 'our_company' as Page },
           ].map((item) => (
             <button
               key={item.id}

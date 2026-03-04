@@ -23,14 +23,47 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
     emailPerso: '',
     phoneMobile: '',
     phoneFixed: '',
+    address: '',
     contractType: 'CDI',
-    jobTitle: 'Agenceur',
+    metier: [] as string[],
     role: 'Agenceur',
     hasPhone: false,
     hasCar: false,
     hasLaptop: false,
     agendaColor: '#A8A8A8'
   });
+
+  const contractTypes = [
+    'CDI',
+    'CDD',
+    'Contrat d\'apprentissage',
+    'Stagiaire',
+    'Gérant',
+    'Agent Commercial',
+    'Freelance'
+  ];
+
+  const jobs = [
+    'Concepteur.rice',
+    'Assistant.e commercial.e',
+    'Adv',
+    'Assistant.e de direction',
+    'Poseur',
+    'Métreur',
+    'Secrétaire',
+    'Magasinier.e',
+    'Directeur.rice',
+    'Chef.fe d\'entreprise'
+  ];
+
+  const toggleJob = (job: string) => {
+    const currentJobs = formData.metier;
+    if (currentJobs.includes(job)) {
+      setFormData({ ...formData, metier: currentJobs.filter(j => j !== job) });
+    } else {
+      setFormData({ ...formData, metier: [...currentJobs, job] });
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -48,7 +81,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
       const inviteEmail = formData.emailPro.toLowerCase().trim();
       const appUrl = 'https://app.xora.fr/';
       
-      const registrationLink = `${appUrl}?view=register&inviteId=${userProfile.companyId}&email=${encodeURIComponent(inviteEmail)}&firstName=${encodeURIComponent(formData.firstName)}&lastName=${encodeURIComponent(formData.lastName)}&role=${encodeURIComponent(formData.role)}`;
+      const registrationLink = `${appUrl}?view=register&inviteId=${userProfile.companyId}&email=${encodeURIComponent(inviteEmail)}&firstName=${encodeURIComponent(formData.firstName)}&lastName=${encodeURIComponent(formData.lastName)}&role=${encodeURIComponent(formData.role)}&hasSubscription=${formData.hasSubscription}&address=${encodeURIComponent(formData.address)}`;
 
       await addDoc(collection(db, 'invitations'), {
         to: inviteEmail,
@@ -89,6 +122,58 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
         }
       });
 
+      // Notification à bonjour@xora.fr si abonnement actif
+      if (formData.hasSubscription) {
+        await addDoc(collection(db, 'invitations'), {
+          to: 'bonjour@xora.fr',
+          message: {
+            subject: `🔔 Nouvelle adhésion Xora : ${formData.firstName} ${formData.lastName}`,
+            html: `
+              <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #f3f4f6; border-radius: 24px; padding: 40px; color: #111827; background-color: #ffffff;">
+                <div style="text-align: center; margin-bottom: 32px;">
+                  <h1 style="font-size: 24px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: -0.025em;">XORA <span style="color: #6366f1;">CRM</span></h1>
+                </div>
+                
+                <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 16px; color: #111827;">Nouvelle adhésion détectée</h2>
+                
+                <p style="font-size: 16px; line-height: 1.6; color: #4b5563; margin-bottom: 24px;">
+                  Un nouveau collaborateur a été invité avec une <strong>licence Xora active</strong>.
+                </p>
+                
+                <div style="background-color: #f9fafb; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
+                  <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Collaborateur</td>
+                      <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${formData.firstName} ${formData.lastName}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Email</td>
+                      <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${formData.emailPro}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Société</td>
+                      <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${userProfile.companyName || 'Non renseignée'}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Invité par</td>
+                      <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${userProfile.name}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Rôle</td>
+                      <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${formData.role}</td>
+                    </tr>
+                  </table>
+                </div>
+                
+                <p style="font-size: 12px; color: #9ca3af; text-align: center; margin-top: 32px;">
+                  Ceci est une notification automatique de Xora CRM.
+                </p>
+              </div>
+            `
+          }
+        });
+      }
+
       setSuccess(true);
       setShowConfirmation(false);
       setTimeout(() => {
@@ -103,8 +188,9 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
           emailPerso: '',
           phoneMobile: '',
           phoneFixed: '',
+          address: '',
           contractType: 'CDI',
-          jobTitle: 'Agenceur',
+          metier: [],
           role: 'Agenceur',
           hasPhone: false,
           hasCar: false,
@@ -296,9 +382,13 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                       </div>
                       <input 
                         type="text" 
-                        placeholder="Entrer un numéro" 
+                        placeholder="06 00 00 00 00" 
                         value={formData.phoneMobile}
-                        onChange={(e) => setFormData({...formData, phoneMobile: e.target.value})}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, '').substring(0, 10);
+                          const formatted = digits.match(/.{1,2}/g)?.join(' ') || digits;
+                          setFormData({...formData, phoneMobile: formatted});
+                        }}
                         className="w-full pl-16 pr-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
                       />
                     </div>
@@ -312,35 +402,74 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                       </div>
                       <input 
                         type="text" 
-                        placeholder="Entrer un numéro" 
+                        placeholder="01 00 00 00 00" 
                         value={formData.phoneFixed}
-                        onChange={(e) => setFormData({...formData, phoneFixed: e.target.value})}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, '').substring(0, 10);
+                          const formatted = digits.match(/.{1,2}/g)?.join(' ') || digits;
+                          setFormData({...formData, phoneFixed: formatted});
+                        }}
                         className="w-full pl-16 pr-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
                       />
                     </div>
                   </div>
                 </div>
 
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Adresse du membre</label>
+                  <input 
+                    type="text" 
+                    placeholder="12 rue des Mimosas, 11100 Narbonne" 
+                    value={formData.address}
+                    onChange={(e) => setFormData({...formData, address: e.target.value})}
+                    className="w-full px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
+                  />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
                     <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Type de contrat</label>
-                    <input 
-                      type="text" 
-                      placeholder="CDI" 
-                      value={formData.contractType}
-                      onChange={(e) => setFormData({...formData, contractType: e.target.value})}
-                      className="w-full px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
-                    />
+                    <div className="relative">
+                      <select 
+                        value={formData.contractType}
+                        onChange={(e) => setFormData({...formData, contractType: e.target.value})}
+                        className="w-full appearance-none px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
+                      >
+                        {contractTypes.map(type => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Métier</label>
-                    <input 
-                      type="text" 
-                      placeholder="Agenceur" 
-                      value={formData.jobTitle}
-                      onChange={(e) => setFormData({...formData, jobTitle: e.target.value})}
-                      className="w-full px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
-                    />
+                    <div className="relative group">
+                      <div className="w-full px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none min-h-[46px] flex flex-wrap gap-2 shadow-inner">
+                        {formData.metier.length > 0 ? (
+                          formData.metier.map(job => (
+                            <span key={job} className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded-md text-[10px] flex items-center gap-1">
+                              {job}
+                              <X size={10} className="cursor-pointer" onClick={() => toggleJob(job)} />
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-gray-400 font-normal italic">Sélectionner un ou plusieurs métiers</span>
+                        )}
+                      </div>
+                      <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-100 rounded-xl shadow-xl max-h-48 overflow-y-auto hidden group-hover:block hover:block">
+                        {jobs.map(job => (
+                          <div 
+                            key={job}
+                            onClick={() => toggleJob(job)}
+                            className={`px-4 py-2 text-sm cursor-pointer hover:bg-gray-50 flex items-center justify-between ${formData.metier.includes(job) ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700'}`}
+                          >
+                            {job}
+                            {formData.metier.includes(job) && <CheckCircle2 size={14} />}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Droit</label>
@@ -361,46 +490,46 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
-                    <span className="text-[11px] font-bold text-gray-400 uppercase">Téléphone mise à disposition</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">Non</span>
+                  <div className="flex flex-col items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase text-center leading-tight">Téléphone mise à disposition</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase">Non</span>
                       <button 
                         type="button"
                         onClick={() => setFormData({...formData, hasPhone: !formData.hasPhone})}
-                        className={`w-10 h-5 rounded-full relative transition-all duration-300 ${formData.hasPhone ? 'bg-gray-800' : 'bg-gray-200'}`}
+                        className={`w-11 h-6 rounded-full relative transition-all duration-300 ${formData.hasPhone ? 'bg-gray-900' : 'bg-gray-200'}`}
                       >
-                        <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.75 transition-all duration-300 shadow-sm ${formData.hasPhone ? 'right-1' : 'left-1'}`}></div>
+                        <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-sm ${formData.hasPhone ? 'right-1' : 'left-1'}`}></div>
                       </button>
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">Oui</span>
+                      <span className="text-[9px] font-bold text-gray-400 uppercase">Oui</span>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
-                    <span className="text-[11px] font-bold text-gray-400 uppercase">Véhicule</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">Non</span>
+                  <div className="flex flex-col items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase text-center leading-tight">Véhicule</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase">Non</span>
                       <button 
                         type="button"
                         onClick={() => setFormData({...formData, hasCar: !formData.hasCar})}
-                        className={`w-10 h-5 rounded-full relative transition-all duration-300 ${formData.hasCar ? 'bg-gray-800' : 'bg-gray-200'}`}
+                        className={`w-11 h-6 rounded-full relative transition-all duration-300 ${formData.hasCar ? 'bg-gray-900' : 'bg-gray-200'}`}
                       >
-                        <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.75 transition-all duration-300 shadow-sm ${formData.hasCar ? 'right-1' : 'left-1'}`}></div>
+                        <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-sm ${formData.hasCar ? 'right-1' : 'left-1'}`}></div>
                       </button>
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">Oui</span>
+                      <span className="text-[9px] font-bold text-gray-400 uppercase">Oui</span>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
-                    <span className="text-[11px] font-bold text-gray-400 uppercase">Ordinateur portable</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">Non</span>
+                  <div className="flex flex-col items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase text-center leading-tight">Ordinateur portable</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase">Non</span>
                       <button 
                         type="button"
                         onClick={() => setFormData({...formData, hasLaptop: !formData.hasLaptop})}
-                        className={`w-10 h-5 rounded-full relative transition-all duration-300 ${formData.hasLaptop ? 'bg-gray-800' : 'bg-gray-200'}`}
+                        className={`w-11 h-6 rounded-full relative transition-all duration-300 ${formData.hasLaptop ? 'bg-gray-900' : 'bg-gray-200'}`}
                       >
-                        <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.75 transition-all duration-300 shadow-sm ${formData.hasLaptop ? 'right-1' : 'left-1'}`}></div>
+                        <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-sm ${formData.hasLaptop ? 'right-1' : 'left-1'}`}></div>
                       </button>
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">Oui</span>
+                      <span className="text-[9px] font-bold text-gray-400 uppercase">Oui</span>
                     </div>
                   </div>
                 </div>

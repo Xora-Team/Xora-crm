@@ -13,6 +13,7 @@ export type Page =
   | 'projects' 
   | 'kpi' 
   | 'company'
+  | 'our_company'
   | 'profile';
 
 export interface User {
@@ -50,6 +51,19 @@ export interface Client {
     category?: string;
     subOrigin?: string;
     referent?: string;
+    referrer?: string;
+    source?: string;
+    secondaryContact?: {
+        civility?: string;
+        lastName?: string;
+        firstName?: string;
+        email?: string;
+        mobile?: string;
+        landline?: string;
+    };
+    secondaryResidence?: {
+        address?: string;
+    };
     rgpd?: boolean;
     website?: string;
     selectionStatus?: string;

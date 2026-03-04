@@ -13,6 +13,7 @@ import ProjectTracking from './components/ProjectTracking';
 import ProjectDetails from './components/ProjectDetails';
 import UserProfile from './components/UserProfile';
 import CompanyManagement from './components/CompanyManagement';
+import OurCompany from './components/OurCompany';
 import KPIManagement from './components/KPIManagement';
 import LoginPage from './components/LoginPage';
 import AddTaskModal from './components/AddTaskModal';
@@ -101,6 +102,7 @@ function App() {
       case 'tasks': return 'Tâches & mémo';
       case 'projects': return 'Suivi projets';
       case 'company': return 'Paramètres';
+      case 'our_company': return 'Notre entreprise';
       case 'profile': return 'Mon profil';
       case 'kpi': return 'KPI';
       default: return 'XORA';
@@ -276,8 +278,10 @@ function App() {
         );
       case 'company':
         return <CompanyManagement userProfile={userProfile} />;
+      case 'our_company':
+        return <OurCompany userProfile={userProfile} />;
       case 'profile':
-        return <UserProfile userProfile={userProfile} setUserProfile={setUserProfile} onBack={() => setCurrentPage('dashboard')} />;
+        return <UserProfile userProfile={userProfile} setUserProfile={setUserProfile} onBack={() => setCurrentPage('dashboard')} readOnly={true} />;
       case 'kpi':
         return <KPIManagement userProfile={userProfile} />;
       default:

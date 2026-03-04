@@ -958,6 +958,13 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                             onChange={(e) => setFormData({...formData, referent: e.target.value})}
                             className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-10 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm"
                           >
+                              <option value="">Sélectionner un collaborateur</option>
+                              {/* Afficher le référent actuel s'il n'est pas dans la liste des membres */}
+                              {formData.referent && !teamMembers.find(m => m.name === formData.referent) && (
+                                <option value={formData.referent}>
+                                  {formData.referent}
+                                </option>
+                              )}
                               {teamMembers.map((member) => (
                                 <option key={member.id} value={member.name}>
                                   {member.name} {member.uid === userProfile?.uid ? '(Moi)' : ''}

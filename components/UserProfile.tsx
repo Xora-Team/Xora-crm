@@ -16,59 +16,185 @@ import {
   Smartphone,
   Palette,
   ShieldCheck,
-  CreditCard
+  CreditCard,
+  CheckCircle2,
+  X,
+  MessageSquare,
+  AlertCircle,
+  MapPin,
+  Search,
+  Plus,
+  Map as MapIcon
 } from 'lucide-react';
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
-import { doc, updateDoc, onSnapshot, writeBatch, collection, query, where, getDocs } from '@firebase/firestore';
+import { doc, updateDoc, onSnapshot, writeBatch, collection, query, where, getDocs, addDoc, serverTimestamp } from '@firebase/firestore';
 import UserDocuments from './UserDocuments';
 
 interface UserProfileProps {
   userProfile: any;
+  adminProfile?: any;
   setUserProfile: (profile: any) => void;
   onBack?: () => void;
+  readOnly?: boolean;
 }
 
-const UserProfile: React.FC<UserProfileProps> = ({ userProfile, setUserProfile, onBack }) => {
+const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, setUserProfile, onBack, readOnly }) => {
   const [activeTab, setActiveTab] = useState('Informations');
   const [isUploading, setIsUploading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showUnsavedError, setShowUnsavedError] = useState(false);
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [addressSearch, setAddressSearch] = useState('');
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mapRef = useRef<any>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
     civility: userProfile?.civility || 'Mr',
     lastName: userProfile?.lastName || '',
     firstName: userProfile?.firstName || '',
     email: userProfile?.email || '',
+    emailPerso: userProfile?.emailPerso || '',
     portable: userProfile?.portable || userProfile?.phone || '',
     fixed: userProfile?.fixed || '',
+    address: userProfile?.address || '',
+    lat: userProfile?.lat || null,
+    lng: userProfile?.lng || null,
     contractType: userProfile?.contractType || 'CDI',
-    jobTitle: userProfile?.jobTitle || userProfile?.role || 'Agenceur',
+    metier: Array.isArray(userProfile?.metier) ? userProfile.metier : (userProfile?.metier ? [userProfile.metier] : (userProfile?.jobTitle ? [userProfile.jobTitle] : (userProfile?.role ? [userProfile.role] : []))),
+    role: userProfile?.role || 'Agenceur',
     hasPhone: userProfile?.hasPhone ?? true,
     hasCar: userProfile?.hasCar ?? true,
     hasLaptop: userProfile?.hasLaptop ?? true,
     agendaColor: userProfile?.agendaColor || '#6366f1',
     isSubscriptionActive: userProfile?.isSubscriptionActive ?? true,
+    hasLeft: userProfile?.hasLeft ?? false,
+    departureDate: userProfile?.departureDate || '',
     avatar: userProfile?.avatar || `https://i.pravatar.cc/150?u=${userProfile?.uid}`
   });
 
+  const contractTypes = [
+    'CDI',
+    'CDD',
+    'Contrat d\'apprentissage',
+    'Stagiaire',
+    'Gérant',
+    'Agent Commercial',
+    'Freelance'
+  ];
+
+  const jobs = [
+    'Concepteur.rice',
+    'Assistant.e commercial.e',
+    'Adv',
+    'Assistant.e de direction',
+    'Poseur',
+    'Métreur',
+    'Secrétaire',
+    'Magasinier.e',
+    'Directeur.rice',
+    'Chef.fe d\'entreprise'
+  ];
+
   useEffect(() => {
-    if (userProfile) {
+    if (userProfile && !isEditing) {
       setFormData(prev => ({
         ...prev,
         lastName: userProfile.lastName || prev.lastName,
         firstName: userProfile.firstName || prev.firstName,
         email: userProfile.email || prev.email,
-        jobTitle: userProfile.jobTitle || userProfile.role || prev.jobTitle,
+        emailPerso: userProfile.emailPerso || prev.emailPerso,
+        metier: Array.isArray(userProfile.metier) ? userProfile.metier : (userProfile.metier ? [userProfile.metier] : (userProfile.jobTitle ? [userProfile.jobTitle] : (userProfile.role ? [userProfile.role] : prev.metier))),
+        role: userProfile.role || prev.role,
         avatar: userProfile.avatar || prev.avatar,
         agendaColor: userProfile.agendaColor || prev.agendaColor,
         hasPhone: userProfile.hasPhone ?? prev.hasPhone,
         hasCar: userProfile.hasCar ?? prev.hasCar,
         hasLaptop: userProfile.hasLaptop ?? prev.hasLaptop,
-        isSubscriptionActive: userProfile.isSubscriptionActive ?? prev.isSubscriptionActive
+        isSubscriptionActive: userProfile.isSubscriptionActive ?? prev.isSubscriptionActive,
+        hasLeft: userProfile.hasLeft ?? prev.hasLeft,
+        departureDate: userProfile.departureDate || prev.departureDate,
+        address: userProfile.address || prev.address,
+        lat: userProfile.lat || prev.lat,
+        lng: userProfile.lng || prev.lng
       }));
     }
-  }, [userProfile]);
+  }, [userProfile, isEditing]);
+
+  useEffect(() => {
+    const fetchAddr = async () => {
+      if (addressSearch.length < 4 || addressSearch === formData.address) {
+        setSuggestions([]); return;
+      }
+      setIsSearching(true);
+      try {
+        const response = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(addressSearch)}&limit=5`);
+        const data = await response.json();
+        setSuggestions(data.features || []);
+      } catch (error) { console.error(error); } finally { setIsSearching(false); }
+    };
+    const timer = setTimeout(fetchAddr, 300);
+    return () => clearTimeout(timer);
+  }, [addressSearch, formData.address]);
+
+  useEffect(() => {
+    const L = (window as any).L;
+    if (!L || !mapContainerRef.current || isEditingAddress) return;
+    if (formData.lat && formData.lng) {
+      if (mapRef.current) mapRef.current.remove();
+      const map = L.map(mapContainerRef.current, { zoomControl: false, attributionControl: false }).setView([formData.lat, formData.lng], 15);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+      const customIcon = L.divIcon({
+        className: 'custom-div-icon',
+        html: `<div style="background-color: #6366f1; width: 14px; height: 14px; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.2);"></div>`,
+        iconSize: [14, 14], iconAnchor: [7, 7]
+      });
+      L.marker([formData.lat, formData.lng], { icon: customIcon }).addTo(map);
+      mapRef.current = map;
+    }
+    return () => { if (mapRef.current) mapRef.current.remove(); mapRef.current = null; };
+  }, [formData.lat, formData.lng, isEditingAddress]);
+
+  useEffect(() => {
+    if (formData.address && (!formData.lat || !formData.lng)) {
+      const geocode = async () => {
+        try {
+          const response = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(formData.address)}&limit=1`);
+          const data = await response.json();
+          if (data.features && data.features.length > 0) {
+            const [lng, lat] = data.features[0].geometry.coordinates;
+            setFormData(prev => ({ ...prev, lat, lng }));
+          }
+        } catch (e) {
+          console.error("Auto-geocoding failed", e);
+        }
+      };
+      geocode();
+    }
+  }, [formData.address, formData.lat, formData.lng]);
+
+  const handleSelectAddress = (feature: any) => {
+    const fullAddress = feature.properties.label;
+    const [longitude, latitude] = feature.geometry.coordinates;
+    
+    setFormData(prev => ({
+      ...prev,
+      address: fullAddress,
+      lat: latitude,
+      lng: longitude
+    }));
+    setHasUnsavedChanges(true);
+    setIsEditingAddress(false);
+    setAddressSearch('');
+    setSuggestions([]);
+  };
 
   const syncProfileEverywhere = async (newName: string, newAvatar: string) => {
     if (!userProfile?.uid) return;
@@ -99,40 +225,92 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, setUserProfile, 
     }
   };
 
-  const handleUpdate = async (field: string, value: any) => {
-    const newFormData = { ...formData, [field]: value };
-    setFormData(newFormData);
-    try {
-      if (userProfile?.uid) {
-        const userRef = doc(db, 'users', userProfile.uid);
-        let finalFirst = formData.firstName;
-        let finalLast = formData.lastName;
-        let finalAvatar = formData.avatar;
+  const handleUpdate = (field: string, value: any) => {
+    if (!isEditing) return;
+    setFormData(prev => ({ ...prev, [field]: value }));
+    setHasUnsavedChanges(true);
+  };
 
-        if (field === 'firstName') finalFirst = value;
-        if (field === 'lastName') finalLast = value.toUpperCase();
-        if (field === 'avatar') finalAvatar = value;
-
-        const fullName = `${finalFirst} ${finalLast}`;
-        
-        await updateDoc(userRef, { 
-          [field]: value,
-          name: fullName,
-          lastName: finalLast 
-        });
-
-        if (field === 'firstName' || field === 'lastName' || field === 'avatar') {
-          await syncProfileEverywhere(fullName, finalAvatar);
-        }
-
-        setUserProfile({ ...userProfile, ...newFormData, name: fullName, lastName: finalLast });
+  const handleSave = async () => {
+    if (!userProfile?.uid) return;
+    
+    // Validation date de sortie
+    if (formData.hasLeft) {
+      if (!formData.departureDate) {
+        alert("La date de sortie est obligatoire si le salarié a quitté l'entreprise.");
+        return;
       }
+      const selectedDate = new Date(formData.departureDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (selectedDate > today) {
+        alert("La date de sortie ne peut pas être dans le futur.");
+        return;
+      }
+    }
+
+    setIsSyncing(true);
+    try {
+      const userRef = doc(db, 'users', userProfile.uid);
+      const finalFirst = formData.firstName;
+      const finalLast = formData.lastName.toUpperCase();
+      const finalAvatar = formData.avatar;
+      const fullName = `${finalFirst} ${finalLast}`;
+
+      // Logic for Point 4: Cancel license if employee left
+      let updatedFormData = { ...formData };
+      if (formData.hasLeft && !userProfile.hasLeft) {
+        updatedFormData.isSubscriptionActive = false;
+        // Trigger email notification
+        try {
+          fetch('/api/notify-departure', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              employeeName: fullName,
+              departureDate: formData.departureDate,
+              companyName: adminProfile?.companyName || 'Non spécifiée'
+            })
+          });
+        } catch (e) {
+          console.error("Failed to send notification email:", e);
+        }
+      }
+
+      await updateDoc(userRef, {
+        ...updatedFormData,
+        lastName: finalLast,
+        name: fullName
+      });
+
+      if (finalFirst !== userProfile.firstName || finalLast !== userProfile.lastName || finalAvatar !== userProfile.avatar) {
+        await syncProfileEverywhere(fullName, finalAvatar);
+      }
+
+      setUserProfile({ ...userProfile, ...updatedFormData, name: fullName, lastName: finalLast });
+      setHasUnsavedChanges(false);
+      setIsEditing(false);
     } catch (error) {
-      console.error(error);
+      console.error("Erreur sauvegarde:", error);
+      alert("Une erreur est survenue lors de l'enregistrement.");
+    } finally {
+      setIsSyncing(false);
     }
   };
 
-  const handleAvatarClick = () => fileInputRef.current?.click();
+  const handleBack = () => {
+    if (hasUnsavedChanges) {
+      setShowUnsavedError(true);
+    } else {
+      onBack?.();
+    }
+  };
+
+  const handleAvatarClick = () => {
+    if (isEditing) {
+      fileInputRef.current?.click();
+    }
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -142,7 +320,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, setUserProfile, 
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64String = reader.result as string;
-      await handleUpdate('avatar', base64String);
+      handleUpdate('avatar', base64String);
       setIsUploading(false);
     };
     reader.readAsDataURL(file);
@@ -166,211 +344,494 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, setUserProfile, 
     <div className="flex flex-col h-full bg-[#F8F9FA] overflow-y-auto hide-scrollbar font-sans">
       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
       
-      {/* Header Stylisé */}
-      <div className="px-10 py-10 flex justify-between items-end shrink-0">
-        <div className="flex items-center gap-8">
-          <button onClick={onBack} className="p-3 bg-white border border-gray-200 rounded-2xl text-gray-400 shadow-sm hover:bg-gray-50 hover:text-gray-900 transition-all cursor-pointer">
+      {/* Header */}
+      <div className="px-8 py-6 flex items-center justify-between bg-white border-b border-gray-100 shrink-0">
+        <div className="flex items-center gap-6">
+          <button onClick={handleBack} className="p-2.5 bg-gray-50 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-900 transition-all">
             <ArrowLeft size={20} />
           </button>
           
-          <div className="flex items-center gap-6">
-            <div onClick={handleAvatarClick} className="relative group cursor-pointer w-24 h-24 flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <div onClick={handleAvatarClick} className="relative group cursor-pointer w-14 h-14 flex-shrink-0">
               <img 
                 src={formData.avatar} 
-                className={`w-full h-full rounded-[32px] aspect-square object-cover border-4 border-white shadow-xl transition-all ${isUploading ? 'opacity-50' : 'group-hover:brightness-75'}`} 
+                className={`w-full h-full rounded-full object-cover border-2 border-white shadow-md transition-all ${isUploading ? 'opacity-50' : 'group-hover:brightness-75'}`} 
                 alt="" 
               />
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                {isUploading ? <Loader2 className="text-white animate-spin" size={24} /> : <Camera className="text-white" size={24} />}
+                {isUploading ? <Loader2 className="text-white animate-spin" size={16} /> : <Camera className="text-white" size={16} />}
               </div>
             </div>
             
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">{formData.firstName} {formData.lastName}</h1>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-gray-900">{formData.firstName} {formData.lastName}</h1>
                 {formData.isSubscriptionActive && (
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-full text-indigo-600">
-                    <ShieldCheck size={14} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Compte Vérifié</span>
+                  <div className="px-2 py-0.5 bg-gradient-to-r from-orange-400 via-purple-500 to-blue-500 rounded-md shadow-sm">
+                    <span className="text-[9px] font-black text-white tracking-widest uppercase">XORA</span>
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-6">
-                <p className="text-sm font-bold text-gray-400">{formData.jobTitle}</p>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 text-[12px] font-bold text-gray-600">
-                    <Phone size={14} className="text-gray-300" /> {formData.portable || 'Non renseigné'}
-                  </div>
-                  <div className="flex items-center gap-2 text-[12px] font-bold text-gray-600">
-                    <Mail size={14} className="text-gray-300" /> {formData.email}
-                  </div>
-                </div>
-              </div>
+              <p className="text-xs font-medium text-gray-400">
+                {formData.metier.length > 0 ? formData.metier.join(', ') : 'Agenceur'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6 ml-4">
+            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl border border-gray-100">
+              <Phone size={14} className="text-gray-400" />
+              <span className="text-xs font-bold text-gray-700">{formData.portable || '01 23 45 67 89'}</span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl border border-gray-100">
+              <Mail size={14} className="text-gray-400" />
+              <span className="text-xs font-bold text-gray-700">{formData.email}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex bg-white rounded-2xl p-1 border border-gray-200 shadow-sm">
-          <button 
-            onClick={() => setActiveTab('Informations')} 
-            className={`px-8 py-2.5 text-[13px] font-bold rounded-xl transition-all ${activeTab === 'Informations' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}
-          >
-            Mon Profil
-          </button>
-          <button 
-            onClick={() => setActiveTab('Documents')} 
-            className={`px-8 py-2.5 text-[13px] font-bold rounded-xl transition-all ${activeTab === 'Documents' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}
-          >
-            Mes Documents
+        <div className="flex items-center gap-3">
+          {readOnly && (
+            <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-100 rounded-xl text-[11px] font-bold text-amber-700">
+              <AlertCircle size={14} />
+              Pour toute modification, veuillez contacter votre gérant
+            </div>
+          )}
+          {!readOnly && (
+            <button 
+              onClick={() => {
+                if (isEditing) {
+                  handleSave();
+                } else {
+                  setIsEditing(true);
+                }
+              }}
+              disabled={isSyncing}
+              className={`flex items-center gap-2 px-5 py-2.5 border rounded-xl text-xs font-bold transition-all shadow-sm ${isEditing ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+            >
+              {isSyncing ? <Loader2 className="animate-spin" size={16} /> : <PenSquare size={16} />} 
+              {isEditing ? 'Enregistrer' : 'Modifier le profil'}
+            </button>
+          )}
+          <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm">
+            <MessageSquare size={16} /> Contacter
           </button>
         </div>
       </div>
 
-      <div className="px-10 pb-10 flex-1 relative">
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto">
+      {/* Tabs */}
+      <div className="px-8 pt-6">
+        <div className="flex border-b border-gray-200">
+          <button 
+            onClick={() => setActiveTab('Informations')} 
+            className={`px-6 py-4 text-sm font-bold transition-all relative ${activeTab === 'Informations' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            Informations collaborateur
+            {activeTab === 'Informations' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900 rounded-full" />}
+          </button>
+          <button 
+            onClick={() => setActiveTab('Documents')} 
+            className={`px-6 py-4 text-sm font-bold transition-all relative ${activeTab === 'Documents' ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            Documents
+            {activeTab === 'Documents' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900 rounded-full" />}
+          </button>
+        </div>
+      </div>
+
+      <div className="p-8 flex-1">
+        <div className="max-w-7xl mx-auto space-y-8">
           
           {activeTab === 'Informations' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="space-y-8">
               
-              {/* Colonne de gauche : Formulaires */}
-              <div className="lg:col-span-2 space-y-8">
-                
-                <Section title="Identité personnelle" icon={User}>
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-gray-400 uppercase ml-1">Civilité</label>
+              {/* Subscription Banner */}
+              <div className={`p-6 rounded-[24px] flex items-center justify-between shadow-lg transition-all duration-500 ${formData.isSubscriptionActive ? 'bg-gradient-to-r from-[#F97316] via-[#D946EF] to-[#3B82F6]' : 'bg-gray-200'}`}>
+                <div className="flex items-center gap-4">
+                  <h3 className={`font-bold text-sm transition-colors ${formData.isSubscriptionActive ? 'text-white' : 'text-gray-500'}`}>
+                    {formData.isSubscriptionActive ? 'Abonnement Xora Actif' : 'Abonnement Xora inactif'}
+                  </h3>
+                  <div className={`px-2 py-0.5 rounded-md border transition-colors ${formData.isSubscriptionActive ? 'bg-white/20 backdrop-blur-md border-white/30' : 'bg-gray-300 border-gray-400'}`}>
+                    <span className={`text-[9px] font-black tracking-widest uppercase transition-colors ${formData.isSubscriptionActive ? 'text-white' : 'text-gray-500'}`}>XORA</span>
+                  </div>
+                </div>
+                <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all ${formData.isSubscriptionActive ? 'bg-white/10 backdrop-blur-md border-white/20' : 'bg-white/50 border-gray-300'}`}>
+                  <span className={`text-[11px] font-bold uppercase transition-colors ${formData.isSubscriptionActive ? 'text-white' : 'text-gray-400'}`}>Non</span>
+                  <button 
+                    disabled={!isEditing}
+                    onClick={() => setShowSubscriptionModal(true)}
+                    className={`w-12 h-6 rounded-full relative transition-all duration-300 ${formData.isSubscriptionActive ? 'bg-gray-900' : 'bg-gray-300'} ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-md ${formData.isSubscriptionActive ? 'right-1' : 'left-1'}`}></div>
+                  </button>
+                  <span className={`text-[11px] font-bold uppercase transition-colors ${formData.isSubscriptionActive ? 'text-white' : 'text-gray-400'}`}>Oui</span>
+                </div>
+              </div>
+
+              {/* Form Grid */}
+              <div className="bg-[#F8F9FA] border border-gray-100 rounded-[32px] p-10 shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-8">
+                  {/* Civilité */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Civilité du membre</label>
                     <div className="relative">
                       <select 
+                        disabled={!isEditing}
                         value={formData.civility} 
                         onChange={(e) => handleUpdate('civility', e.target.value)} 
-                        className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 shadow-sm transition-all"
+                        className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50"
                       >
                         <option>Mr</option>
                         <option>Mme</option>
                       </select>
-                      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
                   </div>
-                  <div className="md:col-span-2 grid grid-cols-2 gap-6">
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-bold text-gray-400 uppercase ml-1">Prénom</label>
-                      <input type="text" value={formData.firstName} onChange={(e) => handleUpdate('firstName', e.target.value)} className="w-full bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 shadow-sm" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-bold text-gray-400 uppercase ml-1">Nom</label>
-                      <input type="text" value={formData.lastName} onChange={(e) => handleUpdate('lastName', e.target.value)} className="w-full bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 shadow-sm uppercase" />
-                    </div>
-                  </div>
-                </Section>
 
-                <Section title="Poste & Contrat" icon={Briefcase}>
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-gray-400 uppercase ml-1">Fonction</label>
-                    <input type="text" value={formData.jobTitle} onChange={(e) => handleUpdate('jobTitle', e.target.value)} className="w-full bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 shadow-sm" />
+                  {/* Nom */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Nom du membre</label>
+                    <input 
+                      type="text" 
+                      readOnly={!isEditing}
+                      value={formData.lastName} 
+                      onChange={(e) => handleUpdate('lastName', e.target.value)} 
+                      className="w-full bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all uppercase disabled:opacity-50" 
+                    />
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-gray-400 uppercase ml-1">Type de contrat</label>
+
+                  {/* Prénom */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Prénom client</label>
+                    <input 
+                      type="text" 
+                      readOnly={!isEditing}
+                      value={formData.firstName} 
+                      onChange={(e) => handleUpdate('firstName', e.target.value)} 
+                      className="w-full bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50" 
+                    />
+                  </div>
+
+                  {/* Email Client */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Email Client</label>
+                    <input 
+                      type="email" 
+                      readOnly={!isEditing}
+                      value={formData.email} 
+                      onChange={(e) => handleUpdate('email', e.target.value)} 
+                      className="w-full bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50" 
+                    />
+                  </div>
+
+                  {/* Portable */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Téléphone portable</label>
+                    <div className="relative flex items-center">
+                      <div className="absolute left-4 flex items-center gap-2 pr-2 border-r border-gray-200">
+                        <img src="https://flagcdn.com/w20/fr.png" className="w-4 h-3 object-cover rounded-sm" alt="FR" />
+                        <ChevronDown size={12} className="text-gray-400" />
+                      </div>
+                      <input 
+                        type="text" 
+                        readOnly={!isEditing}
+                        value={formData.portable} 
+                        onChange={(e) => handleUpdate('portable', e.target.value)} 
+                        placeholder="Entrer un numéro"
+                        className="w-full bg-white border border-gray-100 rounded-xl pl-16 pr-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50" 
+                      />
+                    </div>
+                  </div>
+
+                  {/* Fixe */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Téléphone fixe</label>
+                    <div className="relative flex items-center">
+                      <div className="absolute left-4 flex items-center gap-2 pr-2 border-r border-gray-200">
+                        <img src="https://flagcdn.com/w20/fr.png" className="w-4 h-3 object-cover rounded-sm" alt="FR" />
+                        <ChevronDown size={12} className="text-gray-400" />
+                      </div>
+                      <input 
+                        type="text" 
+                        readOnly={!isEditing}
+                        value={formData.fixed} 
+                        onChange={(e) => handleUpdate('fixed', e.target.value)} 
+                        placeholder="Entrer un numéro"
+                        className="w-full bg-white border border-gray-100 rounded-xl pl-16 pr-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50" 
+                      />
+                    </div>
+                  </div>
+
+                  {/* Adresse */}
+                  <div className="md:col-span-3 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[11px] font-medium text-gray-400 ml-1">Adresse du membre</label>
+                      {isEditingAddress && isEditing && (
+                        <button 
+                          onClick={() => setIsEditingAddress(false)} 
+                          className="text-[11px] font-bold text-red-500 hover:underline"
+                        >
+                          Annuler
+                        </button>
+                      )}
+                    </div>
+
+                    {isEditingAddress && isEditing ? (
+                      <div className="space-y-3 animate-in fade-in duration-300" ref={searchRef}>
+                        <div className="relative">
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                          <input 
+                            autoFocus 
+                            type="text" 
+                            placeholder="Entrez l'adresse..." 
+                            value={addressSearch} 
+                            onChange={(e) => setAddressSearch(e.target.value)} 
+                            className="w-full bg-white border border-gray-100 rounded-xl pl-12 pr-10 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all shadow-sm" 
+                          />
+                          {isSearching && (
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                              <Loader2 size={16} className="animate-spin text-indigo-500" />
+                            </div>
+                          )}
+                        </div>
+                        {suggestions.length > 0 && (
+                          <div className="bg-white border border-gray-100 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 z-50">
+                            {suggestions.map((feature: any) => (
+                              <button 
+                                key={feature.properties.id} 
+                                type="button" 
+                                onClick={() => handleSelectAddress(feature)} 
+                                className="w-full px-5 py-4 text-left hover:bg-indigo-50 flex items-start gap-4 border-b border-gray-50 last:border-0 group transition-all"
+                              >
+                                <div className="mt-1 p-1.5 bg-gray-50 rounded-lg text-gray-300 group-hover:text-indigo-600 transition-all">
+                                  <MapPin size={16} />
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-[13px] font-bold text-gray-900">{feature.properties.name}</span>
+                                  <span className="text-[11px] text-gray-400">{feature.properties.postcode} {feature.properties.city}</span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {formData.address ? (
+                          <div className="flex flex-col md:flex-row gap-6 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                            <div className="w-full md:w-1/3 h-[180px] rounded-xl overflow-hidden border border-gray-100 shadow-inner relative">
+                              <div ref={mapContainerRef} className="w-full h-full z-0" />
+                            </div>
+                            <div className="flex-1 space-y-4 py-2">
+                              <div className="flex items-start gap-4">
+                                <div className="w-10 h-10 bg-gray-50 border border-gray-100 rounded-xl flex items-center justify-center text-gray-400 shrink-0">
+                                  <MapPin size={20} />
+                                </div>
+                                <div>
+                                  <h4 className="text-[14px] font-bold text-gray-900 leading-snug">{formData.address}</h4>
+                                </div>
+                              </div>
+                              {isEditing && (
+                                <div className="flex gap-2">
+                                  <button 
+                                    onClick={() => setIsEditingAddress(true)} 
+                                    className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-[11px] font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
+                                  >
+                                    <Plus size={14} /> Modifier
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div 
+                            onClick={() => isEditing && setIsEditingAddress(true)} 
+                            className={`p-8 border-2 border-dashed border-gray-100 rounded-3xl flex flex-col items-center justify-center text-center transition-all group shadow-inner ${isEditing ? 'cursor-pointer hover:bg-gray-50/50 hover:border-gray-200' : ''}`}
+                          >
+                            <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-gray-200 mb-4 group-hover:scale-110 transition-transform">
+                              <MapPin size={24} />
+                            </div>
+                            <p className="text-[12px] font-bold text-gray-900">Aucune adresse renseignée</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Type de contrat */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Type de contrat</label>
                     <div className="relative">
                       <select 
+                        disabled={!isEditing}
                         value={formData.contractType} 
                         onChange={(e) => handleUpdate('contractType', e.target.value)} 
-                        className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 shadow-sm transition-all"
+                        className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50"
                       >
-                        <option>CDI</option>
-                        <option>CDD</option>
-                        <option>Alternance</option>
-                        <option>Freelance</option>
+                        {contractTypes.map(type => <option key={type} value={type}>{type}</option>)}
                       </select>
-                      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
                   </div>
-                </Section>
 
-                <Section title="Personnalisation" icon={Palette}>
-                  <div className="md:col-span-2 flex items-center justify-between bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                    <div>
-                      <h4 className="text-sm font-bold text-gray-900">Couleur d'agenda</h4>
-                      <p className="text-[11px] text-gray-400 font-medium">Cette couleur sera utilisée pour vos rendez-vous.</p>
+                  {/* Rôle Select */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Métier</label>
+                    <div className="relative">
+                      <select 
+                        disabled={!isEditing}
+                        value={formData.role} 
+                        onChange={(e) => handleUpdate('role', e.target.value)} 
+                        className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50"
+                      >
+                        {jobs.map(job => <option key={job} value={job}>{job}</option>)}
+                      </select>
+                      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
+                  </div>
+
+                  {/* Métier Select */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Métier</label>
+                    <div className="relative">
+                      <select 
+                        disabled={!isEditing}
+                        value={formData.metier[0] || ''} 
+                        onChange={(e) => handleUpdate('metier', [e.target.value])} 
+                        className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50"
+                      >
+                        <option value="">Sélectionner un métier</option>
+                        {jobs.map(job => <option key={job} value={job}>{job}</option>)}
+                      </select>
+                      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Toggles Row */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Téléphone mise à disposition</label>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[11px] font-bold text-gray-400 uppercase">Non</span>
+                      <button 
+                        disabled={!isEditing}
+                        onClick={() => handleUpdate('hasPhone', !formData.hasPhone)}
+                        className={`w-12 h-6 rounded-full relative transition-all duration-300 ${formData.hasPhone ? 'bg-gray-900' : 'bg-gray-200'} ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-sm ${formData.hasPhone ? 'right-1' : 'left-1'}`}></div>
+                      </button>
+                      <span className="text-[11px] font-bold text-gray-400 uppercase">Oui</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Voiture</label>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[11px] font-bold text-gray-400 uppercase">Non</span>
+                      <button 
+                        disabled={!isEditing}
+                        onClick={() => handleUpdate('hasCar', !formData.hasCar)}
+                        className={`w-12 h-6 rounded-full relative transition-all duration-300 ${formData.hasCar ? 'bg-gray-900' : 'bg-gray-200'} ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-sm ${formData.hasCar ? 'right-1' : 'left-1'}`}></div>
+                      </button>
+                      <span className="text-[11px] font-bold text-gray-400 uppercase">Oui</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Ordinateur portable</label>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[11px] font-bold text-gray-400 uppercase">Non</span>
+                      <button 
+                        disabled={!isEditing}
+                        onClick={() => handleUpdate('hasLaptop', !formData.hasLaptop)}
+                        className={`w-12 h-6 rounded-full relative transition-all duration-300 ${formData.hasLaptop ? 'bg-gray-900' : 'bg-gray-200'} ${!isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-sm ${formData.hasLaptop ? 'right-1' : 'left-1'}`}></div>
+                      </button>
+                      <span className="text-[11px] font-bold text-gray-400 uppercase">Oui</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Agenda Color & Departure Section */}
+              <div className="bg-[#F8F9FA] border border-gray-100 rounded-[32px] p-10 shadow-sm">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+                  {/* Agenda Color */}
+                  <div className="space-y-4 flex-grow">
+                    <label className="text-[11px] font-medium text-gray-400 ml-1 uppercase tracking-wider">Couleur collaborateur agenda</label>
                     <div className="flex items-center gap-4">
                       <div 
-                        className="w-10 h-10 rounded-xl shadow-lg border-2 border-white" 
+                        className="w-12 h-12 rounded-xl shadow-inner border border-gray-100 flex-shrink-0" 
                         style={{ backgroundColor: formData.agendaColor }}
                       />
-                      <input 
-                        type="color" 
-                        value={formData.agendaColor} 
-                        onChange={(e) => handleUpdate('agendaColor', e.target.value)}
-                        className="w-12 h-12 rounded-xl cursor-pointer opacity-0 absolute"
-                      />
-                      <button className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-[11px] font-bold text-gray-700 shadow-sm">Modifier</button>
+                      <div className="relative w-full max-w-[240px]">
+                        <input 
+                          type="text" 
+                          readOnly={!isEditing}
+                          value={formData.agendaColor.replace('#', '').toUpperCase()} 
+                          onChange={(e) => handleUpdate('agendaColor', `#${e.target.value}`)}
+                          className="w-full bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-bold text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50" 
+                        />
+                        <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        <input 
+                          type="color" 
+                          disabled={!isEditing}
+                          value={formData.agendaColor} 
+                          onChange={(e) => handleUpdate('agendaColor', e.target.value)}
+                          className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                        />
+                      </div>
                     </div>
                   </div>
-                </Section>
 
-              </div>
-
-              {/* Colonne de droite : Outils & Statut */}
-              <div className="space-y-8">
-                
-                {/* Statut du compte */}
-                <div className="bg-white border border-gray-100 rounded-3xl p-8 shadow-sm space-y-6">
-                  <div className="flex items-center gap-3 pb-2 border-b border-gray-50">
-                    <div className="p-2 bg-indigo-50 rounded-xl text-indigo-400">
-                      <CreditCard size={18} />
-                    </div>
-                    <h3 className="text-sm font-black uppercase tracking-widest text-gray-900">Abonnement</h3>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-[#F8F9FA] rounded-2xl border border-gray-100">
-                    <span className="text-[13px] font-bold text-gray-700">Accès plateforme</span>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-[11px] font-black uppercase ${formData.isSubscriptionActive ? 'text-green-500' : 'text-red-500'}`}>
-                        {formData.isSubscriptionActive ? 'Actif' : 'Désactivé'}
-                      </span>
-                      <button 
-                        onClick={() => handleUpdate('isSubscriptionActive', !formData.isSubscriptionActive)}
-                        className={`w-12 h-6 rounded-full relative transition-all duration-300 ${formData.isSubscriptionActive ? 'bg-indigo-600' : 'bg-gray-300'}`}
-                      >
-                        <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-md ${formData.isSubscriptionActive ? 'right-1' : 'left-1'}`}></div>
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-gray-400 font-medium leading-relaxed italic px-2">
-                    L'abonnement Xora est géré par l'administrateur de votre société.
-                  </p>
-                </div>
-
-                {/* Équipements */}
-                <div className="bg-white border border-gray-100 rounded-3xl p-8 shadow-sm space-y-6">
-                  <div className="flex items-center gap-3 pb-2 border-b border-gray-50">
-                    <div className="p-2 bg-gray-50 rounded-xl text-gray-400">
-                      <Settings size={18} />
-                    </div>
-                    <h3 className="text-sm font-black uppercase tracking-widest text-gray-900">Équipements</h3>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {[
-                      { key: 'hasLaptop', label: 'Ordinateur pro', icon: Laptop },
-                      { key: 'hasPhone', label: 'Mobile pro', icon: Smartphone },
-                      { key: 'hasCar', label: 'Véhicule société', icon: Car },
-                    ].map((item) => (
-                      <div key={item.key} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-transparent hover:border-gray-200 transition-all group">
-                        <div className="flex items-center gap-3">
-                          <item.icon size={16} className="text-gray-300 group-hover:text-indigo-400 transition-colors" />
-                          <span className="text-[13px] font-bold text-gray-600">{item.label}</span>
-                        </div>
+                  {/* Le salarié a quitté l'entreprise */}
+                  <div className="flex flex-col items-end space-y-6">
+                    <div className="flex flex-col items-end space-y-2">
+                      <label className="text-[11px] font-medium text-gray-400 mr-1 uppercase tracking-wider">Le salarié a quitté l'entreprise</label>
+                      <div className="flex items-center bg-[#111827] rounded-full p-1">
                         <button 
-                          onClick={() => handleUpdate(item.key, !formData[item.key as keyof typeof formData])}
-                          className={`w-10 h-5 rounded-full relative transition-all duration-300 ${formData[item.key as keyof typeof formData] ? 'bg-gray-800' : 'bg-gray-200'}`}
+                          type="button"
+                          disabled={!isEditing}
+                          onClick={() => {
+                            handleUpdate('hasLeft', false);
+                            handleUpdate('departureDate', '');
+                          }}
+                          className={`px-6 py-2 rounded-full text-[11px] font-black uppercase transition-all ${!formData.hasLeft ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-white'}`}
                         >
-                          <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.75 transition-all duration-300 shadow-sm ${formData[item.key as keyof typeof formData] ? 'right-1' : 'left-1'}`}></div>
+                          Non
+                        </button>
+                        <button 
+                          type="button"
+                          disabled={!isEditing}
+                          onClick={() => handleUpdate('hasLeft', true)}
+                          className={`px-6 py-2 rounded-full text-[11px] font-black uppercase transition-all ${formData.hasLeft ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-white'}`}
+                        >
+                          Oui
                         </button>
                       </div>
-                    ))}
+                    </div>
+
+                    {formData.hasLeft && (
+                      <div className="w-full max-w-[240px] flex flex-col items-end space-y-2 animate-in fade-in slide-in-from-top-4 duration-300">
+                        <div className="flex items-center gap-2">
+                          <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">Date de sortie</label>
+                        </div>
+                        <input 
+                          type="date" 
+                          readOnly={!isEditing}
+                          value={formData.departureDate} 
+                          onChange={(e) => handleUpdate('departureDate', e.target.value)}
+                          max={new Date().toISOString().split('T')[0]}
+                          className="w-full bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50 text-center" 
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
-
               </div>
+
             </div>
           )}
 
@@ -378,6 +839,229 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, setUserProfile, 
             <UserDocuments userId={userProfile.uid} userProfile={userProfile} />
           )}
 
+          {/* Subscription Confirmation Modal */}
+          {showSubscriptionModal && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+              <div className="bg-white rounded-[32px] w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+                {/* Header */}
+                <div className={`p-8 flex items-center justify-between ${formData.isSubscriptionActive ? 'bg-gray-50' : 'bg-gradient-to-r from-orange-400 via-purple-500 to-blue-500'}`}>
+                  <div className="flex items-center gap-4">
+                    <div className="bg-white px-3 py-1 rounded-xl shadow-sm">
+                      <span className="text-[10px] font-black tracking-widest text-gray-900 uppercase">XORA</span>
+                    </div>
+                    <h2 className={`text-xl font-bold ${formData.isSubscriptionActive ? 'text-gray-900' : 'text-white'}`}>
+                      {formData.isSubscriptionActive ? 'Désactiver l\'accès à Xora' : 'Activer l\'accès à Xora'}
+                    </h2>
+                  </div>
+                  <button 
+                    onClick={() => setShowSubscriptionModal(false)}
+                    className={`p-2 rounded-full transition-colors ${formData.isSubscriptionActive ? 'hover:bg-gray-200 text-gray-400' : 'hover:bg-white/20 text-white'}`}
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-12 space-y-10">
+                  <p className="text-lg text-gray-600 text-center leading-relaxed">
+                    Vous êtes sur le point de {formData.isSubscriptionActive ? 'désactiver' : 'activer'} l'accès à Xora pour <span className="font-bold text-gray-900">{formData.firstName} {formData.lastName}</span>, êtes-vous sûr ?
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <button 
+                      onClick={() => setShowSubscriptionModal(false)}
+                      className="flex-1 w-full flex items-center justify-center gap-3 py-4 bg-gray-50 text-gray-600 rounded-2xl text-[15px] font-bold hover:bg-gray-100 transition-all border border-gray-100"
+                    >
+                      <X size={20} />
+                      {formData.isSubscriptionActive ? 'Non, je garde l\'abonnement' : 'Non, je ne prends pas d\'abonnement'}
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        const newStatus = !formData.isSubscriptionActive;
+                        handleUpdate('isSubscriptionActive', newStatus);
+                        
+                        try {
+                          if (newStatus) {
+                            // Activation
+                            const inviteEmail = formData.email.toLowerCase().trim();
+                            const appUrl = 'https://app.xora.fr/';
+                            const registrationLink = `${appUrl}?view=register&inviteId=${adminProfile?.companyId || userProfile?.companyId}&email=${encodeURIComponent(inviteEmail)}&firstName=${encodeURIComponent(formData.firstName)}&lastName=${encodeURIComponent(formData.lastName)}&role=${encodeURIComponent(formData.metier[0] || 'Agenceur')}&hasSubscription=true`;
+
+                            // Email to collaborator
+                            await addDoc(collection(db, 'invitations'), {
+                              to: inviteEmail,
+                              message: {
+                                subject: `🚀 Rejoignez l'équipe de ${adminProfile?.companyName || 'Xora'}`,
+                                html: `
+                                  <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #f3f4f6; border-radius: 24px; padding: 40px; color: #111827; background-color: #ffffff;">
+                                    <div style="text-align: center; margin-bottom: 32px;">
+                                      <h1 style="font-size: 24px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: -0.025em;">XORA <span style="color: #6366f1;">CRM</span></h1>
+                                    </div>
+                                    
+                                    <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 16px;">Bonjour ${formData.firstName},</h2>
+                                    
+                                    <p style="font-size: 16px; line-height: 1.6; color: #4b5563; margin-bottom: 24px;">
+                                      <strong>${adminProfile?.name || 'Un administrateur'}</strong> vous invite à rejoindre l'espace collaborateur de <strong>${adminProfile?.companyName || 'votre agence'}</strong>.
+                                    </p>
+                                    
+                                    <div style="text-align: center; margin: 40px 0;">
+                                      <a href="${registrationLink}" style="background-color: #111827; color: #ffffff; padding: 16px 32px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 15px; display: inline-block; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
+                                        Accepter l'invitation
+                                      </a>
+                                    </div>
+                                    
+                                    <p style="font-size: 14px; color: #9ca3af; line-height: 1.5; margin-top: 32px; border-top: 1px solid #f3f4f6; pt: 24px;">
+                                      Si le bouton ne fonctionne pas, copiez ce lien : <br/>
+                                      <span style="word-break: break-all; color: #6366f1;">${registrationLink}</span>
+                                    </p>
+                                  </div>
+                                `,
+                              },
+                              meta: {
+                                ...formData,
+                                companyId: adminProfile?.companyId || userProfile?.companyId,
+                                invitedBy: adminProfile?.name,
+                                invitedByUid: adminProfile?.uid,
+                                status: 'pending',
+                                createdAt: serverTimestamp()
+                              }
+                            });
+
+                            // Notification à bonjour@xora.fr
+                            await addDoc(collection(db, 'invitations'), {
+                              to: 'bonjour@xora.fr',
+                              message: {
+                                subject: `🔔 Nouvelle adhésion Xora : ${formData.firstName} ${formData.lastName}`,
+                                html: `
+                                  <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #f3f4f6; border-radius: 24px; padding: 40px; color: #111827; background-color: #ffffff;">
+                                    <div style="text-align: center; margin-bottom: 32px;">
+                                      <h1 style="font-size: 24px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: -0.025em;">XORA <span style="color: #6366f1;">CRM</span></h1>
+                                    </div>
+                                    
+                                    <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 16px; color: #111827;">Nouvelle adhésion détectée</h2>
+                                    
+                                    <p style="font-size: 16px; line-height: 1.6; color: #4b5563; margin-bottom: 24px;">
+                                      Un collaborateur a été activé avec une <strong>licence Xora active</strong>.
+                                    </p>
+                                    
+                                    <div style="background-color: #f9fafb; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
+                                      <table style="width: 100%; border-collapse: collapse;">
+                                        <tr>
+                                          <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Collaborateur</td>
+                                          <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${formData.firstName} ${formData.lastName}</td>
+                                        </tr>
+                                        <tr>
+                                          <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Email</td>
+                                          <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${formData.email}</td>
+                                        </tr>
+                                        <tr>
+                                          <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Société</td>
+                                          <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${adminProfile?.companyName || 'Non renseignée'}</td>
+                                        </tr>
+                                        <tr>
+                                          <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Activé par</td>
+                                          <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${adminProfile?.name || 'Admin'}</td>
+                                        </tr>
+                                      </table>
+                                    </div>
+                                  </div>
+                                `
+                              }
+                            });
+                          } else {
+                            // Deactivation notification to bonjour@xora.fr
+                            await addDoc(collection(db, 'invitations'), {
+                              to: 'bonjour@xora.fr',
+                              message: {
+                                subject: `⚠️ Désactivation Xora : ${formData.firstName} ${formData.lastName}`,
+                                html: `
+                                  <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #f3f4f6; border-radius: 24px; padding: 40px; color: #111827; background-color: #ffffff;">
+                                    <div style="text-align: center; margin-bottom: 32px;">
+                                      <h1 style="font-size: 24px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: -0.025em;">XORA <span style="color: #6366f1;">CRM</span></h1>
+                                    </div>
+                                    
+                                    <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 16px; color: #ef4444;">Désactivation d'abonnement</h2>
+                                    
+                                    <p style="font-size: 16px; line-height: 1.6; color: #4b5563; margin-bottom: 24px;">
+                                      L'abonnement Xora de <strong>${formData.firstName} ${formData.lastName}</strong> a été désactivé.
+                                    </p>
+                                    
+                                    <div style="background-color: #fef2f2; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
+                                      <table style="width: 100%; border-collapse: collapse;">
+                                        <tr>
+                                          <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Collaborateur</td>
+                                          <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${formData.firstName} ${formData.lastName}</td>
+                                        </tr>
+                                        <tr>
+                                          <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Email</td>
+                                          <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${formData.email}</td>
+                                        </tr>
+                                        <tr>
+                                          <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Société</td>
+                                          <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${adminProfile?.companyName || 'Non renseignée'}</td>
+                                        </tr>
+                                        <tr>
+                                          <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Désactivé par</td>
+                                          <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${adminProfile?.name || 'Admin'}</td>
+                                        </tr>
+                                      </table>
+                                    </div>
+                                  </div>
+                                `
+                              }
+                            });
+                          }
+                        } catch (err) {
+                          console.error("Erreur notifications:", err);
+                        }
+
+                        setShowSubscriptionModal(false);
+                      }}
+                      className="flex-1 w-full flex items-center justify-center gap-3 py-4 bg-white text-gray-900 rounded-2xl text-[15px] font-bold hover:bg-gray-50 transition-all border border-gray-200 shadow-sm"
+                    >
+                      <CheckCircle2 size={20} className="text-gray-900" />
+                      {formData.isSubscriptionActive ? 'Oui désactiver l\'abonnement Xora' : 'Oui activer l\'abonnement Xora'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Unsaved Changes Error Modal */}
+          {showUnsavedError && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[250] p-4">
+              <div className="bg-white rounded-[32px] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+                <div className="p-8 bg-red-50 flex flex-col items-center text-center space-y-4">
+                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-red-600">
+                    <X size={32} />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900 uppercase tracking-tight">Modifications non enregistrées</h2>
+                  <p className="text-sm text-gray-500 font-medium">
+                    Vous avez effectué des modifications sur ce profil. Vous devez cliquer sur <span className="font-bold text-gray-900">"Enregistrer"</span> avant de pouvoir quitter cette page.
+                  </p>
+                </div>
+                <div className="p-6 bg-white flex flex-col gap-3">
+                  <button 
+                    onClick={() => setShowUnsavedError(false)}
+                    className="w-full py-4 bg-gray-900 text-white rounded-2xl text-sm font-bold hover:bg-gray-800 transition-all shadow-lg"
+                  >
+                    Continuer l'édition
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setHasUnsavedChanges(false);
+                      setShowUnsavedError(false);
+                      onBack?.();
+                    }}
+                    className="w-full py-4 bg-white text-red-600 border border-red-100 rounded-2xl text-sm font-bold hover:bg-red-50 transition-all"
+                  >
+                    Quitter sans enregistrer
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

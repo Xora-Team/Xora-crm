@@ -411,6 +411,28 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
     return () => { if (mapRef.current) mapRef.current.remove(); mapRef.current = null; };
   }, [client.details?.lat, client.details?.lng, isEditingAddress, client.status]);
 
+  // Auto-geocode address if lat/lng are missing (pour les imports ou adresses manuelles sans coordonnées)
+  useEffect(() => {
+    if (client.details?.address && (!client.details.lat || !client.details.lng)) {
+      const geocode = async () => {
+        try {
+          const response = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(client.details.address)}&limit=1`);
+          const data = await response.json();
+          if (data.features && data.features.length > 0) {
+            const [lng, lat] = data.features[0].geometry.coordinates;
+            await updateDoc(doc(db, 'clients', client.id), {
+              "details.lat": lat,
+              "details.lng": lng
+            });
+          }
+        } catch (e) {
+          console.error("Auto-geocoding failed", e);
+        }
+      };
+      geocode();
+    }
+  }, [client.details?.address, client.details?.lat, client.details?.lng, client.id]);
+
   // DERIVATION AUTOMATIQUE DES CHAMPS DEPUIS LE CLIENT
   const currentCategory = client.details?.category || '';
   const currentOrigin = client.origin || '';
@@ -582,6 +604,23 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
               <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
             </div>
           </div>
+
+          {currentCategory === 'Parrainage' && (
+            <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Nom du parrain</label>
+              <div className="relative group">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-300">
+                  <User size={16} />
+                </div>
+                <input 
+                  type="text" 
+                  readOnly
+                  value={client.details?.sponsorName || 'Non renseigné'} 
+                  className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold text-gray-500 outline-none cursor-default shadow-inner uppercase" 
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -607,6 +646,12 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
                 className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-10 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm"
               >
                 <option value="">Sélectionner un collaborateur</option>
+                {/* Afficher le référent actuel s'il n'est pas dans la liste des membres */}
+                {client.details?.referent && !teamMembers.find(m => m.name === client.details?.referent) && (
+                  <option value={client.details.referent}>
+                    {client.details.referent}
+                  </option>
+                )}
                 {teamMembers.map((member) => (
                   <option key={member.uid} value={member.name}>
                     {member.name} {member.uid === userProfile?.uid ? '(Moi)' : ''}

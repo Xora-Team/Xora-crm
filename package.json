@@ -1,23 +1,24 @@
-
 {
   "name": "xora-crm",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "tsx server.ts",
     "build": "tsc --noEmit && vite build",
     "lint": "tsc --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "latest",
+    "clsx": "^2.1.1",
+    "express": "^5.2.1",
+    "firebase": "^11.3.1",
+    "lucide-react": "^0.454.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "lucide-react": "^0.454.0",
-    "firebase": "^11.3.1",
-    "clsx": "^2.1.1",
     "tailwind-merge": "^2.5.4",
-    "@google/genai": "latest"
+    "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

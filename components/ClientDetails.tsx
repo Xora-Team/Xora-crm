@@ -21,6 +21,7 @@ import ClientContactInfo from './ClientContactInfo';
 import ClientProjects from './ClientProjects';
 import ClientAppointments from './ClientAppointments';
 import ClientDocuments from './ClientDocuments';
+import ClientFidelisation from './ClientFidelisation';
 
 interface ClientDetailsProps {
   client: Client;
@@ -95,6 +96,7 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client: initialClient, on
     { label: `Projet (${client.projectCount || 0})`, key: 'Projet' },
     { label: `Tâches (${taskPendingCount})`, key: 'Tâches' },
     { label: `Rendez-vous (${appointmentCount})`, key: 'Rendez-vous' },
+    { label: 'Fidélisation', key: 'Fidélisation' },
     { label: 'Documents', key: 'Documents' }
   ];
 
@@ -102,7 +104,7 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client: initialClient, on
   const secondaryContact = (client as any).details?.additionalContacts?.[0];
 
   return (
-    <div className="flex h-screen bg-[#F8F9FA] overflow-hidden font-sans">
+    <div className="flex h-screen bg-white overflow-hidden font-sans">
       <div className="flex-1 flex flex-col h-full overflow-y-auto hide-scrollbar">
         
         {/* Header dynamique */}
@@ -218,6 +220,9 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client: initialClient, on
               )}
               {activeTab === 'Rendez-vous' && (
                 <ClientAppointments clientId={client.id} clientName={client.name} userProfile={userProfile} />
+              )}
+              {activeTab === 'Fidélisation' && (
+                <ClientFidelisation client={client} userProfile={userProfile} />
               )}
               {activeTab === 'Documents' && (
                 <ClientDocuments clientId={client.id} userProfile={userProfile} />

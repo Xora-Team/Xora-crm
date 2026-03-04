@@ -21,6 +21,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     inviteId: string;
     role: string;
     email: string;
+    hasSubscription: boolean;
+    address: string;
   } | null>(null);
 
   // Login States
@@ -48,6 +50,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     const email = params.get('email');
     const firstName = params.get('firstName');
     const lastName = params.get('lastName');
+    const address = params.get('address');
+    const hasSubscription = params.get('hasSubscription');
     const viewParam = params.get('view');
 
     if (viewParam === 'register') {
@@ -55,7 +59,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     }
 
     if (inviteId && role) {
-      setInvitationData({ inviteId, role, email: email || '' });
+      setInvitationData({ 
+        inviteId, 
+        role, 
+        email: email || '', 
+        hasSubscription: hasSubscription === 'true',
+        address: address || ''
+      });
       setRegisterData({
         companyName: '',
         activity: 'Cuisiniste',
@@ -125,8 +135,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         role: role,
         jobTitle: invitationData ? role : `Gérant - ${registerData.activity}`,
         avatar: `https://i.pravatar.cc/150?u=${user.uid}`,
+        address: invitationData?.address || '',
         createdAt: new Date().toISOString(),
-        isSubscriptionActive: true
+        isSubscriptionActive: invitationData ? invitationData.hasSubscription : true
       };
 
       // Création forcée du document utilisateur avec les bonnes valeurs
