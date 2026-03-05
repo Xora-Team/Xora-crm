@@ -43,7 +43,7 @@ interface CompanyManagementProps {
 }
 
 const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) => {
-  const [activeMainTab, setActiveMainTab] = useState('Equipe');
+  const [activeMainTab, setActiveMainTab] = useState('Société');
   const [activeSubTab, setActiveSubTab] = useState('Informations');
   const [companyInfo, setCompanyInfo] = useState<any>(null);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -51,6 +51,8 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isAddDocModalOpen, setIsAddDocModalOpen] = useState(false);
   const [isAddGiftModalOpen, setIsAddGiftModalOpen] = useState(false);
+  const [viewingDocument, setViewingDocument] = useState<any>(null);
+  const [isDocViewerOpen, setIsDocViewerOpen] = useState(false);
   const [isDocTypeDropdownOpen, setIsDocTypeDropdownOpen] = useState(false);
   const [selectedMemberForEdit, setSelectedMemberForEdit] = useState<any>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -194,12 +196,19 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
 
   const handleConfirmAddDocument = async () => {
     if (!userProfile?.companyId || !newDocType || !selectedFile) return;
+    
+    // Simulation d'upload : on crée une URL locale pour l'aperçu immédiat
+    // Dans une version réelle, on uploaderait vers Firebase Storage ici
+    const fileUrl = URL.createObjectURL(selectedFile);
+    
     const newDoc = {
       id: Math.random().toString(36).substr(2, 9),
       name: newDocName || selectedFile.name,
       type: newDocType,
       isPublic: newDocIsPublic,
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
+      url: fileUrl,
+      fileType: selectedFile.type
     };
     const currentDocs = companyInfo?.legalDocuments || [];
     const updatedDocs = [...currentDocs, newDoc];
@@ -287,6 +296,17 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
     }
   };
 
+  const handleViewDocument = (document: any) => {
+    const isAdmin = userProfile?.role === 'Administrateur';
+    
+    if (document.isPublic || isAdmin) {
+      setViewingDocument(document);
+      setIsDocViewerOpen(true);
+    } else {
+      alert("Accès refusé : Ce document est privé. Seul un administrateur peut le consulter.");
+    }
+  };
+
   // Charger les infos de la société
   useEffect(() => {
     if (!userProfile?.companyId) return;
@@ -341,6 +361,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
   };
 
   const mainTabs = [
+    { id: 'Société', icon: Building2 },
     { id: 'Rôle', icon: Signpost },
     { id: 'Equipe', icon: Users, count: teamMembers.length },
     { id: 'Connexion', icon: Plug }
@@ -899,7 +920,10 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+                            <button 
+                              onClick={() => handleViewDocument(doc)}
+                              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                            >
                               <Eye size={18} />
                             </button>
                             <button 
@@ -1002,7 +1026,15 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                 </div>
               )}
 
-              {activeSubTab !== 'Informations' && activeSubTab !== 'Documents légaux' && activeSubTab !== 'Fidélisation' && activeSubTab !== 'Présentation commerciale' && (
+              {activeSubTab === 'RGPD' && (
+                <div className="flex flex-col items-center justify-center py-20 text-gray-400 bg-white rounded-xl border border-gray-100 shadow-sm">
+                  <ShieldCheck size={48} className="mb-4 opacity-20" />
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">RGPD</h3>
+                  <p className="text-sm font-medium">En cours de finalisation (Gestion de la conformité).</p>
+                </div>
+              )}
+
+              {activeSubTab !== 'Informations' && activeSubTab !== 'Documents légaux' && activeSubTab !== 'Fidélisation' && activeSubTab !== 'Présentation commerciale' && activeSubTab !== 'RGPD' && (
                 <div className="flex flex-col items-center justify-center py-20 text-gray-400 bg-white rounded-xl border border-gray-100 shadow-sm">
                   <FileText size={48} className="mb-4 opacity-20" />
                   <p className="text-sm font-medium">Contenu pour "{activeSubTab}" en cours de développement.</p>
@@ -1439,6 +1471,93 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
         userProfile={userProfile}
         onGiftAdded={handleGiftAdded}
       />
+
+      {/* Document Viewer Modal */}
+      {isDocViewerOpen && viewingDocument && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[110] p-4 md:p-10">
+          <div className="bg-white rounded-3xl w-full max-w-5xl h-full max-h-[90vh] flex flex-col shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gray-50 rounded-lg text-gray-600">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">{viewingDocument.name}</h2>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{viewingDocument.type || 'Document'}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsDocViewerOpen(false)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-all shadow-lg"
+              >
+                <X size={16} /> Fermer
+              </button>
+            </div>
+
+            {/* Content Area */}
+            <div className="flex-1 bg-gray-100 overflow-auto p-4 md:p-8 flex items-center justify-center">
+              {viewingDocument.url ? (
+                <div className="w-full h-full bg-white rounded-xl shadow-inner overflow-hidden flex items-center justify-center">
+                  {(viewingDocument.url.toLowerCase().includes('.pdf') || 
+                    viewingDocument.fileType?.includes('pdf') || 
+                    viewingDocument.name?.toLowerCase().includes('kbis')) ? (
+                    <div className="w-full h-full flex flex-col">
+                      <iframe 
+                        src={`${viewingDocument.url}${viewingDocument.url.includes('?') ? '&' : '?'}#view=FitH`} 
+                        width="100%" 
+                        height="100%" 
+                        className="flex-1 border-none min-h-[500px]"
+                        title={viewingDocument.name}
+                        {...{ type: "application/pdf" } as any}
+                      />
+                      <div className="p-4 bg-white border-t border-gray-100 text-center">
+                        <p className="text-xs text-gray-500">
+                          Impossible d'afficher l'aperçu ? 
+                          <a 
+                            href={viewingDocument.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="ml-2 text-indigo-600 font-bold hover:underline"
+                          >
+                            Cliquez ici pour ouvrir le PDF
+                          </a>
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <img 
+                      src={viewingDocument.url} 
+                      alt={viewingDocument.name}
+                      className="max-w-full max-h-full object-contain shadow-sm"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className="text-center space-y-4 max-w-md">
+                  <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto shadow-sm text-gray-300 animate-pulse">
+                    <FileText size={40} />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-bold text-gray-900">Chargement ou fichier absent</h3>
+                    <p className="text-sm text-gray-500 leading-relaxed">
+                      L'URL de ce document ("{viewingDocument.name}") est introuvable. 
+                      Assurez-vous que le fichier a bien été téléchargé.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setIsDocViewerOpen(false)}
+                    className="px-8 py-3 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
+                  >
+                    Retour à la liste
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Saving Indicator */}
       {isSaving && (
