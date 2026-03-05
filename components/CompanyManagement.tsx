@@ -300,6 +300,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
     const isAdmin = userProfile?.role === 'Administrateur';
     
     if (document.isPublic || isAdmin) {
+      console.log("Viewing document:", document);
       setViewingDocument(document);
       setIsDocViewerOpen(true);
     } else {
@@ -1502,50 +1503,36 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                   {(viewingDocument.url.toLowerCase().includes('.pdf') || 
                     viewingDocument.fileType?.includes('pdf') || 
                     viewingDocument.name?.toLowerCase().includes('kbis')) ? (
-                    <div className="w-full h-full flex flex-col">
-                      <iframe 
-                        src={`${viewingDocument.url}${viewingDocument.url.includes('?') ? '&' : '?'}#view=FitH`} 
-                        width="100%" 
-                        height="100%" 
-                        className="flex-1 border-none min-h-[500px]"
-                        title={viewingDocument.name}
-                        {...{ type: "application/pdf" } as any}
-                      />
-                      <div className="p-4 bg-white border-t border-gray-100 text-center">
-                        <p className="text-xs text-gray-500">
-                          Impossible d'afficher l'aperçu ? 
-                          <a 
-                            href={viewingDocument.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="ml-2 text-indigo-600 font-bold hover:underline"
-                          >
+                    <object 
+                      data={viewingDocument.url} 
+                      type="application/pdf" 
+                      width="100%" 
+                      height="500px"
+                    >
+                      <div className="p-10 text-center">
+                        <p className="text-sm text-gray-600">
+                          Aperçu impossible : 
+                          <a href={viewingDocument.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-indigo-600 font-bold hover:underline">
                             Cliquez ici pour ouvrir le PDF
                           </a>
                         </p>
                       </div>
-                    </div>
+                    </object>
                   ) : (
                     <img 
                       src={viewingDocument.url} 
+                      style={{ maxWidth: '100%', maxHeight: '450px', objectFit: 'contain' }}
                       alt={viewingDocument.name}
-                      className="max-w-full max-h-full object-contain shadow-sm"
-                      referrerPolicy="no-referrer"
                     />
                   )}
                 </div>
               ) : (
-                <div className="text-center space-y-4 max-w-md">
-                  <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto shadow-sm text-gray-300 animate-pulse">
+                <div className="text-center space-y-4">
+                  <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto shadow-sm text-red-400">
                     <FileText size={40} />
                   </div>
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-bold text-gray-900">Chargement ou fichier absent</h3>
-                    <p className="text-sm text-gray-500 leading-relaxed">
-                      L'URL de ce document ("{viewingDocument.name}") est introuvable. 
-                      Assurez-vous que le fichier a bien été téléchargé.
-                    </p>
-                  </div>
+                  <h3 className="text-lg font-bold text-gray-900">Erreur de chargement du fichier</h3>
+                  <p className="text-sm text-gray-500">L'URL du document est vide ou introuvable.</p>
                   <button 
                     onClick={() => setIsDocViewerOpen(false)}
                     className="px-8 py-3 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"

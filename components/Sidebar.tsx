@@ -42,9 +42,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const annuaireSubItems = [
     { id: 'directory', label: 'Client / Prospect', icon: UserCircle, page: 'directory' as Page },
-    { id: 'suppliers', label: 'Fiche fournisseurs', icon: Truck, page: 'suppliers' as Page },
-    { id: 'artisans', label: 'Fiche artisans', icon: Hammer, page: 'artisans' as Page },
-    { id: 'prescriber', label: 'Fiche prescripteur', icon: Stamp, page: 'prescriber' as Page },
+    { id: 'suppliers', label: 'Fournisseurs', icon: Truck, page: 'suppliers' as Page },
+    { id: 'artisans', label: 'Artisans', icon: Hammer, page: 'artisans' as Page },
+    { id: 'prescriber', label: 'Prescripteur', icon: Stamp, page: 'prescriber' as Page },
   ];
 
   return (

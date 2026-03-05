@@ -296,6 +296,7 @@ const Directory: React.FC<DirectoryProps> = ({
             category: item.origin, // Mappe 'Origine' vers details.category (1er niveau)
             origin: item.subOrigin, // Copie aussi dans details pour consistance
             subOrigin: item.source, // Mappe 'Source' vers details.subOrigin (3ème niveau)
+            year: item.year, // Ajout de l'année
             
             referent: item.referent
           },

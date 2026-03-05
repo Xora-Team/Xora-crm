@@ -246,6 +246,12 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
   const [isSearching, setIsSearching] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<string | null>(null);
   
+  const [sponsorSearch, setSponsorSearch] = useState('');
+  const [sponsorLink, setSponsorLink] = useState('');
+  const [sponsorSuggestions, setSponsorSuggestions] = useState<any[]>([]);
+  const [isSponsorSearching, setIsSponsorSearching] = useState(false);
+  const sponsorSearchRef = useRef<HTMLDivElement>(null);
+
   const [mainContact, setMainContact] = useState({
     civility: '', lastName: '', firstName: '', email: '', phone: '', fixed: ''
   });
@@ -375,6 +381,90 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
     const timer = setTimeout(fetchAddr, 300);
     return () => clearTimeout(timer);
   }, [addressSearch, client.details?.address]);
+
+  // Initialisation des champs parrain - seulement au changement de client
+  useEffect(() => {
+    setSponsorSearch(initialClient.details?.sponsorName || '');
+    setSponsorLink(initialClient.details?.sponsorLink || '');
+  }, [initialClient.id]);
+
+  // Recherche de parrains dans l'annuaire
+  useEffect(() => {
+    const searchSponsors = async () => {
+      if (sponsorSearch.length < 2 || !userProfile?.companyId || !isSponsorSearching) {
+        setSponsorSuggestions([]);
+        return;
+      }
+      
+      try {
+        const q = query(
+          collection(db, 'clients'),
+          where('companyId', '==', userProfile.companyId)
+        );
+        const snap = await getDocs(q);
+        const allClients = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const filtered = allClients.filter((c: any) => {
+          const isClientOrProspect = !c.directoryType || c.directoryType === 'contacts';
+          const matchesSearch = c.name?.toLowerCase().includes(sponsorSearch.toLowerCase());
+          const isNotCurrentClient = c.id !== client.id;
+          return isClientOrProspect && matchesSearch && isNotCurrentClient;
+        }).slice(0, 5);
+        setSponsorSuggestions(filtered);
+      } catch (e) {
+        console.error("Erreur recherche parrain:", e);
+      }
+    };
+
+    const timer = setTimeout(searchSponsors, 300);
+    return () => clearTimeout(timer);
+  }, [sponsorSearch, userProfile?.companyId, client.id, isSponsorSearching]);
+
+  // Fermer les suggestions si clic ailleurs
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sponsorSearchRef.current && !sponsorSearchRef.current.contains(event.target as Node)) {
+        setIsSponsorSearching(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelectSponsor = async (sponsor: any) => {
+    try {
+      const sponsorName = sponsor.name.toUpperCase();
+      setSponsorSearch(sponsorName);
+      setIsSponsorSearching(false);
+      setSponsorSuggestions([]);
+      
+      await updateDoc(doc(db, 'clients', client.id), {
+        "details.sponsorName": sponsorName,
+        "details.sponsorId": sponsor.id
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const saveSponsorName = async () => {
+    try {
+      await updateDoc(doc(db, 'clients', client.id), {
+        "details.sponsorName": sponsorSearch
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const saveSponsorLink = async () => {
+    try {
+      await updateDoc(doc(db, 'clients', client.id), {
+        "details.sponsorLink": sponsorLink
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const handleSelectAddress = async (feature: any) => {
     const fullAddress = feature.properties.label;
@@ -606,20 +696,62 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
           </div>
 
           {currentCategory === 'Parrainage' && (
-            <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
-              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Nom du parrain</label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-300">
-                  <User size={16} />
+            <>
+              <div className="space-y-2 animate-in slide-in-from-top-2 duration-300" ref={sponsorSearchRef}>
+                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">NOM DU PARRAIN</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-300">
+                    <User size={16} />
+                  </div>
+                  <input 
+                    type="text" 
+                    value={sponsorSearch} 
+                    onChange={(e) => {
+                      setSponsorSearch(e.target.value.toUpperCase());
+                      setIsSponsorSearching(true);
+                    }}
+                    onBlur={saveSponsorName}
+                    placeholder="Rechercher ou saisir un nom..."
+                    className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 transition-all shadow-sm uppercase" 
+                  />
+                  {isSponsorSearching && sponsorSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl z-[100] max-h-60 overflow-y-auto border-gray-100">
+                      {sponsorSuggestions.map(s => (
+                        <button 
+                          key={s.id}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleSelectSponsor(s);
+                          }}
+                          className="w-full px-4 py-3 text-left hover:bg-indigo-50 flex items-center gap-3 border-b border-gray-50 last:border-0 group transition-colors"
+                        >
+                          <div className="p-1.5 bg-gray-50 rounded-lg text-gray-400 group-hover:text-indigo-600 transition-colors">
+                            <User size={14} />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[13px] font-bold text-gray-900 uppercase">{s.name}</span>
+                            <span className="text-[11px] text-gray-400">{s.status}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">LIEN DU PARRAIN</label>
                 <input 
                   type="text" 
-                  readOnly
-                  value={client.details?.sponsorName || 'Non renseigné'} 
-                  className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold text-gray-500 outline-none cursor-default shadow-inner uppercase" 
+                  value={sponsorLink} 
+                  onChange={(e) => setSponsorLink(e.target.value)}
+                  onBlur={saveSponsorLink}
+                  placeholder="Ex: Ami, Famille..."
+                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 transition-all shadow-sm" 
                 />
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>

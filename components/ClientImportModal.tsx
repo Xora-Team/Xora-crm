@@ -57,6 +57,7 @@ const ClientImportModal: React.FC<ClientImportModalProps> = ({ isOpen, onClose, 
         origin: cols[9]?.trim() || '',
         subOrigin: cols[10]?.trim() || '',
         source: cols[11]?.trim() || '',
+        year: cols[12]?.trim() || '',
       });
     }
 
@@ -117,10 +118,10 @@ const ClientImportModal: React.FC<ClientImportModalProps> = ({ isOpen, onClose, 
             <div className="space-y-3">
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Structure attendue</p>
                 <div className="bg-gray-900 text-gray-200 p-5 rounded-2xl font-mono text-xs overflow-x-auto shadow-inner border border-gray-800">
-                Civilité;Nom;Prénom;Email;Portable;Fixe;Adresse;Statut;Agenceur;Origine;Sous-origine;Source
+                Civilité;Nom;Prénom;Email;Portable;Fixe;Adresse;Statut;Agenceur;Origine;Sous-origine;Source;Année
                 </div>
                 <div className="px-1">
-                <p className="text-[11px] text-gray-400 font-medium italic">Exemple : M.;Dupont;Jean;jean@email.com;0601020304;0102030405;10 rue de la Paix, 75000 Paris;Prospect;Marie;Salon;Stand;Bouche à oreille</p>
+                <p className="text-[11px] text-gray-400 font-medium italic">Exemple : M.;Dupont;Jean;jean@email.com;0601020304;0102030405;10 rue de la Paix, 75000 Paris;Prospect;Marie;Salon;Stand;Bouche à oreille;2024</p>
                 </div>
             </div>
 
@@ -168,6 +169,7 @@ const ClientImportModal: React.FC<ClientImportModalProps> = ({ isOpen, onClose, 
                                 <th className="px-6 py-4">Origine</th>
                                 <th className="px-6 py-4">Sous-origine</th>
                                 <th className="px-6 py-4">Source</th>
+                                <th className="px-6 py-4">Année</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 bg-white">
@@ -184,6 +186,7 @@ const ClientImportModal: React.FC<ClientImportModalProps> = ({ isOpen, onClose, 
                                     <td className="px-6 py-3 text-[12px] text-gray-800">{item.origin}</td>
                                     <td className="px-6 py-3 text-[12px] text-gray-800">{item.subOrigin}</td>
                                     <td className="px-6 py-3 text-[12px] text-gray-800">{item.source}</td>
+                                    <td className="px-6 py-3 text-[12px] text-gray-800">{item.year}</td>
                                 </tr>
                             ))}
                         </tbody>

@@ -181,8 +181,13 @@ const ClientFidelisation: React.FC<ClientFidelisationProps> = ({ client, userPro
               }
             ].filter(c => c.exists).map((contact) => (
               <div key={contact.id} className="bg-[#F8F9FA] border border-gray-100 rounded-[32px] overflow-hidden shadow-sm">
-                <div className="bg-gray-100/80 px-10 py-4 border-b border-gray-100">
+                <div className="bg-gray-100/80 px-10 py-4 border-b border-gray-100 flex items-center gap-4">
                   <h3 className="text-sm font-bold text-gray-900">{contact.name}</h3>
+                  {contact.id === 'primary' && (!client.details?.createdAt || client.origin === 'Import CSV') && (
+                    <span className="text-[12px] text-indigo-400 font-medium animate-in fade-in slide-in-from-left-2 duration-500">
+                      Client créé le {client.details?.year || client.dateAdded}
+                    </span>
+                  )}
                 </div>
                 <div className="p-10 space-y-10">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
