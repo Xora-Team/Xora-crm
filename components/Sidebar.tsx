@@ -26,6 +26,7 @@ interface SidebarProps {
   onLogout: () => void;
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
+  companyLogo?: string | null;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -33,7 +34,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   setCurrentPage, 
   onLogout,
   isCollapsed,
-  setIsCollapsed
+  setIsCollapsed,
+  companyLogo
 }) => {
   const [isAnnuaireOpen, setIsAnnuaireOpen] = useState(true);
   const LOGO_URL = "https://framerusercontent.com/images/BrlQcPpho2hjJ0qjdKGIdbfXY.png?width=1024&height=276";
@@ -41,7 +43,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isActive = (pageName: string) => currentPage === pageName;
 
   const annuaireSubItems = [
-    { id: 'directory', label: 'Client / Prospect', icon: UserCircle, page: 'directory' as Page },
+    { id: 'directory', label: 'Clients / Prospects', icon: UserCircle, page: 'directory' as Page },
     { id: 'suppliers', label: 'Fournisseurs', icon: Truck, page: 'suppliers' as Page },
     { id: 'artisans', label: 'Artisans', icon: Hammer, page: 'artisans' as Page },
     { id: 'prescriber', label: 'Prescripteur', icon: Stamp, page: 'prescriber' as Page },
@@ -53,7 +55,11 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Header Logo & Collapse Toggle */}
       <div className={`p-6 pb-10 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
         {!isCollapsed && (
-          <img src={LOGO_URL} className="h-8 w-auto animate-in fade-in duration-500" alt="Xora Logo" />
+          <img 
+            src={companyLogo || LOGO_URL} 
+            className={`h-8 w-auto animate-in fade-in duration-500 ${companyLogo ? 'object-contain' : ''}`} 
+            alt="Logo" 
+          />
         )}
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}

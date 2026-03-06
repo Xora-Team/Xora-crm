@@ -22,7 +22,7 @@ import { Construction, AlertCircle } from 'lucide-react';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 // Use @firebase/firestore to fix named export resolution issues
-import { doc, setDoc, onSnapshot } from '@firebase/firestore';
+import { doc, setDoc, onSnapshot, collection, query, where, getDocs, updateDoc } from '@firebase/firestore';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -39,6 +39,7 @@ function App() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -56,7 +57,7 @@ function App() {
                 name: user.displayName || 'Utilisateur',
                 email: user.email,
                 companyId: 'temp_company',
-                avatar: `https://i.pravatar.cc/150?u=${user.uid}`,
+                avatar: null,
                 role: 'Agenceur',
                 lastName: '',
                 firstName: '',
@@ -90,10 +91,72 @@ function App() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const cleanupSpontane = async () => {
+      if (!isAuthenticated || !userProfile?.companyId) return;
+      
+      // Check if cleanup was already done in this session to avoid redundant calls
+      const cleanupDone = sessionStorage.getItem('xora_cleanup_spontane_done');
+      if (cleanupDone) return;
+
+      try {
+        const clientsRef = collection(db, 'clients');
+        const q = query(clientsRef, where('companyId', '==', userProfile.companyId));
+        const querySnapshot = await getDocs(q);
+        
+        const updates: Promise<void>[] = [];
+        
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          let needsUpdate = false;
+          const updateData: any = {};
+
+          // Check main origin field
+          if (data.origin && (data.origin.toLowerCase() === 'spontanné' || data.origin === 'SPONTANNÉ')) {
+            updateData.origin = 'Spontané';
+            needsUpdate = true;
+          }
+
+          // Check details.origin field
+          if (data.details?.origin && (data.details.origin.toLowerCase() === 'spontanné' || data.details.origin === 'SPONTANNÉ')) {
+            if (!updateData.details) updateData.details = { ...data.details };
+            updateData.details.origin = 'Spontané';
+            needsUpdate = true;
+          }
+
+          if (needsUpdate) {
+            updates.push(updateDoc(doc(db, 'clients', docSnap.id), updateData));
+          }
+        });
+
+        if (updates.length > 0) {
+          await Promise.all(updates);
+          console.log(`${updates.length} fiches clients mises à jour (orthographe Spontané).`);
+        }
+        
+        sessionStorage.setItem('xora_cleanup_spontane_done', 'true');
+      } catch (error) {
+        console.error("Erreur lors du nettoyage de la base de données:", error);
+      }
+    };
+
+    cleanupSpontane();
+  }, [isAuthenticated, userProfile?.companyId]);
+
+  useEffect(() => {
+    if (!userProfile?.companyId) return;
+    const unsub = onSnapshot(doc(db, 'companies', userProfile.companyId), (docSnap) => {
+      if (docSnap.exists()) {
+        setCompanyLogo(docSnap.data().logo || null);
+      }
+    });
+    return () => unsub();
+  }, [userProfile?.companyId]);
+
   const getHeaderTitle = (page: Page) => {
     switch (page) {
       case 'dashboard': return 'Tableau de bord';
-      case 'directory': return 'Annuaire Contacts';
+      case 'directory': return 'Annuaire Clients / Prospects';
       case 'suppliers': return 'Annuaire Fournisseurs';
       case 'artisans': return 'Annuaire Artisans';
       case 'prescriber': return 'Annuaire Prescripteurs';
@@ -209,6 +272,7 @@ function App() {
           userProfile={userProfile} 
           onBack={() => setSelectedClient(null)}
           onProjectSelect={handleProjectSelect}
+          onClientClick={(client) => setSelectedClient(client)}
         />
       );
     }
@@ -307,6 +371,7 @@ function App() {
         onLogout={handleLogout}
         isCollapsed={isSidebarCollapsed}
         setIsCollapsed={setIsSidebarCollapsed}
+        companyLogo={companyLogo}
       />
       
       <div className="flex-1 flex flex-col h-screen overflow-hidden transition-all duration-300">

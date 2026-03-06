@@ -4,7 +4,7 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, Building2, User, Chec
 import { auth, db, seedDatabase } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 // Use @firebase/firestore to fix named export resolution issues
-import { doc, setDoc } from '@firebase/firestore';
+import { doc, setDoc, getDoc } from '@firebase/firestore';
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -23,6 +23,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     email: string;
     hasSubscription: boolean;
     address: string;
+    avatar: string | null;
   } | null>(null);
 
   // Login States
@@ -43,40 +44,78 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const LOGO_URL = "https://framerusercontent.com/images/BrlQcPpho2hjJ0qjdKGIdbfXY.png?width=1024&height=276";
 
   useEffect(() => {
-    // Check for invitation params in URL
-    const params = new URLSearchParams(window.location.search);
-    const inviteId = params.get('inviteId');
-    const role = params.get('role');
-    const email = params.get('email');
-    const firstName = params.get('firstName');
-    const lastName = params.get('lastName');
-    const address = params.get('address');
-    const hasSubscription = params.get('hasSubscription');
-    const viewParam = params.get('view');
+    const fetchInvitation = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const invitationId = params.get('invitationId');
+      const viewParam = params.get('view');
 
-    if (viewParam === 'register') {
-      setView('register');
-    }
+      if (viewParam === 'register') {
+        setView('register');
+      }
 
-    if (inviteId && role) {
-      setInvitationData({ 
-        inviteId, 
-        role, 
-        email: email || '', 
-        hasSubscription: hasSubscription === 'true',
-        address: address || ''
-      });
-      setRegisterData({
-        companyName: '',
-        activity: 'Cuisiniste',
-        firstName: firstName || '',
-        lastName: lastName || '',
-        email: email || '',
-        password: '',
-        confirmPassword: ''
-      });
-      setView('register');
-    }
+      if (invitationId) {
+        setIsLoading(true);
+        try {
+          const invDoc = await getDoc(doc(db, 'invitations', invitationId));
+          if (invDoc.exists()) {
+            const data = invDoc.data();
+            const meta = data.meta || {};
+            
+            setInvitationData({
+              inviteId: meta.companyId,
+              role: meta.role || 'Collaborateur',
+              email: meta.emailPro || data.to || '',
+              hasSubscription: meta.hasSubscription === true,
+              address: meta.address || '',
+              avatar: meta.avatar || null
+            });
+
+            setRegisterData(prev => ({
+              ...prev,
+              firstName: meta.firstName || '',
+              lastName: meta.lastName || '',
+              email: meta.emailPro || data.to || prev.email
+            }));
+            setView('register');
+          }
+        } catch (e) {
+          console.error("Error fetching invitation:", e);
+        } finally {
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      // Fallback to URL params if no invitationId
+      const inviteId = params.get('inviteId');
+      const role = params.get('role');
+      const email = params.get('email');
+      const firstName = params.get('firstName');
+      const lastName = params.get('lastName');
+      const address = params.get('address');
+      const hasSubscription = params.get('hasSubscription');
+      const avatar = params.get('avatar');
+
+      if (inviteId && role) {
+        setInvitationData({ 
+          inviteId, 
+          role, 
+          email: email || '', 
+          hasSubscription: hasSubscription === 'true',
+          address: address || '',
+          avatar: avatar || null
+        });
+        setRegisterData(prev => ({
+          ...prev,
+          firstName: firstName || '',
+          lastName: lastName || '',
+          email: email || '',
+        }));
+        setView('register');
+      }
+    };
+
+    fetchInvitation();
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -134,7 +173,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         companyName: invitationData ? 'Agence (Rejoint)' : registerData.companyName,
         role: role,
         jobTitle: invitationData ? role : `Gérant - ${registerData.activity}`,
-        avatar: `https://i.pravatar.cc/150?u=${user.uid}`,
+        avatar: invitationData?.avatar || null,
         address: invitationData?.address || '',
         createdAt: new Date().toISOString(),
         isSubscriptionActive: invitationData ? invitationData.hasSubscription : true

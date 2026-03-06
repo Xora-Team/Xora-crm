@@ -12,7 +12,7 @@ const HIERARCHY_DATA: Record<string, Record<string, string[]>> = {
     "téléphonique": ["Appel froid"]
   },
   "Parrainage": {
-    "Spontanné": [],
+    "Spontané": [],
     "Bon de parrainage": []
   },
   "Prescripteur": {
@@ -54,7 +54,7 @@ const HIERARCHY_DATA: Record<string, Record<string, string[]>> = {
     "Groupements métiers": []
   },
   "Passage devant showroom": {
-    "Spontanné": [],
+    "Spontané": [],
     "Promo vitrine": [],
     "PLV": []
   },

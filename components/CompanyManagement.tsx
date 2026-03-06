@@ -361,6 +361,32 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userProfile?.companyId) return;
+
+    // Check file type
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+    if (!validTypes.includes(file.type)) {
+      alert("Format de fichier non supporté. Veuillez utiliser PNG, JPG ou SVG.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result as string;
+        await updateDoc(doc(db, 'companies', userProfile.companyId), { logo: base64String });
+      };
+      reader.readAsDataURL(file);
+    } catch (e) {
+      console.error("Erreur lors de l'upload du logo:", e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const mainTabs = [
     { id: 'Société', icon: Building2 },
     { id: 'Rôle', icon: Signpost },
@@ -407,20 +433,32 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                 <div className="space-y-8 animate-in fade-in duration-500">
                   {/* Logo Section - White Card */}
                   <div className="bg-white rounded-2xl p-6 flex items-center gap-6 border border-gray-100 shadow-sm">
-                  <div className="w-36 h-24 bg-white rounded-xl border border-gray-100 flex items-center justify-center overflow-hidden shadow-sm">
-                    {companyInfo?.logo ? (
-                      <img src={companyInfo.logo} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
-                    ) : (
-                      <div className="text-gray-300 flex flex-col items-center">
-                        <Building2 size={32} />
-                        <span className="text-[10px] uppercase font-bold mt-1 tracking-widest">Logo</span>
-                      </div>
-                    )}
+                    <div className="w-36 h-24 bg-white rounded-xl border border-gray-100 flex items-center justify-center overflow-hidden shadow-sm">
+                      {companyInfo?.logo ? (
+                        <img src={companyInfo.logo} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
+                      ) : (
+                        <div className="text-gray-300 flex flex-col items-center">
+                          <Building2 size={32} />
+                          <span className="text-[10px] uppercase font-bold mt-1 tracking-widest">Logo</span>
+                        </div>
+                      )}
+                    </div>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept=".png,.jpg,.jpeg,.svg"
+                      onChange={handleLogoUpload}
+                    />
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isSaving}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50"
+                    >
+                      {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} className="text-gray-400" />}
+                      Sélectionner un fichier
+                    </button>
                   </div>
-                  <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm">
-                    <Plus size={18} className="text-gray-400" /> Sélectionner un fichier
-                  </button>
-                </div>
 
                 {/* Société Details Form */}
                 <div className="space-y-10">
@@ -1210,7 +1248,9 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                       <tr key={member.uid} className={`transition-colors group ${member.hasLeft ? 'bg-gray-50/80 opacity-60' : 'hover:bg-gray-50/50'}`}>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <img src={member.avatar} className="w-8 h-8 rounded-full object-cover shadow-sm" alt="" />
+                            {member.avatar && (
+                              <img src={member.avatar} className="w-8 h-8 rounded-full object-cover shadow-sm" alt="" />
+                            )}
                             <span className="text-sm font-bold text-gray-900 uppercase">{member.name}</span>
                           </div>
                         </td>

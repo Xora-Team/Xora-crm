@@ -30,6 +30,7 @@ export interface Client {
   name: string;
   addedBy: User;
   origin: string;
+  category?: string;
   location: string;
   projectCount?: number;
   status: 'Prospect' | 'Client' | 'Leads';

@@ -138,6 +138,7 @@ const Directory: React.FC<DirectoryProps> = ({
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [activeTab, setActiveTab] = useState(initialTab);
   const [clients, setClients] = useState<Client[]>([]);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -186,7 +187,7 @@ const Directory: React.FC<DirectoryProps> = ({
         };
       default:
         return {
-          title: 'CLIENTS',
+          title: 'CLIENTS / PROSPECTS',
           icon: Users,
           addButton: 'Ajouter une fiche leads',
           tabs: ['Tous', 'Lead', 'Prospect', 'Client'],
@@ -228,6 +229,21 @@ const Directory: React.FC<DirectoryProps> = ({
   }, [userProfile?.companyId, mode]);
 
   useEffect(() => {
+    if (!userProfile?.companyId) return;
+    const teamRef = collection(db, 'users');
+    const q = query(teamRef, where('companyId', '==', userProfile.companyId));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const members = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setTeamMembers(members);
+    });
+    return () => unsubscribe();
+  }, [userProfile?.companyId]);
+
+  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
         setActiveDropdown(null);
@@ -250,8 +266,9 @@ const Directory: React.FC<DirectoryProps> = ({
       
       const matchesTab = activeTab === 'Tous' || statusValue === activeStatusValue;
       const matchesSearch = !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesAgenceur = !filterAgenceur || c.addedBy?.name === filterAgenceur;
-      const matchesOrigine = !filterOrigine || c.origin === filterOrigine;
+      const referentName = c.details?.referent || c.addedBy?.name;
+      const matchesAgenceur = !filterAgenceur || referentName === filterAgenceur;
+      const matchesOrigine = !filterOrigine || (c.category || c.details?.category || c.origin) === filterOrigine;
       const matchesLocation = !filterLocation || c.location === filterLocation;
       const matchesProject = !filterProject || (filterProject === 'Avec projet(s)' ? (c.projectCount || 0) > 0 : (c.projectCount || 0) === 0);
       
@@ -276,6 +293,7 @@ const Directory: React.FC<DirectoryProps> = ({
           name: `${item.firstName} ${item.lastName}`.trim(),
           status: item.status,
           origin: item.subOrigin || 'Import CSV', // Mappe 'Sous origine' vers client.origin (2ème niveau)
+          category: item.origin || 'Autre', // Mappe 'Origine' vers client.category (1er niveau)
           location: item.address,
           addedBy: {
             name: userProfile.name,
@@ -315,8 +333,11 @@ const Directory: React.FC<DirectoryProps> = ({
     }
   };
 
-  const uniqueAgenceurs = useMemo(() => Array.from(new Set(clients.map(c => c.addedBy?.name).filter(Boolean))).sort(), [clients]);
-  const uniqueOrigines = useMemo(() => Array.from(new Set(clients.map(c => c.origin).filter(Boolean))).sort(), [clients]);
+  const uniqueAgenceurs = useMemo(() => {
+    const names = clients.map(c => c.details?.referent || c.addedBy?.name).filter(Boolean);
+    return Array.from(new Set(names)).sort();
+  }, [clients]);
+  const uniqueOrigines = useMemo(() => Array.from(new Set(clients.map(c => c.category || c.details?.category || c.origin).filter(Boolean))).sort(), [clients]);
   const uniqueLocations = useMemo(() => Array.from(new Set(clients.map(c => c.location).filter(Boolean))).sort(), [clients]);
 
   return (
@@ -403,7 +424,7 @@ const Directory: React.FC<DirectoryProps> = ({
         <div className="md:col-span-8 flex gap-2">
           <FilterDropdown 
             id="agenceur"
-            label="Ajouté par" 
+            label="Agenceur" 
             value={filterAgenceur} 
             options={uniqueAgenceurs} 
             onSelect={setFilterAgenceur} 
@@ -474,7 +495,7 @@ const Directory: React.FC<DirectoryProps> = ({
                         <thead>
                             <tr className="bg-white border-b border-gray-100 text-[10px] text-gray-400 uppercase font-black tracking-[0.2em] sticky top-0 z-20 shadow-sm">
                                 <th className="px-8 py-5">{mode === 'suppliers' ? 'Nom' : 'Nom & prénom'}</th>
-                                {mode !== 'suppliers' && <th className="px-8 py-5">Ajouté par</th>}
+                                {mode !== 'suppliers' && <th className="px-8 py-5">Agenceur</th>}
                                 <th className="px-8 py-5">{mode === 'suppliers' ? 'Branche' : 'Origine'}</th>
                                 {mode !== 'suppliers' && <th className="px-8 py-5">Localisation</th>}
                                 {mode === 'contacts' && <th className="px-8 py-5 text-center">Projet(s)</th>}
@@ -514,8 +535,25 @@ const Directory: React.FC<DirectoryProps> = ({
                                     {mode !== 'suppliers' && (
                                         <td className="px-8 py-5">
                                             <div className="flex items-center gap-3">
-                                                <img src={client.addedBy?.avatar} alt="" className="w-8 h-8 rounded-full border border-white shadow-sm" />
-                                                <span className="text-[13px] font-bold text-gray-700">{client.addedBy?.name}</span>
+                                                {(() => {
+                                                    const referentName = client.details?.referent || client.addedBy?.name;
+                                                    const referent = teamMembers.find(m => m.name === referentName);
+                                                    const avatar = referent?.avatar || client.addedBy?.avatar;
+                                                    
+                                                    if (!referentName) return <span className="text-[13px] font-bold text-gray-300">-</span>;
+                                                    
+                                                    return (
+                                                        <>
+                                                            <img 
+                                                                src={avatar} 
+                                                                alt="" 
+                                                                className="w-8 h-8 rounded-full border border-white shadow-sm object-cover bg-gray-50" 
+                                                                referrerPolicy="no-referrer"
+                                                            />
+                                                            <span className="text-[13px] font-bold text-gray-700">{referentName}</span>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         </td>
                                     )}
@@ -523,7 +561,12 @@ const Directory: React.FC<DirectoryProps> = ({
                                         {mode === 'suppliers' ? (
                                             <span className="text-gray-900">{client.details?.branch}</span>
                                         ) : (
-                                            client.origin
+                                            <div className="flex flex-col">
+                                                <span className="text-gray-900">{client.category || client.details?.category || client.origin}</span>
+                                                {(client.category || client.details?.category) && client.origin && client.origin !== 'Import CSV' && (
+                                                    <span className="text-[10px] text-gray-400 font-medium lowercase">({client.origin})</span>
+                                                )}
+                                            </div>
                                         )}
                                     </td>
                                     {mode !== 'suppliers' && <td className="px-8 py-5 text-[13px] font-bold text-gray-500">{client.location}</td>}

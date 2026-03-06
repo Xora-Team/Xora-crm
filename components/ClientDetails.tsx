@@ -28,9 +28,10 @@ interface ClientDetailsProps {
   onBack: () => void;
   userProfile?: any;
   onProjectSelect?: (project: any) => void;
+  onClientClick?: (client: Client) => void;
 }
 
-const ClientDetails: React.FC<ClientDetailsProps> = ({ client: initialClient, onBack, userProfile, onProjectSelect }) => {
+const ClientDetails: React.FC<ClientDetailsProps> = ({ client: initialClient, onBack, userProfile, onProjectSelect, onClientClick }) => {
   const [activeTab, setActiveTab] = useState('Information contact');
   const [client, setClient] = useState<Client>(initialClient);
   const [loading, setLoading] = useState(false);
@@ -222,7 +223,7 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client: initialClient, on
                 <ClientAppointments clientId={client.id} clientName={client.name} userProfile={userProfile} />
               )}
               {activeTab === 'Fidélisation' && (
-                <ClientFidelisation client={client} userProfile={userProfile} />
+                <ClientFidelisation client={client} userProfile={userProfile} onClientClick={onClientClick} />
               )}
               {activeTab === 'Documents' && (
                 <ClientDocuments clientId={client.id} userProfile={userProfile} />

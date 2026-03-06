@@ -358,26 +358,21 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile }) => {
                                 </div>
                             </td>
                             <td className="px-6 py-4">
-                                <div className="flex justify-end space-x-2 relative">
-                                    <button onClick={() => handleEditClick(task)} className="p-1.5 border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-400 shadow-sm transition-all">
+                                <div className="flex justify-end space-x-2">
+                                    <button 
+                                      onClick={() => handleEditClick(task)} 
+                                      className="p-1.5 border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-400 shadow-sm transition-all"
+                                      title="Modifier"
+                                    >
                                       <PenSquare size={16} />
                                     </button>
                                     <button 
-                                      onClick={() => setActiveMenuId(activeMenuId === task.id ? null : task.id)} 
-                                      className={`p-1.5 border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-400 shadow-sm transition-all ${activeMenuId === task.id ? 'bg-gray-100 text-gray-900' : ''}`}
+                                      onClick={() => setTaskToDelete(task)} 
+                                      className="p-1.5 border border-gray-200 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 shadow-sm transition-all"
+                                      title="Supprimer"
                                     >
-                                      <MoreHorizontal size={16} />
+                                      <Trash2 size={16} />
                                     </button>
-                                    {activeMenuId === task.id && (
-                                        <>
-                                            <div className="fixed inset-0 z-40" onClick={() => setActiveMenuId(null)} />
-                                            <div className={`absolute right-0 ${index >= filteredTasks.length - 2 && filteredTasks.length > 2 ? 'bottom-full mb-2' : 'top-10'} bg-white border border-gray-100 rounded-xl shadow-2xl z-50 w-48 py-2 animate-in fade-in zoom-in-95 duration-150 text-left`}>
-                                                <button onClick={() => setTaskToDelete(task)} className="w-full text-left px-4 py-2 text-[12px] font-bold text-red-600 hover:bg-red-50 flex items-center">
-                                                  <Trash2 size={14} className="mr-2" /> Supprimer
-                                                </button>
-                                            </div>
-                                        </>
-                                    )}
                                 </div>
                             </td>
                         </tr>
@@ -407,11 +402,9 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile }) => {
               <div className="w-20 h-20 bg-red-50 rounded-[28px] flex items-center justify-center text-red-500 mb-8 shadow-inner">
                 <AlertTriangle size={40} />
               </div>
-              <h3 className="text-xl font-black text-gray-900 mb-2 uppercase tracking-tighter">Supprimer définitivement ?</h3>
-              <p className="text-[14px] text-gray-500 leading-relaxed mb-10">
-                Vous allez supprimer la tâche : <br/>
-                <span className="font-bold text-gray-900">"{taskToDelete.title}"</span>. <br/>
-                Cette action est irréversible.
+              <h3 className="text-xl font-black text-gray-900 mb-2 uppercase tracking-tighter">Supprimer la tâche</h3>
+              <p className="text-[15px] text-gray-500 leading-relaxed mb-10">
+                Êtes-vous sûr de vouloir supprimer cette tâche ?
               </p>
               <div className="flex gap-4 w-full">
                 <button 
@@ -427,7 +420,7 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile }) => {
                   className="flex-1 px-6 py-4 bg-red-600 text-white rounded-2xl font-bold text-[13px] hover:bg-red-700 shadow-xl shadow-red-100 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
                   {isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
-                  Supprimer
+                  Supprimer définitivement
                 </button>
               </div>
             </div>

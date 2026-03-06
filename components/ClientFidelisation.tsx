@@ -1,22 +1,24 @@
 
 import React, { useState, useEffect } from 'react';
-import { Gift, Plus, Trash2, Loader2, Check, Users, Heart, ShieldCheck, ChevronDown, MessageSquare } from 'lucide-react';
+import { Gift, Plus, Trash2, Loader2, Check, Users, Heart, ShieldCheck, ChevronDown, MessageSquare, Eye } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs } from '@firebase/firestore';
+import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs, orderBy } from '@firebase/firestore';
 import { Client } from '../types';
 
 interface ClientFidelisationProps {
   client: Client;
   userProfile: any;
+  onClientClick?: (client: Client) => void;
 }
 
-const ClientFidelisation: React.FC<ClientFidelisationProps> = ({ client, userProfile }) => {
+const ClientFidelisation: React.FC<ClientFidelisationProps> = ({ client, userProfile, onClientClick }) => {
   const [activeSubTab, setActiveSubTab] = useState('Informations');
   const [companyGifts, setCompanyGifts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [showGiftSelector, setShowGiftSelector] = useState(false);
   const [sponsoredCount, setSponsoredCount] = useState(0);
+  const [sponsoredClients, setSponsoredClients] = useState<Client[]>([]);
 
   const [formData, setFormData] = useState({
     primary_clientNotes: client.details?.primary_clientNotes || client.details?.clientNotes || '',
@@ -45,14 +47,49 @@ const ClientFidelisation: React.FC<ClientFidelisationProps> = ({ client, userPro
       setLoading(false);
     });
 
-    // Fetch sponsored clients count
+    // Fetch sponsored clients
     const fetchSponsored = async () => {
-      const q = query(
-        collection(db, 'clients'),
-        where('details.sponsorId', '==', client.id)
-      );
-      const snap = await getDocs(q);
-      setSponsoredCount(snap.size);
+      try {
+        // Try by ID first
+        const qById = query(
+          collection(db, 'clients'),
+          where('details.sponsorId', '==', client.id)
+        );
+        const snapById = await getDocs(qById);
+        
+        let results = snapById.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Client[];
+        
+        // Also try by Name if the user specifically asked for "Nom du parrain" match
+        if (client.name) {
+          const qByName = query(
+            collection(db, 'clients'),
+            where('details.sponsorName', '==', client.name.toUpperCase())
+          );
+          const snapByName = await getDocs(qByName);
+          const resultsByName = snapByName.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Client[];
+          
+          // Merge and remove duplicates
+          const merged = [...results];
+          resultsByName.forEach(r => {
+            if (!merged.find(m => m.id === r.id)) {
+              merged.push(r);
+            }
+          });
+          results = merged;
+        }
+
+        // Sort by dateAdded descending
+        results.sort((a, b) => {
+          const dateA = a.dateAdded ? new Date(a.dateAdded.split('/').reverse().join('-')).getTime() : 0;
+          const dateB = b.dateAdded ? new Date(b.dateAdded.split('/').reverse().join('-')).getTime() : 0;
+          return dateB - dateA;
+        });
+
+        setSponsoredClients(results);
+        setSponsoredCount(results.length);
+      } catch (error) {
+        console.error("Erreur lors de la récupération des filleuls:", error);
+      }
     };
     fetchSponsored();
 
@@ -120,6 +157,22 @@ const ClientFidelisation: React.FC<ClientFidelisationProps> = ({ client, userPro
       });
     } catch (error) {
       console.error("Erreur lors de la suppression du cadeau:", error);
+    }
+  };
+
+  const handleRemoveSponsorship = async (godchildId: string) => {
+    if (!window.confirm("Voulez-vous vraiment supprimer ce lien de parrainage ?")) return;
+    try {
+      const godchildRef = doc(db, 'clients', godchildId);
+      await updateDoc(godchildRef, {
+        "details.sponsorId": null,
+        "details.sponsorName": null,
+        "details.sponsorLink": null
+      });
+      setSponsoredClients(prev => prev.filter(c => c.id !== godchildId));
+      setSponsoredCount(prev => prev - 1);
+    } catch (error) {
+      console.error("Erreur lors de la suppression du parrainage:", error);
     }
   };
 
@@ -330,9 +383,76 @@ const ClientFidelisation: React.FC<ClientFidelisationProps> = ({ client, userPro
         )}
 
         {activeSubTab === 'Clients parrainés' && (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-100">
-            <Users size={48} className="mb-4 opacity-20" />
-            <p className="text-sm font-medium">Aucun client parrainé par ce client pour le moment.</p>
+          <div className="space-y-6">
+            {sponsoredClients.length > 0 ? (
+              <div className="bg-gray-50/50 rounded-[32px] p-8 border border-gray-100">
+                <div className="flex justify-between items-center mb-8">
+                  <h3 className="text-sm font-bold text-gray-900">Liste des contacts</h3>
+                  <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm">
+                    <Plus size={14} /> Ajouter un contact
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-12 px-8 mb-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  <div className="col-span-4">Nom & Prénom</div>
+                  <div className="col-span-2 text-center">Projets</div>
+                  <div className="col-span-2 text-center">Statut</div>
+                  <div className="col-span-2 text-center">Date d'ajout</div>
+                  <div className="col-span-2 text-right">Action</div>
+                </div>
+
+                <div className="space-y-3">
+                  {sponsoredClients.map((godchild) => (
+                    <div key={godchild.id} className="grid grid-cols-12 items-center bg-white p-5 px-8 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">
+                      <div className="col-span-4">
+                        <button 
+                          onClick={() => onClientClick?.(godchild)}
+                          className="text-[13px] font-bold text-gray-900 uppercase tracking-tight hover:text-indigo-600 transition-colors text-left"
+                        >
+                          {godchild.name}
+                        </button>
+                      </div>
+                      <div className="col-span-2 flex justify-center">
+                        <span className="px-3 py-1 bg-gray-50 text-gray-400 text-[10px] font-bold rounded-full">
+                          {godchild.projectCount || 0} projet{(godchild.projectCount || 0) > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <div className="col-span-2 flex justify-center">
+                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                          godchild.status === 'Prospect' ? 'bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-100' :
+                          godchild.status === 'Client' ? 'bg-cyan-50 text-cyan-700 border border-cyan-100' :
+                          'bg-indigo-50 text-indigo-700 border border-indigo-100'
+                        }`}>
+                          {godchild.status}
+                        </span>
+                      </div>
+                      <div className="col-span-2 text-center text-[13px] font-medium text-gray-500 italic">
+                        {godchild.dateAdded}
+                      </div>
+                      <div className="col-span-2 flex justify-end">
+                        <button 
+                          onClick={() => handleRemoveSponsorship(godchild.id)}
+                          className="p-2 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                          title="Supprimer le lien"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-[#FBFBFB] border border-gray-100 rounded-xl p-8 space-y-6 animate-in fade-in slide-in-from-top-2 duration-500">
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-gray-900">Liste des contacts</h4>
+                  <p className="text-xs text-gray-400 font-medium">Vous n’avez pas renseigné de contact</p>
+                </div>
+                <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm w-fit">
+                  <Plus size={14} /> Ajouter un contact
+                </button>
+              </div>
+            )}
           </div>
         )}
 

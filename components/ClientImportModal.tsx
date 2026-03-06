@@ -93,8 +93,8 @@ const ClientImportModal: React.FC<ClientImportModalProps> = ({ isOpen, onClose, 
                 <FileSpreadsheet size={20} />
             </div>
             <div>
-                <h2 className="text-lg font-bold text-gray-900">Importer des clients</h2>
-                {step === 'preview' && <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">{previewData.length} clients prêts</p>}
+                <h2 className="text-lg font-bold text-gray-900">Importer des clients / prospects</h2>
+                {step === 'preview' && <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">{previewData.length} fiches prêtes</p>}
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-400 transition-all">
@@ -208,7 +208,7 @@ const ClientImportModal: React.FC<ClientImportModalProps> = ({ isOpen, onClose, 
                         className="flex items-center gap-3 px-8 py-3 bg-gray-900 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-black transition-all active:scale-95 disabled:opacity-70"
                     >
                         {isImporting ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                        {isImporting ? 'Importation en cours...' : `Importer ${previewData.length} clients`}
+                        {isImporting ? 'Importation en cours...' : `Importer ${previewData.length} fiches`}
                     </button>
                 </div>
             </>

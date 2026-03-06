@@ -30,8 +30,22 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
     hasPhone: false,
     hasCar: false,
     hasLaptop: false,
-    agendaColor: '#A8A8A8'
+    agendaColor: '#A8A8A8',
+    avatar: null as string | null
   });
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData({ ...formData, avatar: reader.result as string });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const contractTypes = [
     'CDI',
@@ -81,9 +95,13 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
       const inviteEmail = formData.emailPro.toLowerCase().trim();
       const appUrl = 'https://app.xora.fr/';
       
-      const registrationLink = `${appUrl}?view=register&inviteId=${userProfile.companyId}&email=${encodeURIComponent(inviteEmail)}&firstName=${encodeURIComponent(formData.firstName)}&lastName=${encodeURIComponent(formData.lastName)}&role=${encodeURIComponent(formData.role)}&hasSubscription=${formData.hasSubscription}&address=${encodeURIComponent(formData.address)}`;
+      const { doc, collection, setDoc } = await import('@firebase/firestore');
+      const invitationRef = doc(collection(db, 'invitations'));
+      const invitationId = invitationRef.id;
+      
+      const registrationLink = `${appUrl}?view=register&inviteId=${userProfile.companyId}&email=${encodeURIComponent(inviteEmail)}&firstName=${encodeURIComponent(formData.firstName)}&lastName=${encodeURIComponent(formData.lastName)}&role=${encodeURIComponent(formData.role)}&hasSubscription=${formData.hasSubscription}&address=${encodeURIComponent(formData.address)}&avatar=${encodeURIComponent(formData.avatar || '')}`;
 
-      await addDoc(collection(db, 'invitations'), {
+      await setDoc(invitationRef, {
         to: inviteEmail,
         message: {
           subject: `🚀 Rejoignez l'équipe de ${userProfile.companyName || 'Xora'}`,
@@ -195,7 +213,8 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
           hasPhone: false,
           hasCar: false,
           hasLaptop: false,
-          agendaColor: '#A8A8A8'
+          agendaColor: '#A8A8A8',
+          avatar: null
         });
       }, 2500);
     } catch (error) {
@@ -311,6 +330,45 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
               </div>
 
               <div className="bg-white border border-gray-100 rounded-3xl p-6 space-y-6">
+                {/* Photo Upload Section */}
+                <div className="flex items-center gap-6 pb-6 border-b border-gray-50">
+                  <div className="space-y-2">
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Photo du collaborateur</label>
+                    <div className="flex items-center gap-4">
+                      <div className="w-20 h-20 rounded-full border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden bg-gray-50 shadow-inner group relative">
+                        {formData.avatar ? (
+                          <>
+                            <img src={formData.avatar} className="w-full h-full object-cover" alt="Preview" />
+                            <button 
+                              type="button"
+                              onClick={() => setFormData({ ...formData, avatar: null })}
+                              className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X size={20} className="text-white" />
+                            </button>
+                          </>
+                        ) : (
+                          <User size={32} className="text-gray-200" />
+                        )}
+                      </div>
+                      <input 
+                        type="file" 
+                        ref={fileInputRef}
+                        onChange={handlePhotoUpload}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
+                      >
+                        Sélectionner une photo
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
                     <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Civilité du membre</label>

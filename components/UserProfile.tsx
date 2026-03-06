@@ -77,7 +77,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
     isSubscriptionActive: userProfile?.isSubscriptionActive ?? true,
     hasLeft: userProfile?.hasLeft ?? false,
     departureDate: userProfile?.departureDate || '',
-    avatar: userProfile?.avatar || `https://i.pravatar.cc/150?u=${userProfile?.uid}`
+    avatar: userProfile?.avatar || null
   });
 
   const contractTypes = [
@@ -307,21 +307,41 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
   };
 
   const handleAvatarClick = () => {
-    if (isEditing) {
-      fileInputRef.current?.click();
-    }
+    fileInputRef.current?.click();
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 1024 * 1024) { alert("L'image est trop lourde (max 1Mo)."); return; }
+    
     setIsUploading(true);
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64String = reader.result as string;
-      handleUpdate('avatar', base64String);
-      setIsUploading(false);
+      
+      try {
+        // Update local state immediately for responsiveness
+        setFormData(prev => ({ ...prev, avatar: base64String }));
+        
+        // Immediate save to Firestore as requested
+        if (userProfile?.uid) {
+          const userRef = doc(db, 'users', userProfile.uid);
+          await updateDoc(userRef, { avatar: base64String });
+          
+          // Sync everywhere (clients, projects)
+          const fullName = `${formData.firstName} ${formData.lastName.toUpperCase()}`;
+          await syncProfileEverywhere(fullName, base64String);
+          
+          // Update parent state to keep everything in sync
+          setUserProfile({ ...userProfile, avatar: base64String });
+        }
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour de l'avatar:", error);
+        alert("Une erreur est survenue lors de la mise à jour de la photo.");
+      } finally {
+        setIsUploading(false);
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -352,14 +372,20 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
           </button>
           
           <div className="flex items-center gap-4">
-            <div onClick={handleAvatarClick} className="relative group cursor-pointer w-14 h-14 flex-shrink-0">
-              <img 
-                src={formData.avatar} 
-                className={`w-full h-full rounded-full object-cover border-2 border-white shadow-md transition-all ${isUploading ? 'opacity-50' : 'group-hover:brightness-75'}`} 
-                alt="" 
-              />
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                {isUploading ? <Loader2 className="text-white animate-spin" size={16} /> : <Camera className="text-white" size={16} />}
+            <div onClick={handleAvatarClick} className="relative group cursor-pointer w-20 h-20 flex-shrink-0">
+              {formData.avatar ? (
+                <img 
+                  src={formData.avatar} 
+                  className={`w-full h-full rounded-full object-cover border-2 border-white shadow-md transition-all ${isUploading ? 'opacity-50' : 'group-hover:brightness-75'}`} 
+                  alt="" 
+                />
+              ) : (
+                <div className={`w-full h-full rounded-full bg-gray-100 border-2 border-white shadow-md flex items-center justify-center transition-all ${isUploading ? 'opacity-50' : 'group-hover:brightness-75'}`}>
+                  {/* Empty circle as requested */}
+                </div>
+              )}
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-full">
+                {isUploading ? <Loader2 className="text-white animate-spin" size={24} /> : <Camera className="text-white" size={24} />}
               </div>
             </div>
             
