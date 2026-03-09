@@ -297,7 +297,8 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
   };
 
   const handleViewDocument = (document: any) => {
-    const isAdmin = userProfile?.role === 'Administrateur.rice';
+    // Accès total pour tous les collaborateurs
+    const isAdmin = true;
     
     if (document.isPublic || isAdmin) {
       console.log("Viewing document:", document);
@@ -1150,7 +1151,9 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
         
         const allRoles = [
           'Administrateur.rice',
-          'Concepteur.rice'
+          'Agenceur',
+          'Métreur',
+          'Poseur'
         ].sort();
 
         return (

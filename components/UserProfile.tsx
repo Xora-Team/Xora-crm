@@ -442,13 +442,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
         </div>
 
         <div className="flex items-center gap-3">
-          {readOnly && (
+          {/* Le message de restriction est supprimé pour permettre l'accès total */}
+          {false && (
             <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-100 rounded-xl text-[11px] font-bold text-amber-700">
               <AlertCircle size={14} />
               Pour toute modification, veuillez contacter votre gérant
             </div>
           )}
-          {!readOnly && (
+          {/* Suppression de la restriction de rôle pour l'édition du profil */}
+          {true && (
             <button 
               onClick={() => {
                 if (isEditing) {

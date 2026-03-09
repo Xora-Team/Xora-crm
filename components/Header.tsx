@@ -45,7 +45,8 @@ const Header: React.FC<HeaderProps> = ({ title, user, onProfileClick, onSettings
           <Bell size={20} />
           <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-gray-900 rounded-full border border-white"></span>
         </button>
-        {user?.role === 'Administrateur.rice' && (
+        {/* Suppression de la restriction de rôle pour l'accès aux paramètres */}
+        {true && (
           <button 
             onClick={onSettingsClick}
             className={`p-2.5 rounded-xl transition-all ${

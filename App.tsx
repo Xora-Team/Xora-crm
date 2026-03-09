@@ -59,7 +59,7 @@ function App() {
                 email: user.email,
                 companyId: 'temp_company',
                 avatar: null,
-                role: 'Concepteur.rice',
+                role: 'Agenceur',
                 lastName: '',
                 firstName: '',
                 isSubscriptionActive: true
@@ -353,7 +353,7 @@ function App() {
       case 'our_company':
         return <OurCompany userProfile={userProfile} />;
       case 'profile':
-        return <UserProfile userProfile={userProfile} setUserProfile={setUserProfile} onBack={() => setCurrentPage('dashboard')} readOnly={userProfile?.role !== 'Administrateur.rice'} />;
+        return <UserProfile userProfile={userProfile} setUserProfile={setUserProfile} onBack={() => setCurrentPage('dashboard')} readOnly={false} />;
       case 'kpi':
         return <KPIManagement userProfile={userProfile} />;
       default:
