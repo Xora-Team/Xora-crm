@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Search, 
   ArrowUpRight, 
@@ -30,6 +31,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAddClientClick, onNavigate }) => {
+  const navigate = useNavigate();
   const [isKPIOpen, setIsKPIOpen] = useState(true);
   const [kpis, setKpis] = useState<FinancialKPI[]>([]);
   const [allTasks, setAllTasks] = useState<Task[]>([]);

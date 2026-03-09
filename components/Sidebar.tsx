@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useLocation, Link } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   CheckSquare, 
@@ -37,16 +38,20 @@ const Sidebar: React.FC<SidebarProps> = ({
   setIsCollapsed,
   companyLogo
 }) => {
+  const location = useLocation();
   const [isAnnuaireOpen, setIsAnnuaireOpen] = useState(true);
   const LOGO_URL = "https://framerusercontent.com/images/BrlQcPpho2hjJ0qjdKGIdbfXY.png?width=1024&height=276";
 
-  const isActive = (pageName: string) => currentPage === pageName;
+  const isActive = (path: string) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
 
   const annuaireSubItems = [
-    { id: 'directory', label: 'Clients / Prospects', icon: UserCircle, page: 'directory' as Page },
-    { id: 'suppliers', label: 'Fournisseurs', icon: Truck, page: 'suppliers' as Page },
-    { id: 'artisans', label: 'Artisans', icon: Hammer, page: 'artisans' as Page },
-    { id: 'prescriber', label: 'Prescripteur', icon: Stamp, page: 'prescriber' as Page },
+    { id: 'directory', label: 'Clients / Prospects', icon: UserCircle, path: '/contacts', page: 'directory' as Page },
+    { id: 'suppliers', label: 'Fournisseurs', icon: Truck, path: '/suppliers', page: 'suppliers' as Page },
+    { id: 'artisans', label: 'Artisans', icon: Hammer, path: '/artisans', page: 'artisans' as Page },
+    { id: 'prescriber', label: 'Prescripteur', icon: Stamp, path: '/prescriber', page: 'prescriber' as Page },
   ];
 
   return (
@@ -55,11 +60,13 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Header Logo & Collapse Toggle */}
       <div className={`p-6 pb-10 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
         {!isCollapsed && (
-          <img 
-            src={companyLogo || LOGO_URL} 
-            className={`h-8 w-auto animate-in fade-in duration-500 ${companyLogo ? 'object-contain' : ''}`} 
-            alt="Logo" 
-          />
+          <Link to="/">
+            <img 
+              src={companyLogo || LOGO_URL} 
+              className={`h-8 w-auto animate-in fade-in duration-500 ${companyLogo ? 'object-contain' : ''}`} 
+              alt="Logo" 
+            />
+          </Link>
         )}
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -76,41 +83,41 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="space-y-1.5">
           {!isCollapsed && <p className="px-3 text-[10px] font-black text-gray-300 uppercase tracking-widest mb-3 animate-in fade-in">Principal</p>}
           
-          <button
-            onClick={() => setCurrentPage('dashboard')}
+          <Link
+            to="/"
             className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'px-4'} py-3.5 rounded-2xl transition-all duration-200 group relative ${
-              isActive('dashboard') 
+              isActive('/') 
                 ? 'bg-gray-900 text-white shadow-lg shadow-gray-200' 
                 : 'hover:bg-gray-50 text-gray-500 hover:text-gray-900'
             }`}
           >
-            <LayoutDashboard size={22} className={`${isCollapsed ? 'm-0' : 'mr-4'} ${isActive('dashboard') ? 'text-white' : 'text-gray-400 group-hover:text-gray-900'}`} />
+            <LayoutDashboard size={22} className={`${isCollapsed ? 'm-0' : 'mr-4'} ${isActive('/') ? 'text-white' : 'text-gray-400 group-hover:text-gray-900'}`} />
             {!isCollapsed && <span className="text-[15px] font-bold whitespace-nowrap">Tableau de bord</span>}
-          </button>
+          </Link>
 
-          <button
-            onClick={() => setCurrentPage('tasks')}
+          <Link
+            to="/tasks"
             className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'px-4'} py-3.5 rounded-2xl transition-all duration-200 group relative ${
-              isActive('tasks') 
+              isActive('/tasks') 
                 ? 'bg-gray-900 text-white shadow-lg shadow-gray-200' 
                 : 'hover:bg-gray-50 text-gray-500 hover:text-gray-900'
             }`}
           >
-            <CheckSquare size={22} className={`${isCollapsed ? 'm-0' : 'mr-4'} ${isActive('tasks') ? 'text-white' : 'text-gray-400 group-hover:text-gray-900'}`} />
+            <CheckSquare size={22} className={`${isCollapsed ? 'm-0' : 'mr-4'} ${isActive('/tasks') ? 'text-white' : 'text-gray-400 group-hover:text-gray-900'}`} />
             {!isCollapsed && <span className="text-[15px] font-bold whitespace-nowrap">Tâches & mémo</span>}
-          </button>
+          </Link>
 
           {/* Annuaire Group */}
           <div className="space-y-1">
             <button
               onClick={() => !isCollapsed && setIsAnnuaireOpen(!isAnnuaireOpen)}
               className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'px-4'} py-3.5 rounded-2xl transition-all duration-200 group relative ${
-                isActive('directory') || isActive('suppliers') || isActive('artisans') || isActive('prescriber')
+                isActive('/contacts') || isActive('/suppliers') || isActive('/artisans') || isActive('/prescriber')
                   ? 'text-gray-900 font-bold' 
                   : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
-              <Book size={22} className={`${isCollapsed ? 'm-0' : 'mr-4'} ${isActive('directory') ? 'text-gray-900' : 'text-gray-400'}`} />
+              <Book size={22} className={`${isCollapsed ? 'm-0' : 'mr-4'} ${isActive('/contacts') || isActive('/suppliers') || isActive('/artisans') || isActive('/prescriber') ? 'text-gray-900' : 'text-gray-400'}`} />
               {!isCollapsed && (
                 <>
                   <span className="text-[15px] font-bold whitespace-nowrap flex-1 text-left">Annuaire</span>
@@ -122,18 +129,18 @@ const Sidebar: React.FC<SidebarProps> = ({
             {!isCollapsed && isAnnuaireOpen && (
               <div className="pl-6 space-y-1 animate-in slide-in-from-top-2 duration-300">
                 {annuaireSubItems.map((sub) => (
-                  <button
+                  <Link
                     key={sub.id}
-                    onClick={() => setCurrentPage(sub.page)}
+                    to={sub.path}
                     className={`w-full flex items-center px-4 py-2.5 rounded-xl transition-all duration-200 group ${
-                      isActive(sub.page) 
+                      isActive(sub.path) 
                         ? 'bg-gray-100 text-gray-900' 
                         : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
                     }`}
                   >
-                    <sub.icon size={18} className={`mr-3 ${isActive(sub.page) ? 'text-gray-900' : 'text-gray-300 group-hover:text-gray-400'}`} />
+                    <sub.icon size={18} className={`mr-3 ${isActive(sub.path) ? 'text-gray-900' : 'text-gray-300 group-hover:text-gray-400'}`} />
                     <span className="text-[13px] font-bold">{sub.label}</span>
-                  </button>
+                  </Link>
                 ))}
               </div>
             )}
@@ -144,27 +151,27 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="space-y-1.5">
           {!isCollapsed && <p className="px-3 text-[10px] font-black text-gray-300 uppercase tracking-widest mb-3 animate-in fade-in">Gestion</p>}
           {[
-            { id: 'projects', label: 'Suivi projets', icon: Briefcase, page: 'projects' as Page },
-            { id: 'articles', label: 'Articles', icon: Box, page: 'articles' as Page },
-            { id: 'agenda', label: 'Agenda', icon: Calendar, page: 'agenda' as Page },
-            { id: 'kpi', label: 'KPI', icon: BarChart2, page: 'kpi' as Page },
-            { id: 'our_company', label: 'Notre entreprise', icon: Building2, page: 'our_company' as Page },
+            { id: 'projects', label: 'Suivi projets', icon: Briefcase, path: '/projects' },
+            { id: 'articles', label: 'Articles', icon: Box, path: '/articles' },
+            { id: 'agenda', label: 'Agenda', icon: Calendar, path: '/agenda' },
+            { id: 'kpi', label: 'KPI', icon: BarChart2, path: '/kpi' },
+            { id: 'our_company', label: 'Notre entreprise', icon: Building2, path: '/our_company' },
           ].map((item) => (
-            <button
+            <Link
               key={item.id}
-              onClick={() => setCurrentPage(item.page)}
+              to={item.path}
               className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'px-4'} py-3.5 rounded-2xl transition-all duration-200 group relative ${
-                isActive(item.page)
+                isActive(item.path)
                   ? 'bg-gray-900 text-white shadow-lg shadow-gray-200'
                   : 'hover:bg-gray-50 text-gray-500 hover:text-gray-900'
               }`}
             >
               <item.icon 
                 size={22} 
-                className={`${isCollapsed ? 'm-0' : 'mr-4'} ${isActive(item.page) ? 'text-white' : 'text-gray-400 group-hover:text-gray-900'}`} 
+                className={`${isCollapsed ? 'm-0' : 'mr-4'} ${isActive(item.path) ? 'text-white' : 'text-gray-400 group-hover:text-gray-900'}`} 
               />
               {!isCollapsed && <span className="text-[15px] font-bold whitespace-nowrap">{item.label}</span>}
-            </button>
+            </Link>
           ))}
         </div>
       </div>

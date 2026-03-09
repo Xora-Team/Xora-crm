@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
   Plus, 
@@ -135,6 +136,7 @@ const Directory: React.FC<DirectoryProps> = ({
   onClientClick,
   mode = 'contacts'
 }) => {
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [activeTab, setActiveTab] = useState(initialTab);
   const [clients, setClients] = useState<Client[]>([]);

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -18,18 +19,89 @@ import KPIManagement from './components/KPIManagement';
 import LoginPage from './components/LoginPage';
 import AddTaskModal from './components/AddTaskModal';
 import { Page, Client } from './types';
-import { Construction, AlertCircle } from 'lucide-react';
+import { Construction, AlertCircle, Loader2 } from 'lucide-react';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 // Use @firebase/firestore to fix named export resolution issues
 import { doc, setDoc, onSnapshot, collection, query, where, getDocs, updateDoc } from '@firebase/firestore';
 
+// Wrapper component to handle ClientDetails with URL params
+const ClientDetailsWrapper = ({ userProfile, onProjectSelect }: { userProfile: any, onProjectSelect: (project: any) => void }) => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [client, setClient] = useState<Client | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+    const unsub = onSnapshot(doc(db, 'clients', id), (docSnap) => {
+      if (docSnap.exists()) {
+        setClient({ id: docSnap.id, ...docSnap.data() } as Client);
+      }
+      setLoading(false);
+    });
+    return () => unsub();
+  }, [id]);
+
+  if (loading) return (
+    <div className="h-full w-full flex items-center justify-center bg-white">
+      <div className="w-8 h-8 border-4 border-gray-100 border-t-gray-900 rounded-full animate-spin"></div>
+    </div>
+  );
+
+  if (!client) return (
+    <div className="p-8 text-center text-gray-500">Client non trouvé</div>
+  );
+
+  return (
+    <ClientDetails 
+      client={client} 
+      userProfile={userProfile} 
+      onBack={() => navigate(-1)}
+      onProjectSelect={onProjectSelect}
+      onClientClick={(c) => navigate(`/contact/${c.id}`)}
+    />
+  );
+};
+
+const ProjectDetailsWrapper: React.FC<{ userProfile: any }> = ({ userProfile }) => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [project, setProject] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+    const unsub = onSnapshot(doc(db, 'projects', id), (docSnap) => {
+      if (docSnap.exists()) {
+        setProject({ id: docSnap.id, ...docSnap.data() });
+      } else {
+        setProject(null);
+      }
+      setLoading(false);
+    });
+    return () => unsub();
+  }, [id]);
+
+  if (loading) return <div className="flex items-center justify-center h-full"><Loader2 className="animate-spin" /></div>;
+  if (!project) return <div className="p-8 text-center">Projet non trouvé.</div>;
+
+  return (
+    <ProjectDetails 
+      project={project} 
+      userProfile={userProfile} 
+      onBack={() => navigate(-1)} 
+    />
+  );
+};
+
 function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [directoryActiveTab, setDirectoryActiveTab] = useState('Tous');
   const [initialFilter, setInitialFilter] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -37,10 +109,30 @@ function App() {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isLeadAutoTaskActive, setIsLeadAutoTaskActive] = useState(false); 
   const [taskModalForClient, setTaskModalForClient] = useState<{id: string, name: string} | null>(null);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+
+  // Determine current page from location
+  const getCurrentPage = (): Page => {
+    const path = location.pathname;
+    if (path === '/') return 'dashboard';
+    if (path === '/contacts') return 'directory';
+    if (path === '/suppliers') return 'suppliers';
+    if (path === '/artisans') return 'artisans';
+    if (path === '/prescriber') return 'prescriber';
+    if (path === '/agenda') return 'agenda';
+    if (path === '/articles') return 'articles';
+    if (path === '/tasks') return 'tasks';
+    if (path === '/projects') return 'projects';
+    if (path === '/company') return 'company';
+    if (path === '/our_company') return 'our_company';
+    if (path === '/profile') return 'profile';
+    if (path === '/kpi') return 'kpi';
+    if (path.startsWith('/contact/')) return 'directory';
+    return 'dashboard';
+  };
+
+  const currentPage = getCurrentPage();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -96,7 +188,6 @@ function App() {
     const cleanupSpontane = async () => {
       if (!isAuthenticated || !userProfile?.companyId) return;
       
-      // Check if cleanup was already done in this session to avoid redundant calls
       const cleanupDone = sessionStorage.getItem('xora_cleanup_spontane_done');
       if (cleanupDone) return;
 
@@ -112,13 +203,11 @@ function App() {
           let needsUpdate = false;
           const updateData: any = {};
 
-          // Check main origin field
           if (data.origin && (data.origin.toLowerCase() === 'spontanné' || data.origin === 'SPONTANNÉ')) {
             updateData.origin = 'Spontané';
             needsUpdate = true;
           }
 
-          // Check details.origin field
           if (data.details?.origin && (data.details.origin.toLowerCase() === 'spontanné' || data.details.origin === 'SPONTANNÉ')) {
             if (!updateData.details) updateData.details = { ...data.details };
             updateData.details.origin = 'Spontané';
@@ -132,7 +221,6 @@ function App() {
 
         if (updates.length > 0) {
           await Promise.all(updates);
-          console.log(`${updates.length} fiches clients mises à jour (orthographe Spontané).`);
         }
         
         sessionStorage.setItem('xora_cleanup_spontane_done', 'true');
@@ -174,9 +262,23 @@ function App() {
   };
 
   const handlePageChange = (page: Page, options?: { tab?: string; filter?: string }) => {
-    setCurrentPage(page);
-    setSelectedClient(null);
-    setSelectedProject(null);
+    let path = '/';
+    switch (page) {
+      case 'dashboard': path = '/'; break;
+      case 'directory': path = '/contacts'; break;
+      case 'suppliers': path = '/suppliers'; break;
+      case 'artisans': path = '/artisans'; break;
+      case 'prescriber': path = '/prescriber'; break;
+      case 'agenda': path = '/agenda'; break;
+      case 'articles': path = '/articles'; break;
+      case 'tasks': path = '/tasks'; break;
+      case 'projects': path = '/projects'; break;
+      case 'company': path = '/company'; break;
+      case 'our_company': path = '/our_company'; break;
+      case 'profile': path = '/profile'; break;
+      case 'kpi': path = '/kpi'; break;
+    }
+
     if (page === 'directory' && options?.tab) {
       setDirectoryActiveTab(options.tab);
     } else {
@@ -188,18 +290,16 @@ function App() {
     } else {
       setInitialFilter(null);
     }
+
+    navigate(path);
   };
 
   const handleProjectSelect = (project: any) => {
-    setSelectedProject(project);
-    // On ne retire pas selectedClient pour pouvoir y revenir au bouton retour
-    setCurrentPage('projects');
+    navigate(`/project/${project.id}`);
   };
 
   const handleClientCreated = (clientId: string, clientName: string) => {
     setIsModalOpen(false);
-    
-    // On ne déclenche la tâche auto que pour les contacts (leads), pas les fournisseurs
     if (modalMode === 'contacts') {
       setTimeout(() => {
         setTaskModalForClient({ id: clientId, name: clientName });
@@ -214,8 +314,7 @@ function App() {
       setAuthError(null);
       setIsAuthenticated(false);
       setUserProfile(null);
-      setCurrentPage('dashboard');
-      
+      navigate('/');
       await signOut(auth);
     } catch (error) {
       console.error("Erreur lors de la déconnexion:", error);
@@ -259,118 +358,6 @@ function App() {
     return <LoginPage onLogin={() => {}} />;
   }
 
-  const renderContent = () => {
-    // PRIORITÉ 1 : Fiche Projet (permet l'ouverture depuis n'importe où)
-    if (selectedProject) {
-      return (
-        <ProjectDetails 
-          project={selectedProject} 
-          userProfile={userProfile} 
-          onBack={() => setSelectedProject(null)} 
-        />
-      );
-    }
-
-    // PRIORITÉ 2 : Fiche Client
-    if (selectedClient) {
-      return (
-        <ClientDetails 
-          client={selectedClient} 
-          userProfile={userProfile} 
-          onBack={() => setSelectedClient(null)}
-          onProjectSelect={handleProjectSelect}
-          onClientClick={(client) => setSelectedClient(client)}
-        />
-      );
-    }
-
-    // PRIORITÉ 3 : Pages de navigation
-    switch (currentPage) {
-      case 'dashboard': 
-        return (
-          <Dashboard 
-            userProfile={userProfile} 
-            onClientClick={(client) => {
-              setSelectedClient(client);
-            }}
-            onAddClientClick={() => { setModalMode('contacts'); setIsModalOpen(true); }}
-            onNavigate={(page, options) => handlePageChange(page, options)}
-          />
-        );
-      case 'directory':
-        return (
-          <Directory 
-            userProfile={userProfile}
-            initialTab={directoryActiveTab}
-            onAddClick={() => { setModalMode('contacts'); setIsModalOpen(true); }} 
-            onClientClick={(client) => setSelectedClient(client)}
-            mode="contacts"
-          />
-        );
-      case 'suppliers':
-        return (
-          <Directory 
-            userProfile={userProfile}
-            initialTab="Tous"
-            onAddClick={() => { setModalMode('suppliers'); setIsModalOpen(true); }} 
-            onClientClick={(client) => setSelectedClient(client)}
-            mode="suppliers"
-          />
-        );
-      case 'artisans':
-        return (
-          <Directory 
-            userProfile={userProfile}
-            initialTab="Tous"
-            onAddClick={() => { setModalMode('artisans'); setIsModalOpen(true); }} 
-            onClientClick={(client) => setSelectedClient(client)}
-            mode="artisans"
-          />
-        );
-      case 'prescriber':
-        return (
-          <Directory 
-            userProfile={userProfile}
-            initialTab="Tous"
-            onAddClick={() => { setModalMode('prescribers'); setIsModalOpen(true); }} 
-            onClientClick={(client) => setSelectedClient(client)}
-            mode="prescribers"
-          />
-        );
-      case 'agenda': return <Agenda userProfile={userProfile} />;
-      case 'articles': return <Articles userProfile={userProfile} />;
-      case 'tasks': return <TasksMemo userProfile={userProfile} initialFilter={initialFilter} />;
-      case 'projects': 
-        return (
-          <ProjectTracking 
-            userProfile={userProfile}
-            onProjectClick={(project) => setSelectedProject(project)} 
-            initialFilter={initialFilter}
-          />
-        );
-      case 'company':
-        return <CompanyManagement userProfile={userProfile} />;
-      case 'our_company':
-        return <OurCompany userProfile={userProfile} />;
-      case 'profile':
-        return <UserProfile userProfile={userProfile} setUserProfile={setUserProfile} onBack={() => setCurrentPage('dashboard')} readOnly={false} />;
-      case 'kpi':
-        return <KPIManagement userProfile={userProfile} />;
-      default:
-        return (
-          <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] bg-gray-50 text-gray-400 p-8 text-center">
-            <div className="bg-white p-12 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center max-w-md">
-              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6 text-gray-300">
-                <Construction size={40} className="text-gray-300" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">Espace en développement</h3>
-              <p className="text-sm leading-relaxed">Cette section est en cours de finalisation.</p>
-            </div>
-          </div>
-        );
-    }
-  };
-
   return (
     <div className="flex h-screen bg-gray-50 font-sans">
       <Sidebar 
@@ -383,16 +370,83 @@ function App() {
       />
       
       <div className="flex-1 flex flex-col h-screen overflow-hidden transition-all duration-300">
-        {(!selectedClient && !selectedProject && currentPage !== 'profile' && currentPage !== 'kpi') && (
+        {(!location.pathname.startsWith('/project/') && currentPage !== 'profile' && currentPage !== 'kpi' && !location.pathname.startsWith('/contact/')) && (
           <Header 
             title={getHeaderTitle(currentPage)} 
             user={userProfile} 
-            onProfileClick={() => setCurrentPage('profile')} 
-            onSettingsClick={() => setCurrentPage('company')}
+            onProfileClick={() => navigate('/profile')} 
+            onSettingsClick={() => navigate('/company')}
           />
         )}
         <main className="flex-1 overflow-auto bg-gray-50">
-          {renderContent()}
+          <Routes>
+            <Route path="/" element={
+              <Dashboard 
+                userProfile={userProfile} 
+                onClientClick={(client) => navigate(`/contact/${client.id}`)}
+                onAddClientClick={() => { setModalMode('contacts'); setIsModalOpen(true); }}
+                onNavigate={(page, options) => handlePageChange(page, options)}
+              />
+            } />
+            <Route path="/contacts" element={
+              <Directory 
+                userProfile={userProfile}
+                initialTab={directoryActiveTab}
+                onAddClick={() => { setModalMode('contacts'); setIsModalOpen(true); }} 
+                onClientClick={(client) => navigate(`/contact/${client.id}`)}
+                mode="contacts"
+              />
+            } />
+            <Route path="/contact/:id" element={
+              <ClientDetailsWrapper 
+                userProfile={userProfile} 
+                onProjectSelect={handleProjectSelect}
+              />
+            } />
+            <Route path="/suppliers" element={
+              <Directory 
+                userProfile={userProfile}
+                initialTab="Tous"
+                onAddClick={() => { setModalMode('suppliers'); setIsModalOpen(true); }} 
+                onClientClick={(client) => navigate(`/contact/${client.id}`)}
+                mode="suppliers"
+              />
+            } />
+            <Route path="/artisans" element={
+              <Directory 
+                userProfile={userProfile}
+                initialTab="Tous"
+                onAddClick={() => { setModalMode('artisans'); setIsModalOpen(true); }} 
+                onClientClick={(client) => navigate(`/contact/${client.id}`)}
+                mode="artisans"
+              />
+            } />
+            <Route path="/prescriber" element={
+              <Directory 
+                userProfile={userProfile}
+                initialTab="Tous"
+                onAddClick={() => { setModalMode('prescribers'); setIsModalOpen(true); }} 
+                onClientClick={(client) => navigate(`/contact/${client.id}`)}
+                mode="prescribers"
+              />
+            } />
+            <Route path="/agenda" element={<Agenda userProfile={userProfile} />} />
+            <Route path="/articles" element={<Articles userProfile={userProfile} />} />
+            <Route path="/tasks" element={<TasksMemo userProfile={userProfile} initialFilter={initialFilter} />} />
+            <Route path="/projects" element={
+              <ProjectTracking 
+                userProfile={userProfile}
+                onProjectClick={(project) => navigate(`/project/${project.id}`)} 
+                initialFilter={initialFilter}
+              />
+            } />
+            <Route path="/project/:id" element={<ProjectDetailsWrapper userProfile={userProfile} />} />
+            <Route path="/company" element={<CompanyManagement userProfile={userProfile} />} />
+            <Route path="/our_company" element={<OurCompany userProfile={userProfile} />} />
+            <Route path="/profile" element={<UserProfile userProfile={userProfile} setUserProfile={setUserProfile} onBack={() => navigate(-1)} readOnly={false} />} />
+            <Route path="/kpi" element={<KPIManagement userProfile={userProfile} />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </main>
       </div>
 

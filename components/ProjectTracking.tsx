@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Search, 
   ChevronDown, 
@@ -92,6 +93,7 @@ const FilterDropdown = ({ label, value, options, onSelect, isOpen, onToggle }: a
 };
 
 const ProjectTracking: React.FC<ProjectTrackingProps> = ({ userProfile, onProjectClick, initialFilter }) => {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');

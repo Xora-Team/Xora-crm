@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, ChevronDown, Plus, Eye, MoreHorizontal, Home, PenSquare, Trash2, AlertTriangle, Check, X } from 'lucide-react';
 import AddProjectModal from './AddProjectModal';
 import AddTaskModal from './AddTaskModal';
@@ -14,6 +15,7 @@ interface ClientProjectsProps {
 }
 
 const ClientProjects: React.FC<ClientProjectsProps> = ({ client, userProfile, onProjectSelect }) => {
+  const navigate = useNavigate();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [lastCreatedProjectId, setLastCreatedProjectId] = useState('');
