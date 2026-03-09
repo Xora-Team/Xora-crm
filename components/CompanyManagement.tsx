@@ -1150,9 +1150,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
         
         const allRoles = [
           'Administrateur.rice',
-          'Agenceur',
-          'Métreur',
-          'Poseur'
+          'Concepteur.rice'
         ].sort();
 
         return (

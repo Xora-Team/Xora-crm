@@ -235,7 +235,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             <p className="text-gray-500 font-medium">
               {view === 'login' 
                 ? 'Accédez à votre tableau de bord.' 
-                : (invitationData ? `Vous avez été invité en tant que ${invitationData.role}.` : 'Initialisez votre société.')}
+                : (invitationData ? `Vous avez été invité en tant que ${invitationData.role}.` : 'Initialisez votre société (Compte Administrateur.rice).')}
             </p>
           </div>
           {error && (
