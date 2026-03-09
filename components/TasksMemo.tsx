@@ -38,6 +38,7 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [viewingNote, setViewingNote] = useState<string | null>(null);
   
   // Drag and Drop state
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
@@ -371,11 +372,14 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
                                 )}
                             </td>
                             <td className="px-6 py-4">
-                                <div className="flex items-start gap-2 max-w-[200px]">
+                                <div 
+                                  className={`flex items-start gap-2 max-w-[200px] ${((task as any).note) ? 'cursor-pointer hover:text-indigo-600 transition-colors' : ''}`}
+                                  onClick={() => (task as any).note && setViewingNote((task as any).note)}
+                                >
                                     {((task as any).note) ? (
                                       <>
-                                        <FileText size={14} className="text-gray-300 mt-0.5 shrink-0" />
-                                        <span className="text-[12px] text-gray-500 italic font-medium truncate" title={(task as any).note}>
+                                        <FileText size={14} className="text-gray-300 mt-0.5 shrink-0 group-hover:text-indigo-400" />
+                                        <span className="text-[12px] text-gray-500 italic font-medium truncate" title="Cliquez pour voir la note complète">
                                             {(task as any).note}
                                         </span>
                                       </>
@@ -460,6 +464,40 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
                 >
                   {isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
                   Supprimer définitivement
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale d'affichage de la note */}
+      {viewingNote && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300 border border-gray-100">
+            <div className="p-8">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <FileText size={20} />
+                  </div>
+                  <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter">Note de la tâche</h3>
+                </div>
+                <button onClick={() => setViewingNote(null)} className="p-2 hover:bg-gray-100 rounded-full transition-all text-gray-400">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 min-h-[150px] max-h-[400px] overflow-y-auto">
+                <p className="text-[14px] text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  {viewingNote}
+                </p>
+              </div>
+              <div className="mt-8">
+                <button 
+                  onClick={() => setViewingNote(null)} 
+                  className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold text-[13px] hover:bg-black shadow-xl shadow-gray-100 transition-all active:scale-95"
+                >
+                  Fermer
                 </button>
               </div>
             </div>

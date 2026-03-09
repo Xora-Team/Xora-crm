@@ -1,8 +1,7 @@
 
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-// Use @firebase/firestore to fix named export resolution issues
-import { getFirestore, doc, writeBatch, collection, getDoc } from "@firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, writeBatch, collection, getDoc } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const getEnv = (key: string, fallback: string): string => {
@@ -26,7 +25,14 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Configuration optimisée pour la réactivité avec cache persistant
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+});
+
 export const storage = getStorage(app);
 
 export const seedDatabase = async (companyId: string, currentUser: any) => {
