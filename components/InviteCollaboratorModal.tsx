@@ -542,15 +542,19 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                     <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Rôle</label>
                     <div className="relative">
                       <select 
+                        disabled={formData.metier.includes("Chef.fe d'entreprise")}
                         value={formData.role}
                         onChange={(e) => setFormData({...formData, role: e.target.value})}
-                        className="w-full appearance-none px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
+                        className="w-full appearance-none px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner disabled:opacity-50 disabled:bg-gray-100"
                       >
                         <option value="Administrateur.rice">Administrateur.rice</option>
                         <option value="Concepteur.rice">Concepteur.rice</option>
                       </select>
                       <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
+                    {formData.metier.includes("Chef.fe d'entreprise") && (
+                      <p className="text-[10px] text-indigo-500 font-bold ml-1">Le rôle Administrateur.rice est requis pour ce métier.</p>
+                    )}
                   </div>
                 </div>
 

@@ -353,7 +353,7 @@ function App() {
       case 'our_company':
         return <OurCompany userProfile={userProfile} />;
       case 'profile':
-        return <UserProfile userProfile={userProfile} setUserProfile={setUserProfile} onBack={() => setCurrentPage('dashboard')} readOnly={userProfile?.role !== 'Administrateur' && userProfile?.role !== 'Gérant'} />;
+        return <UserProfile userProfile={userProfile} setUserProfile={setUserProfile} onBack={() => setCurrentPage('dashboard')} readOnly={userProfile?.role !== 'Administrateur.rice' && userProfile?.role !== 'Gérant'} />;
       case 'kpi':
         return <KPIManagement userProfile={userProfile} />;
       default:

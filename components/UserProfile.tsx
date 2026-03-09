@@ -747,16 +747,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                     <label className="text-[11px] font-medium text-gray-400 ml-1">Rôle</label>
                     <div className="relative">
                       <select 
-                        disabled={!isEditing}
+                        disabled={!isEditing || formData.metier.includes("Chef.fe d'entreprise")}
                         value={formData.role} 
                         onChange={(e) => handleUpdate('role', e.target.value)} 
-                        className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50"
+                        className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50 disabled:bg-gray-50"
                       >
                         <option value="Administrateur.rice">Administrateur.rice</option>
                         <option value="Concepteur.rice">Concepteur.rice</option>
                       </select>
                       <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
+                    {formData.metier.includes("Chef.fe d'entreprise") && isEditing && (
+                      <p className="text-[10px] text-indigo-500 font-medium ml-1">Le rôle Administrateur.rice est requis pour ce métier.</p>
+                    )}
                   </div>
 
                   {/* Toggles Row */}
