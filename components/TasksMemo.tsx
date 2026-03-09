@@ -25,9 +25,10 @@ import AddTaskModal from './AddTaskModal';
 
 interface TasksMemoProps {
   userProfile?: any;
+  initialFilter?: string | null;
 }
 
-const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile }) => {
+const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => {
   const [activeStatusTab, setActiveStatusTab] = useState<'en-cours' | 'termine'>('en-cours');
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -40,6 +41,15 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile }) => {
   
   // Drag and Drop state
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
+  const [filterLabel, setFilterLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialFilter === 'leads') {
+      setFilterLabel('leads');
+    } else {
+      setFilterLabel(null);
+    }
+  }, [initialFilter]);
 
   useEffect(() => {
     if (!userProfile?.companyId) return;
@@ -139,14 +149,34 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile }) => {
     termine: tasks.filter(t => t.status === 'completed').length
   };
 
+  const isTaskLate = (dateStr: string | undefined): boolean => {
+    if (!dateStr) return false;
+    try {
+      const [d, m, y] = dateStr.split('/').map(Number);
+      const dueDate = new Date(y, m - 1, d);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return dueDate < today;
+    } catch (e) {
+      return false;
+    }
+  };
+
   const getFilteredTasks = () => {
     return tasks.filter(task => {
       const matchesTab = activeStatusTab === 'en-cours' ? task.status !== 'completed' : task.status === 'completed';
+      
+      let matchesFilter = true;
+      if (filterLabel === 'leads') {
+        matchesFilter = ['À qualifier', 'À recontacter'].includes(task.statusLabel || '') ||
+                        (task.statusLabel === 'Projet long terme' && isTaskLate(task.date));
+      }
+
       const matchesSearch = 
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
         (task.subtitle?.toLowerCase().includes(searchQuery.toLowerCase())) ||
         ((task as any).note?.toLowerCase().includes(searchQuery.toLowerCase()));
-      return matchesTab && matchesSearch;
+      return matchesTab && matchesFilter && matchesSearch;
     });
   };
 
@@ -216,6 +246,15 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile }) => {
         </div>
 
         <div className="flex items-center space-x-3">
+            {filterLabel === 'leads' && (
+              <button 
+                onClick={() => setFilterLabel(null)}
+                className="flex items-center px-4 py-2.5 bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-sm font-bold hover:bg-purple-200 transition-all"
+              >
+                <X size={16} className="mr-2" />
+                Filtre : Leads
+              </button>
+            )}
             <button 
                 onClick={() => { setEditingTask(null); setIsAddTaskModalOpen(true); }}
                 className="flex items-center px-4 py-2.5 bg-gray-900 text-white border border-gray-900 rounded-xl text-sm font-bold hover:bg-black transition-all shadow-lg shadow-gray-200"

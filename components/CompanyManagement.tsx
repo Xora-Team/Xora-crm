@@ -339,7 +339,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
     return () => unsub();
   }, [userProfile?.companyId]);
 
-  // Charger les membres de l'équipe
+  // Charger les collaborateurs de l'équipe
   useEffect(() => {
     if (!userProfile?.companyId) return;
     const q = query(collection(db, 'users'), where('companyId', '==', userProfile.companyId));
@@ -1159,7 +1159,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
           <div className="p-10 bg-[#F8F9FA] min-h-full">
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-[15px] font-bold text-gray-900">Liste des membres de l'équipe de {companyInfo?.name || '...'} ({filteredTeam.length})</h3>
+                <h3 className="text-[15px] font-bold text-gray-900">Liste des collaborateurs de l'équipe de {companyInfo?.name || '...'} ({filteredTeam.length})</h3>
                 <button 
                   onClick={() => setIsInviteModalOpen(true)}
                   className="flex items-center gap-2 px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-[12px] font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"

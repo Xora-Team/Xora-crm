@@ -180,7 +180,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // États pour les membres de l'équipe (agenceurs)
+  // États pour les collaborateurs de l'équipe (agenceurs)
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
 
   // États pour le parrainage
@@ -298,7 +298,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
           const members = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
           setTeamMembers(members);
         } catch (e) {
-          console.error("Erreur lors de la récupération des membres de l'équipe :", e);
+          console.error("Erreur lors de la récupération des collaborateurs de l'équipe :", e);
         }
       };
       fetchTeam();
@@ -959,7 +959,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                             className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-10 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm"
                           >
                               <option value="">Sélectionner un collaborateur</option>
-                              {/* Afficher le référent actuel s'il n'est pas dans la liste des membres */}
+                              {/* Afficher le référent actuel s'il n'est pas dans la liste des collaborateurs */}
                               {formData.referent && !teamMembers.find(m => m.name === formData.referent) && (
                                 <option value={formData.referent}>
                                   {formData.referent}

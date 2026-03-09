@@ -31,6 +31,7 @@ function App() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [directoryActiveTab, setDirectoryActiveTab] = useState('Tous');
+  const [initialFilter, setInitialFilter] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'contacts' | 'suppliers' | 'artisans' | 'prescribers'>('contacts');
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -172,7 +173,7 @@ function App() {
     }
   };
 
-  const handlePageChange = (page: Page, options?: { tab?: string }) => {
+  const handlePageChange = (page: Page, options?: { tab?: string; filter?: string }) => {
     setCurrentPage(page);
     setSelectedClient(null);
     setSelectedProject(null);
@@ -180,6 +181,12 @@ function App() {
       setDirectoryActiveTab(options.tab);
     } else {
       setDirectoryActiveTab('Tous');
+    }
+    
+    if (options?.filter) {
+      setInitialFilter(options.filter);
+    } else {
+      setInitialFilter(null);
     }
   };
 
@@ -332,12 +339,13 @@ function App() {
         );
       case 'agenda': return <Agenda userProfile={userProfile} />;
       case 'articles': return <Articles userProfile={userProfile} />;
-      case 'tasks': return <TasksMemo userProfile={userProfile} />;
+      case 'tasks': return <TasksMemo userProfile={userProfile} initialFilter={initialFilter} />;
       case 'projects': 
         return (
           <ProjectTracking 
             userProfile={userProfile}
             onProjectClick={(project) => setSelectedProject(project)} 
+            initialFilter={initialFilter}
           />
         );
       case 'company':
@@ -345,7 +353,7 @@ function App() {
       case 'our_company':
         return <OurCompany userProfile={userProfile} />;
       case 'profile':
-        return <UserProfile userProfile={userProfile} setUserProfile={setUserProfile} onBack={() => setCurrentPage('dashboard')} readOnly={true} />;
+        return <UserProfile userProfile={userProfile} setUserProfile={setUserProfile} onBack={() => setCurrentPage('dashboard')} readOnly={userProfile?.role !== 'Administrateur' && userProfile?.role !== 'Gérant'} />;
       case 'kpi':
         return <KPIManagement userProfile={userProfile} />;
       default:

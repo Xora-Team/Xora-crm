@@ -42,6 +42,7 @@ interface Project {
 interface ProjectTrackingProps {
   userProfile: any;
   onProjectClick?: (project: Project) => void;
+  initialFilter?: string | null;
 }
 
 // Composant interne pour les dropdowns de filtrage
@@ -90,7 +91,7 @@ const FilterDropdown = ({ label, value, options, onSelect, isOpen, onToggle }: a
   );
 };
 
-const ProjectTracking: React.FC<ProjectTrackingProps> = ({ userProfile, onProjectClick }) => {
+const ProjectTracking: React.FC<ProjectTrackingProps> = ({ userProfile, onProjectClick, initialFilter }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -100,6 +101,14 @@ const ProjectTracking: React.FC<ProjectTrackingProps> = ({ userProfile, onProjec
   const [filterStatus, setFilterStatus] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialFilter === 'etudes') {
+      setFilterStatus('Étude client');
+    } else {
+      setFilterStatus('');
+    }
+  }, [initialFilter]);
 
   // Actions states
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);

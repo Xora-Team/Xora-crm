@@ -778,7 +778,7 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
                 className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-10 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm"
               >
                 <option value="">Sélectionner un collaborateur</option>
-                {/* Afficher le référent actuel s'il n'est pas dans la liste des membres */}
+                {/* Afficher le référent actuel s'il n'est pas dans la liste des collaborateurs */}
                 {client.details?.referent && !teamMembers.find(m => m.name === client.details?.referent) && (
                   <option value={client.details.referent}>
                     {client.details.referent}

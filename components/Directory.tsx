@@ -156,6 +156,16 @@ const Directory: React.FC<DirectoryProps> = ({
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   
+  const formatPhone = (phone: string) => {
+    if (!phone) return '-';
+    const cleaned = phone.replace(/\D/g, '');
+    const match = cleaned.match(/^(\d{0,2})(\d{0,2})(\d{0,2})(\d{0,2})(\d{0,2})$/);
+    if (match) {
+      return [match[1], match[2], match[3], match[4], match[5]].filter(Boolean).join(' ');
+    }
+    return phone;
+  };
+
   const toolbarRef = useRef<HTMLDivElement>(null);
 
   // Configuration dynamique basée sur le mode
@@ -627,7 +637,7 @@ const Directory: React.FC<DirectoryProps> = ({
                                     )}
                                     {mode === 'suppliers' && (
                                         <td className="px-8 py-5 text-[12px] font-bold text-gray-500 whitespace-nowrap">
-                                            {client.details?.phone || '-'}
+                                            {formatPhone(client.details?.phone)}
                                         </td>
                                     )}
                                     {mode !== 'suppliers' && <td className="px-8 py-5 text-[13px] font-black text-gray-400 italic">{client.dateAdded}</td>}

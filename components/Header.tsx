@@ -73,7 +73,7 @@ const Header: React.FC<HeaderProps> = ({ title, user, onProfileClick, onSettings
           )}
           <div className="mr-3">
             <div className="text-sm font-bold text-gray-900 leading-tight">{user?.name}</div>
-            <div className="text-[11px] text-gray-400 font-medium capitalize">{user?.role || 'Membre'}</div>
+            <div className="text-[11px] text-gray-400 font-medium capitalize">{user?.role || 'Collaborateur'}</div>
           </div>
           <ChevronDown size={14} className="text-gray-400" />
         </div>

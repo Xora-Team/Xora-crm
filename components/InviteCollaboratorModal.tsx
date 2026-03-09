@@ -72,11 +72,20 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
 
   const toggleJob = (job: string) => {
     const currentJobs = formData.metier;
+    let newJobs;
     if (currentJobs.includes(job)) {
-      setFormData({ ...formData, metier: currentJobs.filter(j => j !== job) });
+      newJobs = currentJobs.filter(j => j !== job);
     } else {
-      setFormData({ ...formData, metier: [...currentJobs, job] });
+      newJobs = [...currentJobs, job];
     }
+    
+    const updates: any = { metier: newJobs };
+    // Si Chef.fe d'entreprise est sélectionné, on force le rôle Administrateur.rice
+    if (newJobs.includes("Chef.fe d'entreprise")) {
+      updates.role = "Administrateur.rice";
+    }
+    
+    setFormData({ ...formData, ...updates });
   };
 
   if (!isOpen) return null;
@@ -371,7 +380,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Civilité du membre</label>
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Civilité du collaborateur</label>
                     <div className="relative">
                       <select 
                         value={formData.civility}
@@ -385,7 +394,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Nom du membre</label>
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Nom du collaborateur</label>
                     <input 
                       type="text" 
                       placeholder="COLOMB" 
@@ -395,7 +404,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Prénom du membre</label>
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Prénom du collaborateur</label>
                     <input 
                       type="text" 
                       placeholder="Jérémy" 
@@ -474,7 +483,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Adresse du membre</label>
+                  <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Adresse du collaborateur</label>
                   <input 
                     type="text" 
                     placeholder="12 rue des Mimosas, 11100 Narbonne" 
@@ -530,17 +539,15 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Droit</label>
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Rôle</label>
                     <div className="relative">
                       <select 
                         value={formData.role}
                         onChange={(e) => setFormData({...formData, role: e.target.value})}
                         className="w-full appearance-none px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
                       >
-                        <option>Agenceur</option>
-                        <option>Administrateur</option>
-                        <option>Métreur</option>
-                        <option>Poseur</option>
+                        <option value="Administrateur.rice">Administrateur.rice</option>
+                        <option value="Concepteur.rice">Concepteur.rice</option>
                       </select>
                       <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
@@ -628,7 +635,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                 ) : (
                   <CheckCircle2 size={20} />
                 )}
-                Ajouter le membre
+                Ajouter le collaborateur
               </button>
             </div>
           </form>

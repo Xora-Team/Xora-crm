@@ -42,6 +42,17 @@ interface UserProfileProps {
 const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, setUserProfile, onBack, readOnly }) => {
   const [activeTab, setActiveTab] = useState('Informations');
   const [isUploading, setIsUploading] = useState(false);
+
+  const formatPhone = (phone: string) => {
+    if (!phone) return '';
+    const cleaned = phone.replace(/\D/g, '');
+    const match = cleaned.match(/^(\d{0,2})(\d{0,2})(\d{0,2})(\d{0,2})(\d{0,2})$/);
+    if (match) {
+      return [match[1], match[2], match[3], match[4], match[5]].filter(Boolean).join(' ');
+    }
+    return phone;
+  };
+
   const [isSyncing, setIsSyncing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
@@ -227,7 +238,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
 
   const handleUpdate = (field: string, value: any) => {
     if (!isEditing) return;
-    setFormData(prev => ({ ...prev, [field]: value }));
+    let finalValue = value;
+    if (field === 'portable' || field === 'fixed') {
+      finalValue = formatPhone(value);
+    }
+    
+    setFormData(prev => {
+      const newData = { ...prev, [field]: finalValue };
+      // Si le métier est Chef.fe d'entreprise, on force le rôle Administrateur.rice
+      if (field === 'metier' && Array.isArray(finalValue) && finalValue.includes("Chef.fe d'entreprise")) {
+        newData.role = "Administrateur.rice";
+      }
+      return newData;
+    });
     setHasUnsavedChanges(true);
   };
 
@@ -372,21 +395,23 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
           </button>
           
           <div className="flex items-center gap-4">
-            <div onClick={handleAvatarClick} className="relative group cursor-pointer w-20 h-20 flex-shrink-0">
+            <div onClick={() => !readOnly && handleAvatarClick()} className={`relative group w-20 h-20 flex-shrink-0 ${!readOnly ? 'cursor-pointer' : ''}`}>
               {formData.avatar ? (
                 <img 
                   src={formData.avatar} 
-                  className={`w-full h-full rounded-full object-cover border-2 border-white shadow-md transition-all ${isUploading ? 'opacity-50' : 'group-hover:brightness-75'}`} 
+                  className={`w-full h-full rounded-full object-cover border-2 border-white shadow-md transition-all ${isUploading ? 'opacity-50' : (!readOnly ? 'group-hover:brightness-75' : '')}`} 
                   alt="" 
                 />
               ) : (
-                <div className={`w-full h-full rounded-full bg-gray-100 border-2 border-white shadow-md flex items-center justify-center transition-all ${isUploading ? 'opacity-50' : 'group-hover:brightness-75'}`}>
+                <div className={`w-full h-full rounded-full bg-gray-100 border-2 border-white shadow-md flex items-center justify-center transition-all ${isUploading ? 'opacity-50' : (!readOnly ? 'group-hover:brightness-75' : '')}`}>
                   {/* Empty circle as requested */}
                 </div>
               )}
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-full">
-                {isUploading ? <Loader2 className="text-white animate-spin" size={24} /> : <Camera className="text-white" size={24} />}
-              </div>
+              {!readOnly && (
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-full">
+                  {isUploading ? <Loader2 className="text-white animate-spin" size={24} /> : <Camera className="text-white" size={24} />}
+                </div>
+              )}
             </div>
             
             <div>
@@ -407,7 +432,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
           <div className="flex items-center gap-6 ml-4">
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl border border-gray-100">
               <Phone size={14} className="text-gray-400" />
-              <span className="text-xs font-bold text-gray-700">{formData.portable || '01 23 45 67 89'}</span>
+              <span className="text-xs font-bold text-gray-700">{formatPhone(formData.portable) || '01 23 45 67 89'}</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl border border-gray-100">
               <Mail size={14} className="text-gray-400" />
@@ -499,7 +524,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-8">
                   {/* Civilité */}
                   <div className="space-y-2">
-                    <label className="text-[11px] font-medium text-gray-400 ml-1">Civilité du membre</label>
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Civilité du collaborateur</label>
                     <div className="relative">
                       <select 
                         disabled={!isEditing}
@@ -516,7 +541,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
 
                   {/* Nom */}
                   <div className="space-y-2">
-                    <label className="text-[11px] font-medium text-gray-400 ml-1">Nom du membre</label>
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Nom du collaborateur</label>
                     <input 
                       type="text" 
                       readOnly={!isEditing}
@@ -528,7 +553,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
 
                   {/* Prénom */}
                   <div className="space-y-2">
-                    <label className="text-[11px] font-medium text-gray-400 ml-1">Prénom client</label>
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Prénom du collaborateur</label>
                     <input 
                       type="text" 
                       readOnly={!isEditing}
@@ -538,9 +563,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                     />
                   </div>
 
-                  {/* Email Client */}
+                  {/* Email du collaborateur */}
                   <div className="space-y-2">
-                    <label className="text-[11px] font-medium text-gray-400 ml-1">Email Client</label>
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Email du collaborateur</label>
                     <input 
                       type="email" 
                       readOnly={!isEditing}
@@ -561,7 +586,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                       <input 
                         type="text" 
                         readOnly={!isEditing}
-                        value={formData.portable} 
+                        value={formatPhone(formData.portable)} 
                         onChange={(e) => handleUpdate('portable', e.target.value)} 
                         placeholder="Entrer un numéro"
                         className="w-full bg-white border border-gray-100 rounded-xl pl-16 pr-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50" 
@@ -580,7 +605,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                       <input 
                         type="text" 
                         readOnly={!isEditing}
-                        value={formData.fixed} 
+                        value={formatPhone(formData.fixed)} 
                         onChange={(e) => handleUpdate('fixed', e.target.value)} 
                         placeholder="Entrer un numéro"
                         className="w-full bg-white border border-gray-100 rounded-xl pl-16 pr-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50" 
@@ -591,7 +616,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                   {/* Adresse */}
                   <div className="md:col-span-3 space-y-4">
                     <div className="flex justify-between items-center">
-                      <label className="text-[11px] font-medium text-gray-400 ml-1">Adresse du membre</label>
+                      <label className="text-[11px] font-medium text-gray-400 ml-1">Adresse du collaborateur</label>
                       {isEditingAddress && isEditing && (
                         <button 
                           onClick={() => setIsEditingAddress(false)} 
@@ -700,22 +725,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                     </div>
                   </div>
 
-                  {/* Rôle Select */}
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-medium text-gray-400 ml-1">Métier</label>
-                    <div className="relative">
-                      <select 
-                        disabled={!isEditing}
-                        value={formData.role} 
-                        onChange={(e) => handleUpdate('role', e.target.value)} 
-                        className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50"
-                      >
-                        {jobs.map(job => <option key={job} value={job}>{job}</option>)}
-                      </select>
-                      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                    </div>
-                  </div>
-
                   {/* Métier Select */}
                   <div className="space-y-2">
                     <label className="text-[11px] font-medium text-gray-400 ml-1">Métier</label>
@@ -728,6 +737,23 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                       >
                         <option value="">Sélectionner un métier</option>
                         {jobs.map(job => <option key={job} value={job}>{job}</option>)}
+                      </select>
+                      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Rôle Select */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Rôle</label>
+                    <div className="relative">
+                      <select 
+                        disabled={!isEditing}
+                        value={formData.role} 
+                        onChange={(e) => handleUpdate('role', e.target.value)} 
+                        className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50"
+                      >
+                        <option value="Administrateur.rice">Administrateur.rice</option>
+                        <option value="Concepteur.rice">Concepteur.rice</option>
                       </select>
                       <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>

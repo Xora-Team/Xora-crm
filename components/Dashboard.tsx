@@ -26,12 +26,13 @@ interface DashboardProps {
   userProfile?: any;
   onClientClick?: (client: Client) => void;
   onAddClientClick?: () => void;
-  onNavigate?: (page: Page, options?: { tab?: string }) => void;
+  onNavigate?: (page: Page, options?: { tab?: string; filter?: string }) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAddClientClick, onNavigate }) => {
   const [isKPIOpen, setIsKPIOpen] = useState(true);
   const [kpis, setKpis] = useState<FinancialKPI[]>([]);
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allClients, setAllClients] = useState<Client[]>([]);
   const [allProjects, setAllProjects] = useState<any[]>([]);
@@ -71,19 +72,20 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
       setAllProjects(s.docs.map(d => ({ id: d.id, ...d.data() })));
       setIsLoading(false);
     });
-    const unsubTasks = onSnapshot(query(
+    const unsubAllTasks = onSnapshot(query(
       collection(db, 'tasks'), 
       where('companyId', '==', userProfile.companyId),
-      where('collaborator.uid', '==', userProfile.uid),
-      limit(50)
+      where('collaborator.uid', '==', userProfile.uid)
     ), (s) => {
       const data = s.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
-      const sortedData = data.sort((a, b) => (a.orderIndex ?? 999) - (b.orderIndex ?? 999));
+      setAllTasks(data);
+      
+      const sortedData = [...data].sort((a, b) => (a.orderIndex ?? 999) - (b.orderIndex ?? 999));
       setTasks(sortedData.filter(t => t.status !== 'completed').slice(0, 10));
     });
     const unsubAppts = onSnapshot(query(collection(db, 'appointments'), where('companyId', '==', userProfile.companyId), where('collaborator.name', '==', userProfile.name)), (s) => setAppointments(s.docs.map(d => ({ id: d.id, ...d.data() })) as Appointment[]));
 
-    return () => { unsubKpis(); unsubClients(); unsubProjects(); unsubTasks(); unsubAppts(); };
+    return () => { unsubKpis(); unsubClients(); unsubProjects(); unsubAllTasks(); unsubAppts(); };
   }, [userProfile?.companyId, userProfile?.name, userProfile?.uid]);
 
   const onDragStart = (index: number) => setDraggedItemIndex(index);
@@ -121,13 +123,42 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
     setActiveMenuId(null);
   };
 
-  const statusCards = useMemo(() => [
-    { id: 'leads', label: 'Leads', count: allClients.filter(c => c.status === 'Leads').length, bgColor: 'bg-[#F3E8FF]', textColor: 'text-[#7E22CE]' },
-    { id: 'etudes', label: 'Etudes en cours', count: allProjects.filter(p => p.status?.includes('Étude')).length, bgColor: 'bg-[#FAE8FF]', textColor: 'text-[#A21CAF]' },
-    { id: 'commandes', label: 'Commandes clients', count: allProjects.filter(p => p.status?.toLowerCase().includes('command')).length, bgColor: 'bg-[#DBEAFE]', textColor: 'text-[#1D4ED8]' },
-    { id: 'dossiers', label: 'Dossiers tech & install', count: allProjects.filter(p => p.status?.toLowerCase().includes('tech')).length, bgColor: 'bg-[#CFFAFE]', textColor: 'text-[#0E7490]' },
-    { id: 'sav', label: 'SAV', count: allProjects.filter(p => p.status?.toLowerCase().includes('sav')).length, bgColor: 'bg-[#FFEDD5]', textColor: 'text-[#C2410C]' },
-  ], [allClients, allProjects]);
+  const isTaskLate = (dateStr: string | undefined): boolean => {
+    if (!dateStr) return false;
+    try {
+      const [d, m, y] = dateStr.split('/').map(Number);
+      const dueDate = new Date(y, m - 1, d);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return dueDate < today;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const statusCards = useMemo(() => {
+    const leadsCount = allTasks.filter(t => 
+      t.status !== 'completed' && (
+        ['À qualifier', 'À recontacter'].includes(t.statusLabel || '') ||
+        (t.statusLabel === 'Projet long terme' && isTaskLate(t.date))
+      )
+    ).length;
+
+    const etudesCount = allTasks.filter(t => 
+      t.status !== 'completed' && (
+        ['Etude à réaliser', 'Etude à modifier'].includes(t.statusLabel || '') ||
+        (t.statusLabel === 'Etude à relancer' && isTaskLate(t.date))
+      )
+    ).length;
+
+    return [
+      { id: 'leads', label: 'Leads', count: leadsCount, bgColor: 'bg-[#F3E8FF]', textColor: 'text-[#7E22CE]', active: true, targetPage: 'tasks' as Page, filter: 'leads' },
+      { id: 'etudes', label: 'Etudes en cours', count: etudesCount, bgColor: 'bg-[#FAE8FF]', textColor: 'text-[#A21CAF]', active: true, targetPage: 'projects' as Page, filter: 'etudes' },
+      { id: 'commandes', label: 'Commandes clients', count: 0, bgColor: 'bg-[#DBEAFE]', textColor: 'text-[#1D4ED8]', active: false },
+      { id: 'dossiers', label: 'Dossiers tech & install', count: 0, bgColor: 'bg-[#CFFAFE]', textColor: 'text-[#0E7490]', active: false },
+      { id: 'sav', label: 'SAV', count: 0, bgColor: 'bg-[#FFEDD5]', textColor: 'text-[#C2410C]', active: false },
+    ];
+  }, [allTasks]);
 
   const calculateDaysLate = (dateStr: string | undefined): string => {
     if (!dateStr) return '';
@@ -221,12 +252,18 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
         {/* Colonne Gauche - Tuiles Statut */}
         <div className="lg:col-span-3 flex flex-col gap-3">
              {statusCards.map((card) => (
-                <div key={card.id} className={`${card.bgColor} rounded-xl p-4 flex flex-col justify-between relative group hover:shadow-md transition-all min-h-[95px] border border-white/50 shadow-sm`}>
+                <div 
+                  key={card.id} 
+                  className={`${card.bgColor} rounded-xl p-4 flex flex-col justify-between relative group transition-all min-h-[95px] border border-white/50 shadow-sm ${card.active ? 'hover:shadow-md cursor-pointer' : ''}`}
+                  onClick={() => card.active && card.targetPage && onNavigate?.(card.targetPage, { filter: card.filter })}
+                >
                     <div className="flex justify-between items-start">
                          <span className={`font-bold text-[12px] uppercase tracking-wider ${card.textColor}`}>{card.label}</span>
-                         <div className="bg-white/80 p-1 rounded-lg cursor-pointer hover:bg-white transition-colors shadow-sm" onClick={() => onNavigate?.('projects')}>
-                           <ArrowUpRight size={14} className={card.textColor} />
-                        </div>
+                         {card.active && (
+                           <div className="bg-white/80 p-1 rounded-lg cursor-pointer hover:bg-white transition-colors shadow-sm">
+                             <ArrowUpRight size={14} className={card.textColor} />
+                           </div>
+                         )}
                     </div>
                     <span className={`text-2xl font-black ${card.textColor} mt-1`}>{card.count || 0}</span>
                 </div>

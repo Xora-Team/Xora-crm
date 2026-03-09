@@ -23,11 +23,22 @@ const OurCompany: React.FC<OurCompanyProps> = ({ userProfile }) => {
   const [activeTab, setActiveTab] = useState<'annuaire' | 'infos'>('annuaire');
   const [companyInfo, setCompanyInfo] = useState<any>(null);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
-  
+
+  const formatPhone = (phone: string) => {
+    if (!phone) return '-';
+    const cleaned = phone.replace(/\D/g, '');
+    const match = cleaned.match(/^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/);
+    if (match) {
+      return `${match[1]} ${match[2]} ${match[3]} ${match[4]} ${match[5]}`;
+    }
+    return phone;
+  };
+
   // Filters for directory
   const [teamSearch, setTeamSearch] = useState('');
   const [teamMetierFilter, setTeamMetierFilter] = useState('');
   const [selectedMember, setSelectedMember] = useState<any>(null);
+  const [isReadOnlyView, setIsReadOnlyView] = useState(false);
 
   useEffect(() => {
     if (!userProfile?.companyId) return;
@@ -83,6 +94,7 @@ const OurCompany: React.FC<OurCompanyProps> = ({ userProfile }) => {
           setSelectedMember(updated);
         }}
         onBack={() => setSelectedMember(null)}
+        readOnly={isReadOnlyView}
       />
     );
   }
@@ -145,50 +157,63 @@ const OurCompany: React.FC<OurCompanyProps> = ({ userProfile }) => {
 
             {/* Employee Cards List */}
             <div className="space-y-3">
-              {filteredTeam.map(member => (
-                <div 
-                  key={member.uid} 
-                  className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-6 shadow-sm hover:shadow-md transition-all group"
-                >
-                  <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-50 shadow-sm flex-shrink-0">
-                    <img src={member.avatar} className="w-full h-full object-cover" alt="" />
-                  </div>
-                  
-                  <div className="flex-1 grid grid-cols-1 md:grid-cols-5 items-center gap-4">
-                    <div>
-                      <h4 className="text-sm font-bold text-gray-900 uppercase tracking-tight">{member.name}</h4>
+              {filteredTeam.map(member => {
+                const isOwnProfile = member.uid === userProfile?.uid;
+                
+                return (
+                  <div 
+                    key={member.uid} 
+                    onClick={() => {
+                      if (isOwnProfile) {
+                        setSelectedMember(member);
+                        setIsReadOnlyView(true);
+                      }
+                    }}
+                    className={`bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-6 shadow-sm transition-all group ${isOwnProfile ? 'hover:shadow-md cursor-pointer' : ''}`}
+                  >
+                    <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-50 shadow-sm flex-shrink-0">
+                      <img src={member.avatar} className="w-full h-full object-cover" alt="" />
                     </div>
                     
-                    <div className="text-center md:text-left">
-                      <span className="text-xs font-bold text-gray-500 bg-gray-50 px-3 py-1 rounded-lg">
-                        {Array.isArray(member.metier) ? member.metier[0] : (member.metier || 'Agenceur')}
-                      </span>
-                    </div>
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-5 items-center gap-4">
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-900 uppercase tracking-tight">{member.name}</h4>
+                      </div>
+                      
+                      <div className="text-center md:text-left">
+                        <span className="text-xs font-bold text-gray-500 bg-gray-50 px-3 py-1 rounded-lg">
+                          {Array.isArray(member.metier) ? member.metier[0] : (member.metier || 'Agenceur')}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center gap-2 text-gray-500">
-                      <Mail size={14} className="text-gray-300" />
-                      <span className="text-xs font-medium truncate max-w-[180px]">{member.email || '-'}</span>
-                    </div>
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <Mail size={14} className="text-gray-300" />
+                        <span className="text-xs font-medium truncate max-w-[180px]">{member.email || '-'}</span>
+                      </div>
 
-                    <div className="flex items-center gap-2 text-gray-500">
-                      <Phone size={14} className="text-gray-300" />
-                      <span className="text-xs font-medium">{member.portable || member.phone || '-'}</span>
-                    </div>
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <Phone size={14} className="text-gray-300" />
+                        <span className="text-xs font-medium">{formatPhone(member.portable || member.phone)}</span>
+                      </div>
 
-                    <div className="flex justify-end">
-                      {userProfile?.role === 'Administrateur' && (
-                        <button 
-                          onClick={() => setSelectedMember(member)}
-                          className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all"
-                          title="Modifier le profil"
-                        >
-                          <PenSquare size={18} />
-                        </button>
-                      )}
+                      <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+                        {isOwnProfile && (
+                          <button 
+                            onClick={() => {
+                              setSelectedMember(member);
+                              setIsReadOnlyView(true);
+                            }}
+                            className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all"
+                            title="Voir mon profil"
+                          >
+                            <Eye size={18} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {filteredTeam.length === 0 && (
                 <div className="bg-white border border-dashed border-gray-200 rounded-3xl p-12 flex flex-col items-center justify-center text-center">
@@ -196,7 +221,7 @@ const OurCompany: React.FC<OurCompanyProps> = ({ userProfile }) => {
                     <Users size={32} />
                   </div>
                   <h3 className="text-lg font-bold text-gray-900">Aucun collaborateur trouvé</h3>
-                  <p className="text-sm text-gray-400 max-w-xs mx-auto mt-2">Ajustez vos filtres ou votre recherche pour trouver un membre de l'équipe.</p>
+                  <p className="text-sm text-gray-400 max-w-xs mx-auto mt-2">Ajustez vos filtres ou votre recherche pour trouver un collaborateur de l'équipe.</p>
                 </div>
               )}
             </div>
@@ -233,7 +258,7 @@ const OurCompany: React.FC<OurCompanyProps> = ({ userProfile }) => {
                       <ChevronDown size={14} className="text-gray-300" />
                     </div>
                     <div className="flex-1 bg-white border border-gray-100 rounded-r-xl py-3 px-4 text-sm font-medium text-gray-700 shadow-sm">
-                      {companyInfo?.phone || 'Non renseigné'}
+                      {formatPhone(companyInfo?.phone)}
                     </div>
                   </div>
                 </div>
