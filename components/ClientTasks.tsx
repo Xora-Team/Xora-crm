@@ -35,6 +35,12 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   
+  // Note editing state
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [noteEditingTask, setNoteEditingTask] = useState<Task | null>(null);
+  const [noteText, setNoteText] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  
   // Drag and Drop state
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
 
@@ -124,6 +130,30 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
     setEditingTask(task);
     setIsModalOpen(true);
     setActiveMenuId(null);
+  };
+
+  const handleOpenNote = (task: Task) => {
+    setNoteEditingTask(task);
+    setNoteText((task as any).note || '');
+    setIsNoteModalOpen(true);
+  };
+
+  const handleSaveNote = async () => {
+    if (!noteEditingTask) return;
+    setIsSavingNote(true);
+    try {
+      await updateDoc(doc(db, 'tasks', noteEditingTask.id), {
+        note: noteText,
+        hasNote: !!noteText
+      });
+      setIsNoteModalOpen(false);
+      setNoteEditingTask(null);
+    } catch (e) {
+      console.error("Erreur sauvegarde note:", e);
+      alert("Erreur lors de la sauvegarde de la note.");
+    } finally {
+      setIsSavingNote(false);
+    }
   };
 
   const updateTaskStatus = async (id: string, status: string) => {
@@ -285,11 +315,16 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
 
                     <td className="px-6 py-5 border-y border-gray-50 text-center">
                       <div className="flex justify-center">
-                        {task.hasNote ? (
-                          <div className="p-2 bg-gray-50 border border-gray-100 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-white transition-all cursor-pointer shadow-sm">
-                            <FileText size={14} />
-                          </div>
-                        ) : <span className="text-gray-100 font-bold">-</span>}
+                        <button 
+                          onClick={() => handleOpenNote(task)}
+                          className={`p-2 border rounded-lg transition-all shadow-sm ${
+                            task.hasNote 
+                              ? 'bg-purple-50 border-purple-100 text-purple-600 hover:bg-purple-100' 
+                              : 'bg-gray-50 border-gray-100 text-gray-400 hover:text-purple-600 hover:bg-white'
+                          }`}
+                        >
+                          <FileText size={14} />
+                        </button>
                       </div>
                     </td>
 
@@ -341,33 +376,21 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
                     </td>
 
                     <td className="px-6 py-5 last:rounded-r-2xl border-y border-r border-gray-50 text-right">
-                       <div className="relative inline-block">
+                       <div className="flex justify-end gap-2">
                           <button 
-                            onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === task.id ? null : task.id); }}
-                            className={`p-2 rounded-lg transition-all ${activeMenuId === task.id ? 'bg-gray-100 text-gray-900' : 'text-gray-300 hover:bg-gray-50 hover:text-gray-600'}`}
+                            onClick={(e) => { e.stopPropagation(); handleEditTask(task); }}
+                            className="p-2 bg-white border border-gray-100 rounded-lg text-gray-400 hover:text-indigo-600 hover:border-indigo-100 hover:bg-indigo-50 transition-all shadow-sm"
+                            title="Modifier"
                           >
-                            <MoreVertical size={18} />
+                            <PenSquare size={16} />
                           </button>
-
-                          {activeMenuId === task.id && (
-                            <>
-                              <div className="fixed inset-0 z-40" onClick={() => setActiveMenuId(null)}></div>
-                              <div className={`absolute right-0 ${index >= filteredTasks.length - 2 && filteredTasks.length > 2 ? 'bottom-full mb-2' : 'mt-2'} bg-white border border-gray-100 rounded-xl shadow-2xl z-50 py-2 w-48 animate-in fade-in zoom-in-95 duration-150 text-left`}>
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); handleEditTask(task); }}
-                                  className="w-full text-left px-4 py-2.5 text-[12px] font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                                  <PenSquare size={14} className="text-gray-400" /> Modifier
-                                </button>
-                                <div className="h-px bg-gray-50 my-1 mx-2" />
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); setTaskToDelete(task); }}
-                                  className="w-full text-left px-4 py-2.5 text-[12px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-2"
-                                >
-                                  <Trash2 size={14} /> Supprimer
-                                </button>
-                              </div>
-                            </>
-                          )}
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setTaskToDelete(task); }}
+                            className="p-2 bg-white border border-gray-100 rounded-lg text-gray-400 hover:text-red-600 hover:border-red-100 hover:bg-red-50 transition-all shadow-sm"
+                            title="Supprimer"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                        </div>
                     </td>
                   </tr>
@@ -421,6 +444,59 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
         initialClientId={clientId}
         taskToEdit={editingTask}
       />
+
+      {/* Modale d'édition de note */}
+      {isNoteModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300 border border-gray-100">
+            <div className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl border border-purple-100 shadow-sm">
+                    <FileText size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Note / Commentaire</h3>
+                    <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Tâche : {noteEditingTask?.title}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsNoteModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-all"
+                >
+                  <X size={20} className="text-gray-400" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <textarea
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  placeholder="Saisissez votre note ici..."
+                  className="w-full h-48 p-4 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-medium text-gray-800 focus:bg-white focus:border-purple-400 focus:ring-4 focus:ring-purple-50 outline-none transition-all resize-none"
+                />
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setIsNoteModalOpen(false)}
+                    className="flex-1 px-6 py-3.5 bg-gray-50 text-gray-600 rounded-xl font-bold text-[13px] hover:bg-gray-100 transition-all border border-gray-100"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleSaveNote}
+                    disabled={isSavingNote}
+                    className="flex-1 px-6 py-3.5 bg-[#1A1C23] text-white rounded-xl font-bold text-[13px] hover:bg-black shadow-lg shadow-gray-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    {isSavingNote ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+                    Enregistrer la note
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
