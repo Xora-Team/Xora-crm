@@ -112,7 +112,6 @@ function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
 
-  // Determine current page from location
   const getCurrentPage = (): Page => {
     const path = location.pathname;
     if (path === '/') return 'dashboard';

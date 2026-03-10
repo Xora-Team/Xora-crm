@@ -157,6 +157,7 @@ const Directory: React.FC<DirectoryProps> = ({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'createdAt', direction: 'desc' });
   
   const formatPhone = (phone: string) => {
     if (!phone) return '-';
@@ -272,7 +273,7 @@ const Directory: React.FC<DirectoryProps> = ({
   };
 
   const filteredClients = useMemo(() => {
-    return clients.filter(c => {
+    let result = clients.filter(c => {
       const statusValue = getEffectiveStatus(c);
       const activeStatusValue = activeTab === 'Lead' ? 'Leads' : activeTab;
       
@@ -286,7 +287,26 @@ const Directory: React.FC<DirectoryProps> = ({
       
       return matchesTab && matchesSearch && matchesAgenceur && matchesOrigine && matchesLocation && matchesProject;
     });
-  }, [clients, activeTab, searchQuery, filterAgenceur, filterOrigine, filterLocation, filterProject, mode]);
+
+    if (sortConfig) {
+      result.sort((a, b) => {
+        let valA: any = a[sortConfig.key as keyof Client];
+        let valB: any = b[sortConfig.key as keyof Client];
+
+        // Handle nested or special fields if needed
+        if (sortConfig.key === 'createdAt') {
+          valA = a.createdAt?.seconds || 0;
+          valB = b.createdAt?.seconds || 0;
+        }
+
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [clients, activeTab, searchQuery, filterAgenceur, filterOrigine, filterLocation, filterProject, mode, sortConfig]);
 
   const resetFilters = () => {
     setSearchQuery('');
@@ -301,17 +321,23 @@ const Directory: React.FC<DirectoryProps> = ({
     setIsImporting(true);
     try {
       const batchPromises = importedData.map(async (item) => {
+        const addedBy = item.collaborator ? {
+          name: item.collaborator.name,
+          avatar: item.collaborator.avatar,
+          uid: item.collaborator.id
+        } : {
+          name: userProfile.name,
+          avatar: userProfile.avatar,
+          uid: userProfile.uid
+        };
+
         await addDoc(collection(db, 'clients'), {
           name: `${item.firstName} ${item.lastName}`.trim(),
           status: item.status,
-          origin: item.subOrigin || 'Import CSV', // Mappe 'Sous origine' vers client.origin (2ème niveau)
-          category: item.origin || 'Autre', // Mappe 'Origine' vers client.category (1er niveau)
+          origin: item.subOrigin || 'Import CSV',
+          category: item.origin || 'Autre',
           location: item.address,
-          addedBy: {
-            name: userProfile.name,
-            avatar: userProfile.avatar,
-            uid: userProfile.uid
-          },
+          addedBy,
           dateAdded: new Date().toLocaleDateString('fr-FR'),
           companyId: userProfile.companyId,
           details: {
@@ -322,13 +348,11 @@ const Directory: React.FC<DirectoryProps> = ({
             phone: item.phone,
             fixed: item.fixed,
             address: item.address,
-            
-            category: item.origin, // Mappe 'Origine' vers details.category (1er niveau)
-            origin: item.subOrigin, // Copie aussi dans details pour consistance
-            subOrigin: item.source, // Mappe 'Source' vers details.subOrigin (3ème niveau)
-            year: item.year, // Ajout de l'année
-            
-            referent: item.referent
+            category: item.origin,
+            origin: item.subOrigin,
+            subOrigin: item.source,
+            year: item.year,
+            referent: addedBy.name
           },
           createdAt: serverTimestamp(),
           directoryType: mode
@@ -515,7 +539,22 @@ const Directory: React.FC<DirectoryProps> = ({
                                 <th className="px-8 py-5 text-center">{mode === 'suppliers' ? 'Sélection' : 'Statut'}</th>
                                 {mode === 'suppliers' && <th className="px-8 py-5">Email</th>}
                                 {mode === 'suppliers' && <th className="px-8 py-5">Tel</th>}
-                                {mode !== 'suppliers' && <th className="px-8 py-5">Ajouté le</th>}
+                                {mode !== 'suppliers' && (
+                                    <th 
+                                        className="px-8 py-5 cursor-pointer hover:text-gray-900 transition-colors group/sort"
+                                        onClick={() => {
+                                            const direction = sortConfig?.key === 'createdAt' && sortConfig.direction === 'desc' ? 'asc' : 'desc';
+                                            setSortConfig({ key: 'createdAt', direction });
+                                        }}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            Ajouté le
+                                            <div className={`flex flex-col transition-opacity ${sortConfig?.key === 'createdAt' ? 'opacity-100' : 'opacity-0 group-hover/sort:opacity-50'}`}>
+                                                <ChevronDown size={10} className={`-mb-1 transition-transform ${sortConfig?.key === 'createdAt' && sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
+                                            </div>
+                                        </div>
+                                    </th>
+                                )}
                                 <th className="px-8 py-5 text-right">Action</th>
                             </tr>
                         </thead>
@@ -725,6 +764,7 @@ const Directory: React.FC<DirectoryProps> = ({
         onClose={() => setIsImportModalOpen(false)}
         onImport={handleImportClients}
         isImporting={isImporting}
+        userProfile={userProfile}
       />
     </div>
   );

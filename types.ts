@@ -35,6 +35,7 @@ export interface Client {
   projectCount?: number;
   status: 'Prospect' | 'Client' | 'Leads';
   dateAdded: string;
+  createdAt?: any;
   companyId?: string;
   details?: {
     civility?: string;

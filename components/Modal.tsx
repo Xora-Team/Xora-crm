@@ -5,91 +5,9 @@ import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
 import { collection, addDoc, getDocs, query, where, doc, updateDoc } from '@firebase/firestore';
 import { Client } from '../types';
+import { HIERARCHY_DATA, SUPPLIER_HIERARCHY } from '../constants';
 
 // Structure de données mise à jour selon le fichier CSV
-const HIERARCHY_DATA: Record<string, Record<string, string[]>> = {
-  "Prospection": {
-    "terrain": ["voisin", "porte-à porte", "Tour de chantier"],
-    "téléphonique": ["Appel froid"]
-  },
-  "Parrainage": {
-    "Spontané": [],
-    "Bon de parrainage": []
-  },
-  "Prescripteur": {
-    "Architecte": [],
-    "Artisan": [],
-    "Courtier": [],
-    "Décorateur": [],
-    "Boutiques voisines": [],
-    "Fournisseur": []
-  },
-  "Anciens clients": {
-    "Général": []
-  },
-  "Notoriété entreprise": {
-    "Général": []
-  },
-  "Digital": {
-    "Réseaux sociaux": ["Facebook", "Instagram", "Linkedin", "Tik-tok", "YouTube", "Pinterest"],
-    "Pub digitales": ["Google Ads", "Facebook Ads", "Instagram Ads"],
-    "Web": ["Recherche Google", "Google maps", "Waze", "Avis Google", "Avis en lignes divers", "Pages jaunes", "Forum"],
-    "IA": ["ChatGPT", "Gemini", "Claude", "Mistral"],
-    "Site web entreprise": ["Formulaire contact", "Prise de rdv en ligne", "Chatbot"]
-  },
-  "Marketing": {
-    "Emailing": ["Newsletter", "Email promo"],
-    "SMS marketing": [],
-    "Affichage": ["4x3", "Abribus", "Panneau chantier", "Véhicule floqué"],
-    "Magazine": [],
-    "Journal gratuit": [],
-    "Publication pro": [],
-    "Radio": [],
-    "Pages jaunes": [],
-    "Evenementiel": ["Salon", "Foire", "Galerie commerciale"],
-    "Evènements showroom": ["Portes ouvertes", "Innauguration", "Anniversaire", "Démo culinaires", "Autres"]
-  },
-  "Réseaux pro": {
-    "BNI": [],
-    "Club entrepreneurs": ["Club 1", "Club 2", "Club 3", "Club 4"],
-    "Groupements métiers": []
-  },
-  "Passage devant showroom": {
-    "Spontané": [],
-    "Promo vitrine": [],
-    "PLV": []
-  },
-  "Cercle proche": {
-    "Famille": [],
-    "Amis": []
-  },
-  "Autres": {
-    "Autre": []
-  }
-};
-
-const SUPPLIER_HIERARCHY: Record<string, Record<string, string[]>> = {
-  "Achat marchandises": {
-    "Cuisine": ["Électroménager", "Évier", "Meuble de cuisine", "Plan de travail", "Accessoires cuisines", "Robinetterie cuisine"],
-    "Salle de bain": ["Meuble de salle de bain", "Paroi", "Baignoire", "Robinetterie", "Sanitaire"],
-    "Aménagement extérieur": ["Brasero", "Cuisine extérieure"],
-    "Revêtement": ["Carrelage", "Parquet", "Stratifié", "Revêtement sol souple", "Peinture", "Béton Ciré", "Accessoires Peintures", "Toiles tendus"],
-    "Menuiserie": ["Fenêtres", "Porte d'entrée", "Porte de garage", "Volets", "Pergolas - Carport", "Portail", "Clôtures", "Moustiquaire", "Store banne", "Store Intérieur", "Porte Intérieure", "Porte Placard", "Dressing / Placard", "Quincaillerie", "Miroiterie", "Garde Corps", "Motorisation"],
-    "Mobilier": ["Canapé", "Meuble salon", "Table et chaise", "Mobilier bureau", "Accessoires salon", "Literie", "Luminaire"],
-    "Transport": ["cuisine", "revêtement", "menuiserie"]
-  },
-  "Sous traitant": {
-    "Cuisine": [],
-    "Menuiserie": [],
-    "Salle de bain": []
-  },
-  "Frais généraux": {
-    "Général": ["Assurances", "Eau/edf", "Location matériel", "Location Véhicule", "Marketing", "Informatique", "Fournitures", "Entretien", "Téléphonie", "Loyer local"]
-  },
-  "Institutionnel": {
-    "Général": ["Avocat", "Banque", "Comptable", "Formation", "Impôt", "Juridique", "Mutuelle", "Social"]
-  }
-};
 
 const MultiSelect = ({ value, onChange, options, placeholder = "Sélectionner", disabled = false }: any) => {
   const [isOpen, setIsOpen] = useState(false);
