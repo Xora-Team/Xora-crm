@@ -590,24 +590,28 @@ const ProjectGeneralDiscovery: React.FC<ProjectGeneralDiscoveryProps> = ({ proje
             placeholder="Sélectionner une origine"
           />
         </Field>
-        <Field label="Sous-origine" colSpan="col-span-12 md:col-span-4">
-          <Select 
-            disabled={!currentCategory}
-            value={currentOrigin} 
-            options={origins} 
-            onChange={(v: string) => handleUpdate('origin', v)} 
-            placeholder="Sélectionner une sous-origine"
-          />
-        </Field>
-        <Field label="Sources" colSpan="col-span-12 md:col-span-4">
-          <Select 
-            disabled={!currentOrigin}
-            value={project.details?.subOrigin || ''} 
-            options={subOrigins} 
-            onChange={(v: string) => handleUpdate('details.subOrigin', v)} 
-            placeholder="Sélectionner une source"
-          />
-        </Field>
+        {origins.length > 0 && (
+          <Field label="Sous-origine" colSpan="col-span-12 md:col-span-4">
+            <Select 
+              disabled={!currentCategory}
+              value={currentOrigin} 
+              options={origins} 
+              onChange={(v: string) => handleUpdate('origin', v)} 
+              placeholder="Sélectionner une sous-origine"
+            />
+          </Field>
+        )}
+        {subOrigins.length > 0 && (
+          <Field label="Source" colSpan="col-span-12 md:col-span-4">
+            <Select 
+              disabled={!currentOrigin}
+              value={project.details?.subOrigin || ''} 
+              options={subOrigins} 
+              onChange={(v: string) => handleUpdate('details.subOrigin', v)} 
+              placeholder="Sélectionner une source"
+            />
+          </Field>
+        )}
       </Section>
 
       <Section title="Projet">

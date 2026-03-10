@@ -605,10 +605,10 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                       <label className="block text-[11px] font-bold text-gray-400 mb-2 uppercase tracking-wider">
-                        {isSupplier ? "Email fournisseur*" : "Email professionnel"}
+                        {isSupplier ? "Email fournisseur*" : "Adresse mail du contact*"}
                       </label>
                       <input 
-                        required={isSupplier}
+                        required
                         value={formData.email}
                         onChange={(e) => setFormData({...formData, email: e.target.value})}
                         type="email" 
@@ -641,12 +641,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="relative" ref={searchRef}>
                       <label className="block text-[11px] font-bold text-gray-400 mb-2 uppercase tracking-wider">
-                        {isSupplier ? "Adresse du fournisseur" : "Adresse du bien*"}
+                        {isSupplier ? "Adresse du fournisseur" : "Adresse du bien"}
                       </label>
                       <div className="relative group">
                         <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearching ? 'text-indigo-500' : 'text-gray-300 group-focus-within:text-gray-900'}`} size={18} />
                         <input 
-                          required={!isSupplier}
                           value={addressSearch}
                           onChange={(e) => {
                             setAddressSearch(e.target.value);
@@ -795,43 +794,48 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Sous-origine*</label>
-                            <div className="relative">
-                                <select 
-                                  disabled={!formData.category}
-                                  value={formData.origin}
-                                  onChange={(e) => {
-                                      const val = e.target.value;
-                                      setFormData({...formData, origin: val, subOrigin: ''});
-                                      if(val !== 'Parrainage' && formData.category !== 'Parrainage') {
-                                        setSelectedSponsor(null);
-                                        setFormData(prev => ({ ...prev, sponsorLink: '' }));
-                                      }
-                                  }}
-                                  className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm disabled:opacity-50 disabled:bg-gray-100"
-                                >
-                                    <option value="">Sélectionner</option>
-                                    {origins.map(orig => <option key={orig} value={orig}>{orig}</option>)}
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Sources</label>
-                            <div className="relative">
-                                <select 
-                                  disabled={!formData.origin}
-                                  value={formData.subOrigin}
-                                  onChange={(e) => setFormData({...formData, subOrigin: e.target.value})}
-                                  className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm disabled:opacity-50 disabled:bg-gray-100"
-                                >
-                                    <option value="">Sélectionner</option>
-                                    {subOrigins.map(so => <option key={so} value={so}>{so}</option>)}
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
-                            </div>
-                        </div>
+                        {origins.length > 0 && (
+                          <div className="space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Sous-origine*</label>
+                              <div className="relative">
+                                  <select 
+                                    disabled={!formData.category}
+                                    value={formData.origin}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setFormData({...formData, origin: val, subOrigin: ''});
+                                        if(val !== 'Parrainage' && formData.category !== 'Parrainage') {
+                                          setSelectedSponsor(null);
+                                          setFormData(prev => ({ ...prev, sponsorLink: '' }));
+                                        }
+                                    }}
+                                    className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm disabled:opacity-50 disabled:bg-gray-100"
+                                  >
+                                      <option value="">Sélectionner</option>
+                                      {origins.map(orig => <option key={orig} value={orig}>{orig}</option>)}
+                                  </select>
+                                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                              </div>
+                          </div>
+                        )}
+
+                        {subOrigins.length > 0 && (
+                          <div className="space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Source</label>
+                              <div className="relative">
+                                  <select 
+                                    disabled={!formData.origin}
+                                    value={formData.subOrigin}
+                                    onChange={(e) => setFormData({...formData, subOrigin: e.target.value})}
+                                    className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm disabled:opacity-50 disabled:bg-gray-100"
+                                  >
+                                      <option value="">Sélectionner</option>
+                                      {subOrigins.map(so => <option key={so} value={so}>{so}</option>)}
+                                  </select>
+                                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                              </div>
+                          </div>
+                        )}
                     </div>
 
                     {/* Bloc Parrainage (Conditionnel - Apparaît si l'Origine OU la Sous-origine est Parrainage) */}
@@ -943,7 +947,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                       <label className="block text-[11px] font-bold text-gray-400 mb-2 uppercase tracking-wider">
-                        {isSupplier ? "Responsable fournisseur*" : "Agenceur référant*"}
+                        {isSupplier ? "Responsable fournisseur*" : "Agenceur référent*"}
                       </label>
                       <div className="relative group">
                           <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10">

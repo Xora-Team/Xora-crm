@@ -134,7 +134,7 @@ const AddExternalContactModal: React.FC<AddExternalContactModalProps> = ({ isOpe
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Email</label>
+                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Adresse mail du contact</label>
                 <input 
                   type="email" 
                   value={formData.email}

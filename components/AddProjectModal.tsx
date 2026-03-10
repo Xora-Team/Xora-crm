@@ -406,26 +406,30 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
                     <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Sous-origine</label>
-                  <div className="relative">
-                    <select value={formData.origine} onChange={(e) => setFormData({...formData, origine: e.target.value, sousOrigine: ''})} className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3 text-[13px] text-gray-900 outline-none focus:border-gray-900 transition-all font-bold shadow-sm">
-                      <option value="">Sélectionner</option>
-                      {origines.map(orig => <option key={orig} value={orig}>{orig}</option>)}
-                    </select>
-                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                {origines.length > 0 && (
+                  <div className="space-y-1.5 animate-in fade-in slide-in-from-left-2 duration-300">
+                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Sous-origine</label>
+                    <div className="relative">
+                      <select value={formData.origine} onChange={(e) => setFormData({...formData, origine: e.target.value, sousOrigine: ''})} className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3 text-[13px] text-gray-900 outline-none focus:border-gray-900 transition-all font-bold shadow-sm">
+                        <option value="">Sélectionner</option>
+                        {origines.map(orig => <option key={orig} value={orig}>{orig}</option>)}
+                      </select>
+                      <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Sources</label>
-                  <div className="relative">
-                    <select value={formData.sousOrigine} onChange={(e) => setFormData({...formData, sousOrigine: e.target.value})} className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3 text-[13px] text-gray-900 outline-none focus:border-gray-900 transition-all font-bold shadow-sm">
-                      <option value="">Sélectionner</option>
-                      {sousOrigines.map(so => <option key={so} value={so}>{so}</option>)}
-                    </select>
-                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                )}
+                {sousOrigines.length > 0 && (
+                  <div className="space-y-1.5 animate-in fade-in slide-in-from-left-2 duration-300">
+                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Source</label>
+                    <div className="relative">
+                      <select value={formData.sousOrigine} onChange={(e) => setFormData({...formData, sousOrigine: e.target.value})} className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3 text-[13px] text-gray-900 outline-none focus:border-gray-900 transition-all font-bold shadow-sm">
+                        <option value="">Sélectionner</option>
+                        {sousOrigines.map(so => <option key={so} value={so}>{so}</option>)}
+                      </select>
+                      <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
             <div className="bg-[#FBFBFB] border border-gray-100 rounded-2xl p-6 grid grid-cols-12 gap-6">

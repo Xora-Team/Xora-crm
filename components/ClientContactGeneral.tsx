@@ -180,7 +180,7 @@ const ContactCard: React.FC<ContactCardProps> = ({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Email</label>
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Adresse mail du contact</label>
               <div className="relative">
                 <Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" />
                 <input 
@@ -663,37 +663,41 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
             </div>
           </div>
           
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Sous-origine</label>
-            <div className="relative">
-              <select 
-                disabled={!currentCategory}
-                className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-indigo-400 transition-all font-bold shadow-sm disabled:bg-gray-50" 
-                value={currentOrigin}
-                onChange={(e) => handleOriginChange(e.target.value)}
-              >
-                <option value="">Sélectionner</option>
-                {origins.map(orig => <option key={orig} value={orig}>{orig}</option>)}
-              </select>
-              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+          {origins.length > 0 && (
+            <div className="space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Sous-origine</label>
+              <div className="relative">
+                <select 
+                  disabled={!currentCategory}
+                  className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-indigo-400 transition-all font-bold shadow-sm disabled:bg-gray-50" 
+                  value={currentOrigin}
+                  onChange={(e) => handleOriginChange(e.target.value)}
+                >
+                  <option value="">Sélectionner</option>
+                  {origins.map(orig => <option key={orig} value={orig}>{orig}</option>)}
+                </select>
+                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Sources</label>
-            <div className="relative">
-              <select 
-                disabled={!currentOrigin}
-                className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-800 outline-none focus:border-indigo-400 transition-all shadow-sm disabled:bg-gray-50" 
-                value={currentSubOrigin}
-                onChange={(e) => updateDoc(doc(db, 'clients', client.id), { "details.subOrigin": e.target.value })}
-              >
-                <option value="">Sélectionner</option>
-                {subOrigins.map(so => <option key={so} value={so}>{so}</option>)}
-              </select>
-              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+          {subOrigins.length > 0 && (
+            <div className="space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Source</label>
+              <div className="relative">
+                <select 
+                  disabled={!currentOrigin}
+                  className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-800 outline-none focus:border-indigo-400 transition-all shadow-sm disabled:bg-gray-50" 
+                  value={currentSubOrigin}
+                  onChange={(e) => updateDoc(doc(db, 'clients', client.id), { "details.subOrigin": e.target.value })}
+                >
+                  <option value="">Sélectionner</option>
+                  {subOrigins.map(so => <option key={so} value={so}>{so}</option>)}
+                </select>
+                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+              </div>
             </div>
-          </div>
+          )}
 
           {currentCategory === 'Parrainage' && (
             <>
