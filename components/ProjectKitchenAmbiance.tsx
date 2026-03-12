@@ -30,7 +30,7 @@ const LongTextField = ({ value, onChange, placeholder = "Saisir ici...", rows = 
       placeholder={placeholder}
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 text-[13px] font-medium text-gray-800 outline-none focus:bg-white focus:border-gray-300 transition-all resize-none shadow-inner"
+      className={`w-full border border-gray-100 rounded-2xl p-4 text-[13px] font-medium text-gray-800 outline-none focus:bg-white focus:border-gray-300 transition-all resize-none shadow-inner ${value ? 'bg-indigo-50/50' : 'bg-gray-50'}`}
     />
   </div>
 );

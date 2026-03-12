@@ -15,7 +15,8 @@ import {
   Tag,
   User,
   ShoppingCart,
-  AlertTriangle
+  AlertTriangle,
+  MessageSquare
 } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, updateDoc, onSnapshot, deleteField } from '@firebase/firestore';
@@ -245,7 +246,7 @@ const QuestionField: React.FC<{
         placeholder={question.placeholder || "Saisissez ici..."}
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 text-[13px] font-medium text-gray-800 outline-none focus:bg-white focus:border-gray-300 transition-all resize-none shadow-inner"
+        className={`w-full border border-gray-100 rounded-2xl p-4 text-[13px] font-medium text-gray-800 outline-none focus:bg-white focus:border-gray-300 transition-all resize-none shadow-inner ${value ? 'bg-indigo-50/50' : 'bg-gray-50'}`}
       />
     </div>
   );
@@ -366,6 +367,15 @@ const AccordionItem: React.FC<AccordionItemProps> = ({
                  <AlertTriangle size={12} /> Aucun article sélectionné
                </span>
              )}
+
+             {diagnosticData?.['Commentaires'] && (
+               <div className="flex items-center gap-2 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100 max-w-[250px] animate-in fade-in zoom-in duration-300">
+                 <MessageSquare size={12} className="text-amber-400 shrink-0" />
+                 <span className="text-[11px] font-bold text-amber-900 truncate italic">
+                   "{diagnosticData['Commentaires']}"
+                 </span>
+               </div>
+             )}
           </div>
         )}
       </div>
@@ -390,7 +400,7 @@ const AccordionItem: React.FC<AccordionItemProps> = ({
               <select 
                 value={quiFournit}
                 onChange={(e) => onItemUpdate({ ...itemData, quiFournit: e.target.value })}
-                className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-3 text-[14px] font-bold text-gray-900 outline-none focus:border-indigo-400 transition-all shadow-sm"
+                className={`w-full appearance-none border border-gray-200 rounded-xl px-4 py-3 text-[14px] font-bold text-gray-900 outline-none focus:border-indigo-400 transition-all shadow-sm ${quiFournit ? 'bg-indigo-50/50' : 'bg-white'}`}
               >
                 <option value="le client">Le client</option>
                 <option value="A fournir">A fournir</option>

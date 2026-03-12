@@ -297,12 +297,23 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project: initialProject
               <button onClick={onBack} className="p-2.5 bg-white border border-gray-200 rounded-xl text-gray-400 shadow-sm hover:bg-gray-50 transition-all">
                 <ArrowLeft size={18} />
               </button>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <span className="px-3 py-0.5 bg-gray-50 border border-gray-100 rounded text-[10px] font-bold text-gray-400 uppercase tracking-widest">{project.metier}</span>
                   <span className="text-[11px] font-bold text-gray-300">Créé le {project.addedDate}</span>
                 </div>
-                <div className="flex items-center gap-4">
+
+                <div className="flex items-center gap-8 py-1">
+                  <span className="text-[15px] font-bold text-gray-900 uppercase tracking-tight">{project.clientName}</span>
+                  <div className="flex items-center gap-2 text-[13px] font-bold text-gray-700">
+                    <Phone size={14} className="text-gray-300" /> {clientData?.details?.phone || 'Non renseigné'}
+                  </div>
+                  <div className="flex items-center gap-2 text-[13px] font-bold text-gray-700">
+                    <Mail size={14} className="text-gray-300" /> {clientData?.details?.email || 'Non renseigné'}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 pt-1">
                   {isEditTitleMode ? (
                     <div className="flex items-center gap-2">
                       <input 
@@ -344,15 +355,6 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project: initialProject
             </div>
 
             <div className="flex flex-col items-end gap-3">
-              <div className="flex items-center gap-6 mb-1">
-                <span className="text-[14px] font-bold text-gray-900 uppercase">{project.clientName}</span>
-                <div className="flex items-center gap-2 text-[12px] font-bold text-gray-700">
-                  <Phone size={14} className="text-gray-300" /> {clientData?.details?.phone || 'Non renseigné'}
-                </div>
-                <div className="flex items-center gap-2 text-[12px] font-bold text-gray-700">
-                  <Mail size={14} className="text-gray-300" /> {clientData?.details?.email || 'Non renseigné'}
-                </div>
-              </div>
               <div className="flex gap-2">
                 <button 
                   onClick={() => setIsEditTitleMode(true)}
@@ -492,7 +494,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project: initialProject
             <div className="mt-auto flex flex-col items-center gap-4 mb-4">
               <button 
                 onClick={() => { setTempNote(project.details?.projectNote || ''); setIsNoteModalOpen(true); }}
-                className="p-3 bg-gray-50 text-gray-400 hover:text-indigo-600 rounded-xl transition-all shadow-sm relative group"
+                className={`p-3 bg-gray-50 ${project.details?.projectNote ? 'text-indigo-600' : 'text-gray-400'} hover:text-indigo-600 rounded-xl transition-all shadow-sm relative group`}
                 title="Notes du projet"
               >
                 <FileText size={18} />
@@ -625,7 +627,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project: initialProject
                  <div className="flex gap-4">
                    <button 
                      onClick={() => { setTempNote(project.details?.projectNote || ''); setIsNoteModalOpen(true); }}
-                     className="p-3 bg-white border border-gray-100 text-gray-400 hover:text-indigo-600 rounded-xl transition-all shadow-sm relative group"
+                     className={`p-3 bg-white border border-gray-100 ${project.details?.projectNote ? 'text-indigo-600' : 'text-gray-400'} hover:text-indigo-600 rounded-xl transition-all shadow-sm relative group`}
                    >
                      <FileText size={18} />
                      {project.details?.projectNote && <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-indigo-500 rounded-full border-2 border-white shadow-sm"></div>}

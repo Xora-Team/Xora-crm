@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Search, Plus, Check, Loader2, Package, Layers, Edit3, Euro, Tag } from 'lucide-react';
+import { X, Search, Plus, Check, Loader2, Package, Layers, Edit3, Euro, Tag, ArrowUpDown } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, arrayUnion } from '@firebase/firestore';
 
@@ -26,6 +26,8 @@ const AddProjectArticleModal: React.FC<AddProjectArticleModalProps> = ({
   const [articles, setArticles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState<string | null>(null);
+  const [sortPrice, setSortPrice] = useState<'none' | 'asc' | 'desc'>('none');
+  const [sortAlpha, setSortAlpha] = useState<'none' | 'asc' | 'desc'>('none');
 
   // Manual form state
   const [manualData, setManualData] = useState({
@@ -55,14 +57,33 @@ const AddProjectArticleModal: React.FC<AddProjectArticleModalProps> = ({
   }, [isOpen, mode, userProfile?.companyId, view]);
 
   const filteredArticles = useMemo(() => {
+    let result = [...articles];
+    
+    // Filter
     const q = search.trim().toLowerCase();
-    if (!q) return articles;
-    return articles.filter(a => 
-      a.famille?.toLowerCase().includes(q) || 
-      a.descriptif?.toLowerCase().includes(q) ||
-      a.collection?.toLowerCase().includes(q)
-    );
-  }, [search, articles]);
+    if (q) {
+      result = result.filter(a => 
+        a.famille?.toLowerCase().includes(q) || 
+        a.descriptif?.toLowerCase().includes(q) ||
+        a.collection?.toLowerCase().includes(q)
+      );
+    }
+
+    // Sort by Price
+    if (sortPrice === 'asc') {
+      result.sort((a, b) => (a.prixMaxiTTC || 0) - (b.prixMaxiTTC || 0));
+    } else if (sortPrice === 'desc') {
+      result.sort((a, b) => (b.prixMaxiTTC || 0) - (a.prixMaxiTTC || 0));
+    }
+    // Sort Alphabetically (if price sort is none)
+    else if (sortAlpha === 'asc') {
+      result.sort((a, b) => (a.descriptif || '').localeCompare(b.descriptif || ''));
+    } else if (sortAlpha === 'desc') {
+      result.sort((a, b) => (b.descriptif || '').localeCompare(a.descriptif || ''));
+    }
+
+    return result;
+  }, [search, articles, sortPrice, sortAlpha]);
 
   const handleAddArticle = async (article: any) => {
     setIsAdding(article.id);
@@ -175,9 +196,9 @@ const AddProjectArticleModal: React.FC<AddProjectArticleModalProps> = ({
 
         {view === 'search' ? (
           <>
-            {/* Search Input */}
-            <div className="px-10 pt-4 pb-4">
-              <div className="relative group">
+            {/* Search Input & Sort */}
+            <div className="px-10 pt-4 pb-4 flex flex-wrap gap-3">
+              <div className="relative group flex-1 min-w-[300px]">
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={20} />
                 <input 
                   type="text" 
@@ -187,6 +208,28 @@ const AddProjectArticleModal: React.FC<AddProjectArticleModalProps> = ({
                   onChange={(e) => setSearch(e.target.value)}
                   autoFocus
                 />
+              </div>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => {
+                    setSortAlpha('none');
+                    setSortPrice(prev => prev === 'asc' ? 'desc' : prev === 'desc' ? 'none' : 'asc');
+                  }}
+                  className={`px-5 py-3 rounded-[20px] border flex items-center gap-2 transition-all font-bold text-[13px] whitespace-nowrap ${sortPrice !== 'none' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-300'}`}
+                >
+                  <Euro size={16} />
+                  {sortPrice === 'none' ? 'Prix' : sortPrice === 'asc' ? 'Prix croissant' : 'Prix décroissant'}
+                </button>
+                <button 
+                  onClick={() => {
+                    setSortPrice('none');
+                    setSortAlpha(prev => prev === 'asc' ? 'desc' : prev === 'desc' ? 'none' : 'asc');
+                  }}
+                  className={`px-5 py-3 rounded-[20px] border flex items-center gap-2 transition-all font-bold text-[13px] whitespace-nowrap ${sortAlpha !== 'none' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-300'}`}
+                >
+                  <ArrowUpDown size={16} />
+                  {sortAlpha === 'none' ? 'A-Z' : sortAlpha === 'asc' ? 'A-Z' : 'Z-A'}
+                </button>
               </div>
             </div>
 

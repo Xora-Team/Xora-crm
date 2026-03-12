@@ -956,11 +956,13 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                     !formData.branch || 
                     formData.trades.length === 0
                   ) : (
+                    !formData.civility ||
                     !formData.lastName || 
                     !formData.firstName || 
-                    !addressSearch || 
+                    !formData.email ||
                     !formData.category || 
                     !formData.origin || 
+                    !formData.referent ||
                     (formData.category === 'Parrainage' && !selectedSponsor)
                   ))
                 }

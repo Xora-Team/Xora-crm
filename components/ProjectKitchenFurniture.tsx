@@ -104,11 +104,11 @@ const CustomDropdown = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between bg-white border rounded-[14px] px-4 py-3 text-[14px] transition-all duration-200 ${
+        className={`w-full flex items-center justify-between border rounded-[14px] px-4 py-3 text-[14px] transition-all duration-200 ${
           isOpen 
             ? 'border-gray-900 ring-4 ring-gray-50 shadow-sm' 
             : 'border-gray-200 hover:border-gray-300 shadow-sm'
-        }`}
+        } ${(!value || (multiple && value.length === 0)) ? 'bg-white' : 'bg-indigo-50/50'}`}
       >
         <span className={`font-bold truncate ${!value || (multiple && value.length === 0) ? 'text-gray-400' : 'text-gray-900'}`}>
           {displayValue()}
@@ -154,7 +154,7 @@ const NumberInput = ({ value, onChange, unit }: { value: any; onChange: (v: numb
       type="number" 
       value={value || ''} 
       onChange={(e) => onChange(Number(e.target.value))}
-      className="w-full bg-white border border-gray-200 rounded-[14px] px-4 py-3 text-[14px] font-bold text-gray-900 outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+      className={`w-full border border-gray-200 rounded-[14px] px-4 py-3 text-[14px] font-bold text-gray-900 outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm ${value ? 'bg-indigo-50/50' : 'bg-white'}`}
     />
     {unit && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-300 uppercase tracking-widest">{unit}</span>}
   </div>
@@ -167,7 +167,7 @@ const LongTextField = ({ value, onChange, placeholder = "Saisir ici...", rows = 
     placeholder={placeholder}
     value={value || ''}
     onChange={(e) => onChange(e.target.value)}
-    className="w-full bg-white border border-gray-200 rounded-[14px] p-4 text-[14px] font-bold text-gray-900 outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-50 transition-all resize-none shadow-sm"
+    className={`w-full border border-gray-200 rounded-[14px] p-4 text-[14px] font-bold text-gray-900 outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-50 transition-all resize-none shadow-sm ${value ? 'bg-indigo-50/50' : 'bg-white'}`}
   />
 );
 

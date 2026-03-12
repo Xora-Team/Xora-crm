@@ -17,6 +17,7 @@ import CompanyManagement from './components/CompanyManagement';
 import OurCompany from './components/OurCompany';
 import KPIManagement from './components/KPIManagement';
 import LoginPage from './components/LoginPage';
+import BackupPage from './components/BackupPage';
 import AddTaskModal from './components/AddTaskModal';
 import { Page, Client } from './types';
 import { Construction, AlertCircle, Loader2 } from 'lucide-react';
@@ -235,11 +236,16 @@ function App() {
     if (!userProfile?.companyId) return;
     const unsub = onSnapshot(doc(db, 'companies', userProfile.companyId), (docSnap) => {
       if (docSnap.exists()) {
-        setCompanyLogo(docSnap.data().logo || null);
+        const data = docSnap.data();
+        setCompanyLogo(data.logo || null);
+        // Sync company name if it changed
+        if (data.name && userProfile.companyName !== data.name) {
+          setUserProfile((prev: any) => ({ ...prev, companyName: data.name }));
+        }
       }
     });
     return () => unsub();
-  }, [userProfile?.companyId]);
+  }, [userProfile?.companyId, userProfile?.companyName]);
 
   const getHeaderTitle = (page: Page) => {
     switch (page) {
@@ -444,6 +450,7 @@ function App() {
             <Route path="/our_company" element={<OurCompany userProfile={userProfile} />} />
             <Route path="/profile" element={<UserProfile userProfile={userProfile} setUserProfile={setUserProfile} onBack={() => navigate(-1)} readOnly={false} />} />
             <Route path="/kpi" element={<KPIManagement userProfile={userProfile} />} />
+            <Route path="/backup" element={<BackupPage userProfile={userProfile} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

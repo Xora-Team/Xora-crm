@@ -172,7 +172,7 @@ const ProjectKitchenEstimation: React.FC<ProjectKitchenEstimationProps> = ({ pro
                           placeholder="0"
                           value={estimationData[`${row.id}Mini`] || ''}
                           onChange={(e) => handleUpdate(`${row.id}Mini`, Number(e.target.value))}
-                          className="w-full bg-white border border-gray-200 rounded-[14px] px-4 py-3 text-[14px] font-black text-gray-900 outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+                          className={`w-full border border-gray-200 rounded-[14px] px-4 py-3 text-[14px] font-black text-gray-900 outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm ${estimationData[`${row.id}Mini`] ? 'bg-indigo-50/50' : 'bg-white'}`}
                         />
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] font-black text-gray-300">€</span>
                       </div>
@@ -191,7 +191,7 @@ const ProjectKitchenEstimation: React.FC<ProjectKitchenEstimationProps> = ({ pro
                           placeholder="0"
                           value={estimationData[`${row.id}Maxi`] || ''}
                           onChange={(e) => handleUpdate(`${row.id}Maxi`, Number(e.target.value))}
-                          className="w-full bg-white border border-gray-200 rounded-[14px] px-4 py-3 text-[14px] font-black text-gray-900 outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm"
+                          className={`w-full border border-gray-200 rounded-[14px] px-4 py-3 text-[14px] font-black text-gray-900 outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-50 transition-all shadow-sm ${estimationData[`${row.id}Maxi`] ? 'bg-indigo-50/50' : 'bg-white'}`}
                         />
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] font-black text-gray-300">€</span>
                       </div>
@@ -240,9 +240,9 @@ const ProjectKitchenEstimation: React.FC<ProjectKitchenEstimationProps> = ({ pro
                 placeholder="Ex: 15000"
                 value={simulationData.montantTotal || ''}
                 onChange={(e) => handleUpdateSimulation('montantTotal', Number(e.target.value))}
-                className={`w-full bg-white border rounded-[14px] px-4 py-3 text-[15px] font-black text-gray-900 outline-none transition-all ${
+                className={`w-full border rounded-[14px] px-4 py-3 text-[15px] font-black text-gray-900 outline-none transition-all ${
                   isAmountTooLow ? 'border-red-300 ring-4 ring-red-50' : 'border-gray-200 focus:border-gray-900 focus:ring-4 focus:ring-gray-50'
-                }`}
+                } ${simulationData.montantTotal ? 'bg-indigo-50/50' : 'bg-white'}`}
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] font-black text-gray-300">€</span>
             </div>
@@ -265,7 +265,7 @@ const ProjectKitchenEstimation: React.FC<ProjectKitchenEstimationProps> = ({ pro
                 placeholder="30"
                 value={simulationData.acomptePct || ''}
                 onChange={(e) => handleUpdateSimulation('acomptePct', Number(e.target.value))}
-                className="w-full bg-white border border-gray-200 rounded-[14px] px-4 py-3 text-[15px] font-black text-gray-900 outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-50 transition-all"
+                className={`w-full border border-gray-200 rounded-[14px] px-4 py-3 text-[15px] font-black text-gray-900 outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-50 transition-all ${simulationData.acomptePct ? 'bg-indigo-50/50' : 'bg-white'}`}
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] font-black text-gray-300">%</span>
             </div>
