@@ -246,7 +246,7 @@ const QuestionField: React.FC<{
         placeholder={question.placeholder || "Saisissez ici..."}
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full border border-gray-100 rounded-2xl p-4 text-[13px] font-medium text-gray-800 outline-none focus:bg-white focus:border-gray-300 transition-all resize-none shadow-inner ${value ? 'bg-indigo-50/50' : 'bg-gray-50'}`}
+        className={`w-full border rounded-2xl p-4 text-[13px] font-medium text-gray-800 outline-none focus:bg-white focus:border-gray-300 transition-all resize-none shadow-inner ${value ? 'bg-indigo-50/50 border-indigo-600' : 'bg-gray-50 border-gray-100'}`}
       />
     </div>
   );
@@ -400,7 +400,7 @@ const AccordionItem: React.FC<AccordionItemProps> = ({
               <select 
                 value={quiFournit}
                 onChange={(e) => onItemUpdate({ ...itemData, quiFournit: e.target.value })}
-                className={`w-full appearance-none border border-gray-200 rounded-xl px-4 py-3 text-[14px] font-bold text-gray-900 outline-none focus:border-indigo-400 transition-all shadow-sm ${quiFournit ? 'bg-indigo-50/50' : 'bg-white'}`}
+                className={`w-full appearance-none border rounded-xl px-4 py-3 text-[14px] font-bold text-gray-900 outline-none focus:border-indigo-400 transition-all shadow-sm ${quiFournit ? 'bg-indigo-50/50 border-indigo-600' : 'bg-white border-gray-200'}`}
               >
                 <option value="le client">Le client</option>
                 <option value="A fournir">A fournir</option>

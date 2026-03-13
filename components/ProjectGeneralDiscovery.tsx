@@ -143,7 +143,7 @@ const Select = ({ value, onChange, options, placeholder = "Sélectionner", disab
       disabled={disabled}
       value={value || ''} 
       onChange={(e) => onChange(e.target.value)}
-      className={`w-full appearance-none border border-gray-200 rounded-xl px-4 py-3 text-[13px] font-bold text-gray-900 outline-none focus:border-gray-300 transition-all shadow-sm disabled:bg-gray-50 disabled:text-gray-400 ${value ? 'bg-indigo-50/50' : 'bg-white'}`}
+      className={`w-full appearance-none border rounded-xl px-4 py-3 text-[13px] font-bold text-gray-900 outline-none focus:border-gray-300 transition-all shadow-sm disabled:bg-gray-50 disabled:text-gray-400 ${value ? 'bg-indigo-50/50 border-indigo-600' : 'bg-white border-gray-200'}`}
     >
       <option value="">{placeholder}</option>
       {options.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
@@ -187,7 +187,7 @@ const MultiSelect = ({ value, onChange, options, placeholder = "Sélectionner", 
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full flex items-center justify-between border rounded-xl px-4 py-3 text-[13px] transition-all shadow-sm ${
           disabled ? 'bg-gray-50 text-gray-400 border-gray-100' : 
-          (Array.isArray(value) && value.length > 0 ? 'bg-indigo-50/50 border-gray-100 hover:border-gray-300' : 'bg-white border-gray-100 hover:border-gray-300')
+          (Array.isArray(value) && value.length > 0 ? 'bg-indigo-50/50 border-indigo-600 hover:border-indigo-700' : 'bg-white border-gray-100 hover:border-gray-300')
         }`}
       >
         <span className={`font-bold truncate ${!Array.isArray(value) || value.length === 0 ? 'text-gray-400' : 'text-gray-900'}`}>
@@ -283,7 +283,7 @@ const CurrencyInput = ({ value, onChange, placeholder = "0" }: any) => {
         placeholder={placeholder} 
         value={formatValue(value)} 
         onChange={handleInputChange}
-        className={`w-full border border-gray-100 rounded-xl px-4 py-3 text-[13px] font-bold text-gray-900 outline-none focus:border-gray-300 transition-all shadow-sm pr-10 ${value ? 'bg-indigo-50/50' : 'bg-white'}`}
+        className={`w-full border rounded-xl px-4 py-3 text-[13px] font-bold text-gray-900 outline-none focus:border-gray-300 transition-all shadow-sm pr-10 ${value ? 'bg-indigo-50/50 border-indigo-600' : 'bg-white border-gray-100'}`}
       />
       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold group-focus-within:text-gray-900 pointer-events-none">€</span>
     </div>
@@ -363,7 +363,7 @@ const UnifiedRangePicker = ({ startValue, endValue, onRangeChange, label }: any)
     <div className="relative" ref={pickerRef}>
       <div 
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 border border-gray-200 rounded-xl px-4 py-3 text-[12px] font-bold text-gray-900 shadow-sm cursor-pointer hover:border-indigo-400 transition-all ${(startValue || endValue) ? 'bg-indigo-50/50' : 'bg-white'}`}
+        className={`flex items-center gap-2 border rounded-xl px-4 py-3 text-[12px] font-bold text-gray-900 shadow-sm cursor-pointer hover:border-indigo-400 transition-all ${(startValue || endValue) ? 'bg-indigo-50/50 border-indigo-600' : 'bg-white border-gray-200'}`}
       >
         <Calendar size={16} className="text-gray-300 shrink-0" />
         <div className="flex-1 flex justify-between items-center">
@@ -634,7 +634,7 @@ const ProjectGeneralDiscovery: React.FC<ProjectGeneralDiscoveryProps> = ({ proje
                 }}
                 onFocus={() => setShowChantierSuggestions(true)}
                 placeholder="Choisir ou saisir l'adresse du chantier..."
-                className={`w-full border border-gray-200 rounded-xl pl-12 pr-12 py-3 text-[13px] font-bold text-gray-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 shadow-sm transition-all ${chantierSearch ? 'bg-indigo-50/50' : 'bg-white'}`}
+                className={`w-full border rounded-xl pl-12 pr-12 py-3 text-[13px] font-bold text-gray-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 shadow-sm transition-all ${chantierSearch ? 'bg-indigo-50/50 border-indigo-600' : 'bg-white border-gray-200'}`}
               />
               {chantierSearch && (
                 <button 
@@ -677,7 +677,7 @@ const ProjectGeneralDiscovery: React.FC<ProjectGeneralDiscoveryProps> = ({ proje
                 }}
                 onFocus={() => setShowFactuSuggestions(true)}
                 placeholder="Choisir ou saisir l'adresse de facturation..."
-                className={`w-full border border-gray-200 rounded-xl pl-12 pr-4 py-3 text-[13px] font-bold text-gray-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 shadow-sm transition-all ${factuSearch ? 'bg-indigo-50/50' : 'bg-white'}`}
+                className={`w-full border rounded-xl pl-12 pr-4 py-3 text-[13px] font-bold text-gray-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 shadow-sm transition-all ${factuSearch ? 'bg-indigo-50/50 border-indigo-600' : 'bg-white border-gray-200'}`}
               />
             </div>
             {showFactuSuggestions && (
@@ -855,7 +855,7 @@ const ProjectGeneralDiscovery: React.FC<ProjectGeneralDiscoveryProps> = ({ proje
                        type="date" 
                        value={formatDateForInput(project.details?.dateRemisePlans)} 
                        onChange={(e) => handleDateChange('details.dateRemisePlans', e.target.value)}
-                       className={`w-full border border-gray-100 rounded-xl pl-12 pr-4 py-3 text-[13px] font-bold text-gray-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 shadow-sm transition-all cursor-pointer ${project.details?.dateRemisePlans ? 'bg-indigo-50/50' : 'bg-white'}`} 
+                       className={`w-full border rounded-xl pl-12 pr-4 py-3 text-[13px] font-bold text-gray-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 shadow-sm transition-all cursor-pointer ${project.details?.dateRemisePlans ? 'bg-indigo-50/50 border-indigo-600' : 'bg-white border-gray-100'}`} 
                      />
                    </div>
                 </Field>
@@ -928,7 +928,7 @@ const ProjectGeneralDiscovery: React.FC<ProjectGeneralDiscoveryProps> = ({ proje
                   type="date" 
                   value={formatDateForInput(project.details?.datePermis)} 
                   onChange={(e) => handleDateChange('details.datePermis', e.target.value)} 
-                  className={`w-full border border-gray-200 rounded-xl pl-11 pr-4 py-3 text-[13px] font-bold text-gray-900 outline-none focus:border-indigo-400 shadow-sm transition-all cursor-pointer ${project.details?.datePermis ? 'bg-indigo-50/50' : 'bg-white'}`} 
+                  className={`w-full border rounded-xl pl-11 pr-4 py-3 text-[13px] font-bold text-gray-900 outline-none focus:border-indigo-400 shadow-sm transition-all cursor-pointer ${project.details?.datePermis ? 'bg-indigo-50/50 border-indigo-600' : 'bg-white border-gray-200'}`} 
                 />
               </div>
             </Field>
