@@ -366,7 +366,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project: initialProject
                   onClick={() => setIsAppointmentModalOpen(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-[12px] font-bold text-gray-700 hover:bg-gray-50 shadow-sm transition-all"
                 >
-                  <Calendar size={16} /> Planifier un RDV
+                  <Calendar size={16} /> + Nouveau RDV
                 </button>
                 <button 
                   onClick={() => setIsTaskModalOpen(true)}

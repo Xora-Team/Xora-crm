@@ -44,21 +44,33 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
   // Drag and Drop state
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
 
-  // Charger TOUTES les tâches liées à ce client - AJOUT FILTRE COMPANYID
+  // Charger TOUTES les tâches de la société pour un filtrage robuste (ID + Nom + Titre)
   useEffect(() => {
     if (!clientId || !userProfile?.companyId) return;
 
     const q = query(
       collection(db, 'tasks'), 
-      where('clientId', '==', clientId),
       where('companyId', '==', userProfile.companyId)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
       
+      // Filtrage robuste : par ID (prioritaire) ou par Nom/Titre (fallback)
+      const filtered = data.filter(task => {
+        const matchesId = task.clientId === clientId;
+        const searchName = clientName.trim().toLowerCase();
+        const taskClientName = task.clientName?.trim().toLowerCase() || '';
+        const taskTitle = task.title?.trim().toLowerCase() || '';
+        
+        const matchesName = taskClientName === searchName || taskClientName.includes(searchName);
+        const matchesTitle = taskTitle.includes(searchName);
+        
+        return matchesId || matchesName || matchesTitle;
+      });
+      
       // Tri côté client par orderIndex pour respecter l'ordre personnalisé
-      const sortedData = data.sort((a, b) => (a.orderIndex ?? 999) - (b.orderIndex ?? 999));
+      const sortedData = filtered.sort((a, b) => (a.orderIndex ?? 999) - (b.orderIndex ?? 999));
       
       setTasks(sortedData);
       setIsLoading(false);
@@ -68,7 +80,7 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
     });
 
     return () => unsubscribe();
-  }, [clientId, userProfile?.companyId]);
+  }, [clientId, clientName, userProfile?.companyId]);
 
   // Logic pour le Drag & Drop
   const onDragStart = (index: number) => {

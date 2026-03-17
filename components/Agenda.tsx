@@ -12,6 +12,7 @@ import {
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, getDoc } from '@firebase/firestore';
 import { Appointment, Task } from '../types';
+import AddAppointmentModal from './AddAppointmentModal';
 import AddTaskModal from './AddTaskModal';
 
 // Import des nouvelles vues
@@ -29,12 +30,14 @@ const Agenda: React.FC<AgendaProps> = ({ userProfile }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'Jours' | 'Semaine' | 'Mois'>('Semaine');
-  const [filterUser, setFilterUser] = useState(userProfile?.name || '');
+  const [filterUser, setFilterUser] = useState('');
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+  const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   
   // State pour l'édition de tâche depuis l'agenda
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+  const [appointmentToEdit, setAppointmentToEdit] = useState<Appointment | null>(null);
 
   // --- Chargement des collaborateurs de la société ---
   useEffect(() => {
@@ -72,12 +75,12 @@ const Agenda: React.FC<AgendaProps> = ({ userProfile }) => {
     return appointments.filter(rdv => {
       const matchesSearch = rdv.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                            rdv.clientName.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesUser = filterUser ? rdv.collaborator.name === filterUser : true;
+      const matchesUser = filterUser ? rdv.collaborators?.some(c => c.name === filterUser) : true;
       return matchesSearch && matchesUser;
     });
   }, [appointments, searchQuery, filterUser]);
 
-  // --- Logique d'ouverture de tâche depuis l'agenda ---
+  // --- Logique d'ouverture de rdv ou tâche depuis l'agenda ---
   const handleAppointmentClick = async (rdv: Appointment) => {
     // On vérifie si ce RDV est lié à une tâche (champ taskId présent en base)
     const taskId = (rdv as any).taskId;
@@ -88,8 +91,7 @@ const Agenda: React.FC<AgendaProps> = ({ userProfile }) => {
         if (taskSnap.exists()) {
           setTaskToEdit({ id: taskSnap.id, ...taskSnap.data() } as Task);
           setIsAddTaskModalOpen(true);
-        } else {
-          alert("La tâche liée à ce rendez-vous n'existe plus.");
+          return;
         }
       } catch (e) {
         console.error("Erreur chargement tâche liée:", e);
@@ -97,6 +99,10 @@ const Agenda: React.FC<AgendaProps> = ({ userProfile }) => {
         setIsLoading(false);
       }
     }
+
+    // Par défaut, on ouvre la fiche du rendez-vous pour modification
+    setAppointmentToEdit(rdv);
+    setIsAppointmentModalOpen(true);
   };
 
   // --- Logique de Navigation Temporelle ---
@@ -177,7 +183,13 @@ const Agenda: React.FC<AgendaProps> = ({ userProfile }) => {
                <CheckSquare size={16} className="text-indigo-500" />
                Ajouter une tâche
             </button>
-            <button className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl text-[12px] font-bold shadow-lg hover:bg-black transition-all active:scale-95">
+            <button 
+              onClick={() => {
+                setAppointmentToEdit(null);
+                setIsAppointmentModalOpen(true);
+              }}
+              className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl text-[12px] font-bold shadow-lg hover:bg-black transition-all active:scale-95"
+            >
                <Plus size={16} className="text-white/70" />
                Nouveau RDV
             </button>
@@ -253,6 +265,13 @@ const Agenda: React.FC<AgendaProps> = ({ userProfile }) => {
         onClose={() => { setIsAddTaskModalOpen(false); setTaskToEdit(null); }}
         userProfile={userProfile}
         taskToEdit={taskToEdit}
+      />
+
+      <AddAppointmentModal 
+        isOpen={isAppointmentModalOpen}
+        onClose={() => { setIsAppointmentModalOpen(false); setAppointmentToEdit(null); }}
+        userProfile={userProfile}
+        appointmentToEdit={appointmentToEdit}
       />
     </div>
   );

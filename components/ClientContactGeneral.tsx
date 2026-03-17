@@ -152,6 +152,7 @@ const ContactCard: React.FC<ContactCardProps> = ({
                   onChange={(e) => onFieldChange('civility', e.target.value)}
                   onBlur={onBlur}
                 >
+                  <option value="">-</option>
                   {civilityOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
                 <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
@@ -272,7 +273,7 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
         const nameParts = data.name ? data.name.split(' ') : ['', ''];
         
         setMainContact({
-          civility: details.civility || 'Mme',
+          civility: details.civility ?? 'Mme',
           lastName: details.lastName || nameParts.slice(1).join(' ') || '',
           firstName: details.firstName || nameParts[0] || '',
           email: details.email || '',

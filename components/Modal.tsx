@@ -142,7 +142,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
       if (clientToEdit) {
         const details = clientToEdit.details || {};
         setFormData({
-          civility: details.civility || (isSupplier ? 'SAS' : 'Mme'),
+          civility: details.civility ?? (isSupplier ? 'SAS' : 'Mme'),
           lastName: details.lastName || '',
           firstName: details.firstName || '',
           email: details.email || '',
@@ -459,6 +459,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                               onChange={(e) => setFormData({...formData, civility: e.target.value})}
                               className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-3 px-4 text-sm font-semibold text-gray-800 focus:outline-none focus:border-gray-900 transition-all"
                             >
+                                <option value="">-</option>
                                 <option>Mme</option>
                                 <option>M.</option>
                             </select>
@@ -956,7 +957,6 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                     !formData.branch || 
                     formData.trades.length === 0
                   ) : (
-                    !formData.civility ||
                     !formData.lastName || 
                     !formData.firstName || 
                     !formData.email ||

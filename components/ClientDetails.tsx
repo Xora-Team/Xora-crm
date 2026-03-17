@@ -22,6 +22,7 @@ import ClientProjects from './ClientProjects';
 import ClientAppointments from './ClientAppointments';
 import ClientDocuments from './ClientDocuments';
 import ClientFidelisation from './ClientFidelisation';
+import AddAppointmentModal from './AddAppointmentModal';
 
 interface ClientDetailsProps {
   client: Client;
@@ -33,6 +34,7 @@ interface ClientDetailsProps {
 
 const ClientDetails: React.FC<ClientDetailsProps> = ({ client: initialClient, onBack, userProfile, onProjectSelect, onClientClick }) => {
   const [activeTab, setActiveTab] = useState('Information contact');
+  const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [client, setClient] = useState<Client>(initialClient);
   const [loading, setLoading] = useState(false);
   const [appointmentCount, setAppointmentCount] = useState(0);
@@ -50,38 +52,64 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client: initialClient, on
     return () => unsub();
   }, [initialClient.id]);
 
-  // Compteur de rendez-vous en temps réel - AJOUT FILTRE COMPANYID POUR PERMISSIONS
+  // Compteur de rendez-vous en temps réel - Filtrage robuste (ID + Nom)
   useEffect(() => {
-    if (!userProfile?.companyId) return;
+    if (!userProfile?.companyId || !client.id) return;
+    
     const q = query(
       collection(db, 'appointments'), 
-      where('clientId', '==', initialClient.id),
       where('companyId', '==', userProfile.companyId)
     );
+    
     const unsubCount = onSnapshot(q, (snapshot) => {
-      setAppointmentCount(snapshot.size);
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const filtered = data.filter((rdv: any) => {
+        const matchesId = rdv.clientId === client.id;
+        const searchName = client.name?.trim().toLowerCase() || '';
+        const rdvClientName = rdv.clientName?.trim().toLowerCase() || '';
+        const rdvTitle = rdv.title?.trim().toLowerCase() || '';
+        
+        const matchesName = rdvClientName === searchName || rdvClientName.includes(searchName);
+        const matchesTitle = rdvTitle.includes(searchName);
+        
+        return matchesId || matchesName || matchesTitle;
+      });
+      setAppointmentCount(filtered.length);
+    }, (error) => {
+      console.error("Erreur compteur rendez-vous client:", error);
     });
     return () => unsubCount();
-  }, [initialClient.id, userProfile?.companyId]);
+  }, [client.id, client.name, userProfile?.companyId]);
 
-  // Compteur de tâches EN COURS en temps réel - AJOUT FILTRE COMPANYID POUR PERMISSIONS
+  // Compteur de tâches EN COURS en temps réel - Filtrage robuste (ID + Nom + Titre)
   useEffect(() => {
-    if (!userProfile?.companyId) return;
+    if (!userProfile?.companyId || !client.id) return;
+    
     const q = query(
       collection(db, 'tasks'), 
-      where('clientId', '==', initialClient.id),
       where('companyId', '==', userProfile.companyId)
     );
     
     const unsubTasks = onSnapshot(q, (snapshot) => {
-      const pendingTasks = snapshot.docs.filter(doc => doc.data().status !== 'completed');
-      setTaskPendingCount(pendingTasks.length);
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const filtered = data.filter((task: any) => {
+        const matchesId = task.clientId === client.id;
+        const searchName = client.name?.trim().toLowerCase() || '';
+        const taskClientName = task.clientName?.trim().toLowerCase() || '';
+        const taskTitle = task.title?.trim().toLowerCase() || '';
+        
+        const matchesName = taskClientName === searchName || taskClientName.includes(searchName);
+        const matchesTitle = taskTitle.includes(searchName);
+        
+        return (matchesId || matchesName || matchesTitle) && task.status !== 'completed';
+      });
+      setTaskPendingCount(filtered.length);
     }, (error) => {
       console.error("Erreur compteur tâches client:", error);
     });
     
     return () => unsubTasks();
-  }, [initialClient.id, userProfile?.companyId]);
+  }, [client.id, client.name, userProfile?.companyId]);
 
   const handleStatusChange = async (newStatus: string) => {
     try {
@@ -177,7 +205,12 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client: initialClient, on
 
           <div className="grid grid-cols-2 gap-2">
             <button className="flex items-center justify-center gap-2 px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-[12px] font-bold text-gray-800 shadow-sm hover:bg-gray-50 transition-all"><MessageSquare size={16} /> Contacter</button>
-            <button className="flex items-center justify-center gap-2 px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-[12px] font-bold text-gray-800 shadow-sm hover:bg-gray-50 transition-all"><Calendar size={16} /> Planifier un RDV</button>
+            <button 
+              onClick={() => setIsAppointmentModalOpen(true)}
+              className="flex items-center justify-center gap-2 px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-[12px] font-bold text-gray-800 shadow-sm hover:bg-gray-50 transition-all"
+            >
+              <Calendar size={16} /> + Nouveau RDV
+            </button>
             <button className="flex items-center justify-center gap-2 px-6 py-2.5 bg-white border border-gray-100 rounded-xl text-[12px] font-bold text-gray-800 shadow-sm hover:bg-gray-50 transition-all"><Phone size={16} /> Appeler</button>
             <button className="flex items-center justify-center gap-2 px-6 py-2.5 bg-white border border-gray-100 rounded-xl text-[12px] font-bold text-gray-800 shadow-sm hover:bg-gray-50 transition-all"><CheckSquare size={16} /> Ajouter une tâche</button>
           </div>
@@ -232,6 +265,14 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client: initialClient, on
           )}
         </div>
       </div>
+
+      <AddAppointmentModal 
+        isOpen={isAppointmentModalOpen}
+        onClose={() => setIsAppointmentModalOpen(false)}
+        userProfile={userProfile}
+        clientId={client.id}
+        clientName={client.name}
+      />
     </div>
   );
 };

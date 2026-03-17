@@ -28,29 +28,71 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId, clien
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [appointmentToEdit, setAppointmentToEdit] = useState<Appointment | null>(null);
 
   useEffect(() => {
-    if (!clientId) return;
-    const q = query(collection(db, 'appointments'), where('clientId', '==', clientId));
+    if (!clientId || !userProfile?.companyId) return;
+
+    setIsLoading(true);
+    // On récupère tous les rendez-vous de l'entreprise pour être sûr de ne rien rater
+    // (notamment si le clientId est mal renseigné mais que le nom correspond)
+    const q = query(
+      collection(db, 'appointments'), 
+      where('companyId', '==', userProfile.companyId)
+    );
+
     const unsub = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Appointment[];
+      
+      // Filtrage intelligent : par ID (prioritaire) ou par Nom/Titre (fallback robuste)
+      const clientAppointments = data.filter(rdv => {
+        const matchesId = rdv.clientId === clientId;
+        
+        // Nettoyage pour comparaison
+        const searchName = clientName.trim().toLowerCase();
+        const rdvClientName = rdv.clientName?.trim().toLowerCase() || '';
+        const rdvTitle = rdv.title?.trim().toLowerCase() || '';
+        
+        // Match par nom exact ou si le nom du client est contenu dans le titre du RDV
+        const matchesName = rdvClientName === searchName || rdvClientName.includes(searchName);
+        const matchesTitle = rdvTitle.includes(searchName);
+        
+        return matchesId || matchesName || matchesTitle;
+      });
+
       // Tri par date et heure
-      data.sort((a, b) => {
+      clientAppointments.sort((a, b) => {
         const dateA = new Date(`${a.date.split('/').reverse().join('-')}T${a.startTime}`);
         const dateB = new Date(`${b.date.split('/').reverse().join('-')}T${b.startTime}`);
         return dateB.getTime() - dateA.getTime();
       });
-      setAppointments(data);
+
+      setAppointments(clientAppointments);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Erreur chargement rendez-vous client:", error);
       setIsLoading(false);
     });
+
     return () => unsub();
-  }, [clientId]);
+  }, [clientId, clientName, userProfile?.companyId]);
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Supprimer ce rendez-vous ?")) return;
+    if (!confirm("Supprimer ce rendez-vous ?")) return;
     try {
       await deleteDoc(doc(db, 'appointments', id));
     } catch (e) { console.error(e); }
+  };
+
+  const handleEdit = (rdv: Appointment) => {
+    setAppointmentToEdit(rdv);
+    setIsModalOpen(true);
+    setActiveMenuId(null);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setAppointmentToEdit(null);
   };
 
   const getStatusStyle = (status: string) => {
@@ -87,7 +129,7 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId, clien
           className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-[12px] font-bold text-gray-800 shadow-sm hover:border-[#A886D7] transition-all active:scale-95"
         >
           <Plus size={16} className="text-[#A886D7]" />
-          Prendre un rendez-vous
+          + Nouveau RDV
         </button>
       </div>
 
@@ -158,8 +200,27 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId, clien
 
                     <td className="px-6 py-5 border-y border-gray-50">
                        <div className="flex items-center gap-3">
-                         <img src={rdv.collaborator.avatar} className="w-7 h-7 rounded-full border border-gray-100 shadow-sm" alt="" />
-                         <span className="text-[12px] font-bold text-gray-700">{rdv.collaborator.name}</span>
+                         <div className="flex -space-x-2">
+                           {rdv.collaborators ? (
+                             rdv.collaborators.map((c, i) => (
+                               <img key={i} src={c.avatar} className="w-7 h-7 rounded-full border-2 border-white shadow-sm" title={c.name} alt="" />
+                             ))
+                           ) : (
+                             (rdv as any).collaborator && (
+                               <img 
+                                 src={(rdv as any).collaborator.avatar} 
+                                 className="w-7 h-7 rounded-full border-2 border-white shadow-sm" 
+                                 title={(rdv as any).collaborator.name} 
+                                 alt="" 
+                               />
+                             )
+                           )}
+                         </div>
+                         <span className="text-[12px] font-bold text-gray-700">
+                           {rdv.collaborators 
+                             ? (rdv.collaborators.length === 1 ? rdv.collaborators[0].name : `${rdv.collaborators.length} collab.`)
+                             : ((rdv as any).collaborator?.name || 'N/A')}
+                         </span>
                        </div>
                     </td>
 
@@ -182,7 +243,10 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId, clien
                             <>
                               <div className="fixed inset-0 z-40" onClick={() => setActiveMenuId(null)}></div>
                               <div className={`absolute right-0 ${index >= appointments.length - 2 && appointments.length > 2 ? 'bottom-full mb-2' : 'mt-2'} bg-white border border-gray-100 rounded-xl shadow-2xl z-50 py-2 w-48 animate-in fade-in zoom-in-95 duration-150`}>
-                                <button className="w-full text-left px-4 py-2.5 text-[12px] font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                                <button 
+                                  onClick={() => handleEdit(rdv)}
+                                  className="w-full text-left px-4 py-2.5 text-[12px] font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                >
                                   <PenSquare size={14} className="text-gray-400" /> Modifier
                                 </button>
                                 <div className="h-px bg-gray-50 my-1 mx-2" />
@@ -207,10 +271,11 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId, clien
 
       <AddAppointmentModal 
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleCloseModal}
         userProfile={userProfile}
         clientId={clientId}
         clientName={clientName}
+        appointmentToEdit={appointmentToEdit}
       />
     </div>
   );

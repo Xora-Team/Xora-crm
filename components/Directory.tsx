@@ -334,14 +334,14 @@ const Directory: React.FC<DirectoryProps> = ({
         await addDoc(collection(db, 'clients'), {
           name: `${item.firstName} ${item.lastName}`.trim(),
           status: item.status,
-          origin: item.subOrigin || 'Import CSV',
-          category: item.origin || 'Autre',
+          origin: item.subOrigin || '',
+          category: item.origin || '',
           location: item.address,
           addedBy,
           dateAdded: new Date().toLocaleDateString('fr-FR'),
           companyId: userProfile.companyId,
           details: {
-            civility: item.civility,
+            ...(item.civility ? { civility: item.civility } : {}),
             lastName: item.lastName,
             firstName: item.firstName,
             email: item.email,

@@ -22,6 +22,7 @@ import { db } from '../firebase';
 import { collection, query, where, onSnapshot, limit, doc, deleteDoc, updateDoc, writeBatch } from '@firebase/firestore';
 import { FinancialKPI, Task, Client, Page, Appointment } from '../types';
 import AddTaskModal from './AddTaskModal';
+import AddAppointmentModal from './AddAppointmentModal';
 
 interface DashboardProps {
   userProfile?: any;
@@ -42,7 +43,9 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
   const [isLoading, setIsLoading] = useState(true);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+  const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [appointmentToEdit, setAppointmentToEdit] = useState<Appointment | null>(null);
   
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -85,7 +88,14 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
       const sortedData = [...data].sort((a, b) => (a.orderIndex ?? 999) - (b.orderIndex ?? 999));
       setTasks(sortedData.filter(t => t.status !== 'completed').slice(0, 10));
     });
-    const unsubAppts = onSnapshot(query(collection(db, 'appointments'), where('companyId', '==', userProfile.companyId), where('collaborator.name', '==', userProfile.name)), (s) => setAppointments(s.docs.map(d => ({ id: d.id, ...d.data() })) as Appointment[]));
+    const unsubAppts = onSnapshot(query(collection(db, 'appointments'), where('companyId', '==', userProfile.companyId)), (s) => {
+      const data = s.docs.map(d => ({ id: d.id, ...d.data() })) as Appointment[];
+      const myAppts = data.filter(a => 
+        a.collaboratorUids?.includes(userProfile.uid) || 
+        a.collaborators?.some(c => c.uid === userProfile.uid || c.name === userProfile.name)
+      );
+      setAppointments(myAppts);
+    });
 
     return () => { unsubKpis(); unsubClients(); unsubProjects(); unsubAllTasks(); unsubAppts(); };
   }, [userProfile?.companyId, userProfile?.name, userProfile?.uid]);
@@ -433,12 +443,41 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
                                         </div>
                                     ) : (
                                         dayAppts.map((rdv) => (
-                                            <div key={rdv.id} onClick={() => onNavigate?.('agenda')} className="p-3 rounded-xl border bg-white border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group">
+                                            <div 
+                                              key={rdv.id} 
+                                              onClick={() => {
+                                                setAppointmentToEdit(rdv);
+                                                setIsAppointmentModalOpen(true);
+                                              }} 
+                                              className="p-3 rounded-xl border bg-white border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                                            >
                                                 <span className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter block mb-1">{rdv.startTime}</span>
                                                 <h4 className="text-[12px] font-bold leading-tight line-clamp-2 uppercase tracking-tight text-gray-900 group-hover:text-indigo-600 transition-colors">{rdv.title}</h4>
-                                                <div className="flex items-center gap-1 mt-2 text-[9px] font-bold text-gray-400">
-                                                   <User size={10} className="shrink-0" />
-                                                   <span className="truncate">{rdv.clientName}</span>
+                                                <div className="flex items-center justify-between mt-2">
+                                                    <div className="flex items-center gap-1 text-[9px] font-bold text-gray-400 min-w-0">
+                                                       <User size={10} className="shrink-0" />
+                                                       <span className="truncate">{rdv.clientName}</span>
+                                                    </div>
+                                                    {rdv.collaborators && rdv.collaborators.length > 0 && (
+                                                      <div className="flex -space-x-1.5 shrink-0">
+                                                        {rdv.collaborators.slice(0, 2).map((c, idx) => (
+                                                          <div key={idx} className="w-4 h-4 rounded-full border border-white overflow-hidden bg-gray-100">
+                                                            {c.avatar ? (
+                                                              <img src={c.avatar} alt={c.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                                            ) : (
+                                                              <div className="w-full h-full flex items-center justify-center bg-indigo-100 text-indigo-600 text-[6px] font-black uppercase">
+                                                                {c.name.charAt(0)}
+                                                              </div>
+                                                            )}
+                                                          </div>
+                                                        ))}
+                                                        {rdv.collaborators.length > 2 && (
+                                                          <div className="w-4 h-4 rounded-full border border-white bg-gray-900 text-white text-[6px] font-black flex items-center justify-center">
+                                                            +{rdv.collaborators.length - 2}
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))
@@ -452,6 +491,12 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
       </div>
 
       <AddTaskModal isOpen={isAddTaskModalOpen} onClose={() => { setIsAddTaskModalOpen(false); setEditingTask(null); }} userProfile={userProfile} taskToEdit={editingTask} />
+      <AddAppointmentModal 
+        isOpen={isAppointmentModalOpen} 
+        onClose={() => { setIsAppointmentModalOpen(false); setAppointmentToEdit(null); }} 
+        userProfile={userProfile} 
+        appointmentToEdit={appointmentToEdit} 
+      />
     </div>
   );
 };

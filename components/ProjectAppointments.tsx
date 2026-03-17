@@ -126,7 +126,7 @@ const ProjectAppointments: React.FC<ProjectAppointmentsProps> = ({
           className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-[12px] font-bold text-gray-800 shadow-sm hover:border-[#A886D7] transition-all active:scale-95"
         >
           <Plus size={16} className="text-[#A886D7]" />
-          Prendre un rendez-vous
+          + Nouveau RDV
         </button>
       </div>
 
@@ -196,8 +196,14 @@ const ProjectAppointments: React.FC<ProjectAppointmentsProps> = ({
 
                     <td className="px-6 py-5 border-y border-gray-50">
                        <div className="flex items-center gap-3">
-                         <img src={rdv.collaborator.avatar} className="w-7 h-7 rounded-full border border-gray-100 shadow-sm" alt="" />
-                         <span className="text-[12px] font-bold text-gray-700">{rdv.collaborator.name}</span>
+                         <div className="flex -space-x-2">
+                           {rdv.collaborators?.map((c, i) => (
+                             <img key={i} src={c.avatar} className="w-7 h-7 rounded-full border-2 border-white shadow-sm" title={c.name} alt="" />
+                           ))}
+                         </div>
+                         <span className="text-[12px] font-bold text-gray-700">
+                           {rdv.collaborators?.length === 1 ? rdv.collaborators[0].name : `${rdv.collaborators?.length} collab.`}
+                         </span>
                        </div>
                     </td>
 

@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { CheckSquare } from 'lucide-react';
+import { CheckSquare, Calendar, Video, MapPin } from 'lucide-react';
 import { Appointment } from '../types';
 
 interface AgendaMonthViewProps {
@@ -80,10 +80,63 @@ const AgendaMonthView: React.FC<AgendaMonthViewProps> = ({ currentDate, appointm
                     <div 
                       key={rdv.id} 
                       onClick={() => onAppointmentClick?.(rdv)}
-                      className={`px-2 py-1 border-l-2 rounded-md text-[9px] font-black truncate uppercase flex items-center justify-between cursor-pointer hover:brightness-95 transition-all ${isTask ? 'bg-indigo-50 border-indigo-500 text-indigo-900' : 'bg-[#C6F6D5] border-[#38A169] text-[#22543D]'}`}
+                      className={`group relative px-2 py-1 border-l-2 rounded-md text-[9px] font-black truncate uppercase flex items-center justify-between cursor-pointer hover:brightness-95 transition-all ${isTask ? 'bg-indigo-50 border-indigo-500 text-indigo-900' : 'bg-[#C6F6D5] border-[#38A169] text-[#22543D]'}`}
                     >
-                      <span className="truncate flex-1">{rdv.startTime} • {rdv.title}</span>
+                      <span className="truncate flex-1">{rdv.startTime}-{rdv.endTime} • {rdv.isPrivate ? 'RDV privé' : rdv.title}</span>
                       {isTask && <CheckSquare size={10} className="text-indigo-400 ml-1 shrink-0" />}
+
+                      {/* Tooltip au survol - Masqué si privé */}
+                      {!rdv.isPrivate && (
+                        <div className="fixed sm:absolute left-full ml-2 top-0 w-80 bg-white rounded-[24px] shadow-2xl border border-gray-100 z-[100] p-5 pointer-events-none hidden group-hover:block animate-in fade-in zoom-in-95 duration-200 normal-case font-sans">
+                          {/* Header */}
+                          <div className="flex items-center gap-3 mb-6">
+                            <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 border border-gray-100">
+                              <Calendar size={24} />
+                            </div>
+                            <div className="flex-1 min-w-0 text-left">
+                              <h3 className="text-[15px] font-bold text-gray-900 truncate uppercase tracking-tight">{rdv.title}</h3>
+                              <div className="flex gap-2 mt-1">
+                                <span className="px-2 py-0.5 bg-gray-800 text-white text-[10px] font-black rounded-full uppercase tracking-widest">{rdv.type}</span>
+                                {rdv.location === 'Visio' && (
+                                  <span className="px-2 py-0.5 bg-gray-800 text-white text-[10px] font-black rounded-full flex items-center justify-center">
+                                    <Video size={12} />
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Sections */}
+                          <div className="space-y-3 text-left">
+                            <div className="bg-gray-50 rounded-2xl p-4">
+                              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">Informations du rendez-vous</p>
+                              <p className="text-[14px] font-bold text-gray-900">
+                                {rdv.date} <span className="text-gray-400 ml-2">{rdv.startTime} - {rdv.endTime}</span>
+                              </p>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-2xl p-4">
+                              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">Participants</p>
+                              <div className="flex -space-x-2">
+                                {rdv.collaborators?.map((c, i) => (
+                                  <img key={i} src={c.avatar} className="w-8 h-8 rounded-full border-2 border-white shadow-sm" title={c.name} alt="" />
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-2xl p-4">
+                              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">Lieu du rendez-vous</p>
+                              <div className="flex items-start gap-3">
+                                <MapPin size={18} className="text-gray-400 mt-0.5" />
+                                <div>
+                                  <p className="text-[14px] font-bold text-gray-900">{rdv.location}</p>
+                                  <p className="text-[12px] text-gray-500 leading-tight mt-0.5">{rdv.address || 'Adresse non renseignée'}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

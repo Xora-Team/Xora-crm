@@ -615,10 +615,12 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
           endTime: endTime,
           location: 'Showroom',
           status: 'confirmé',
-          collaborator: {
+          collaborators: [{
+            uid: selectedCollab.uid,
             name: selectedCollab.name,
             avatar: selectedCollab.avatar
-          },
+          }],
+          collaboratorUids: [selectedCollab.uid],
           companyId: userProfile.companyId,
           taskId: taskId,
           createdAt: new Date().toISOString()
@@ -886,10 +888,10 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
             {!isMemo && (
               <div className={`grid grid-cols-1 ${isLeadAutoTask ? 'md:grid-cols-1' : 'md:grid-cols-2'} gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                 <div className="space-y-2 relative" ref={clientSearchRef}>
-                  <label className="block text-xs font-bold text-gray-500 ml-1">Client lié {(isLeadAutoTask || isEdit || isProjectAutoTask) ? '(verrouillé)' : ''}</label>
+                  <label className="block text-xs font-bold text-gray-500 ml-1">Client lié {(isLeadAutoTask || isProjectAutoTask || initialClientId) ? '(verrouillé)' : ''}</label>
                   <div className="relative">
                     <input 
-                      disabled={isLeadAutoTask || isEdit || isProjectAutoTask}
+                      disabled={isLeadAutoTask || isProjectAutoTask || !!initialClientId}
                       type="text"
                       value={clientSearchQuery}
                       onChange={(e) => {
@@ -902,7 +904,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                       className="w-full pl-10 pr-10 py-3 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-800 focus:border-[#A886D7] outline-none transition-all shadow-sm disabled:bg-gray-50 disabled:text-gray-400"
                     />
                     <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300" />
-                    {selectedClientId && !isLeadAutoTask && !isEdit && !isProjectAutoTask && (
+                    {selectedClientId && !isLeadAutoTask && !isProjectAutoTask && !initialClientId && (
                       <button 
                         type="button"
                         onClick={() => { setSelectedClientId(''); setClientSearchQuery(''); }}
@@ -913,7 +915,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     )}
                   </div>
 
-                  {showClientResults && !isLeadAutoTask && !isEdit && !isProjectAutoTask && (
+                  {showClientResults && !isLeadAutoTask && !isProjectAutoTask && !initialClientId && (
                     <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl z-[110] overflow-hidden max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
                       <div className="p-2 space-y-1">
                         {filteredClients.length > 0 ? (

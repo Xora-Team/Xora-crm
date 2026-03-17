@@ -108,9 +108,12 @@ export interface Appointment {
   date: string;
   startTime: string;
   endTime: string;
-  location: 'Showroom' | 'Domicile' | 'Visio' | 'Autre';
+  location: 'Showroom' | 'Domicile' | 'Visio' | 'Autre' | string;
+  address?: string;
+  isPrivate: boolean;
   status: 'confirmé' | 'en attente' | 'annulé' | 'effectué';
-  collaborator: User;
+  collaborators: User[];
+  collaboratorUids?: string[];
   companyId: string;
   createdAt: string;
 }
