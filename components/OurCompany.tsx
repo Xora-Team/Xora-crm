@@ -14,6 +14,7 @@ import {
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, query, where } from '@firebase/firestore';
 import UserProfile from './UserProfile';
+import { formatPhone } from '../utils';
 
 interface OurCompanyProps {
   userProfile: any;
@@ -23,16 +24,6 @@ const OurCompany: React.FC<OurCompanyProps> = ({ userProfile }) => {
   const [activeTab, setActiveTab] = useState<'annuaire' | 'infos'>('annuaire');
   const [companyInfo, setCompanyInfo] = useState<any>(null);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
-
-  const formatPhone = (phone: string) => {
-    if (!phone) return '-';
-    const cleaned = phone.replace(/\D/g, '');
-    const match = cleaned.match(/^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/);
-    if (match) {
-      return `${match[1]} ${match[2]} ${match[3]} ${match[4]} ${match[5]}`;
-    }
-    return phone;
-  };
 
   // Filters for directory
   const [teamSearch, setTeamSearch] = useState('');

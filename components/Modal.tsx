@@ -78,6 +78,8 @@ const MultiSelect = ({ value, onChange, options, placeholder = "Sélectionner", 
   );
 };
 
+import { formatPhone } from '../utils';
+
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -300,13 +302,6 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
     });
     setAddressSearch(props.label);
     setShowSuggestions(false);
-  };
-
-  // Formateur de téléphone : ajoute un espace tous les 2 chiffres
-  const formatPhone = (val: string) => {
-    const numbers = val.replace(/\D/g, ''); 
-    const limited = numbers.substring(0, 10);
-    return limited.replace(/(\d{2})(?=\d)/g, '$1 ').trim();
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {

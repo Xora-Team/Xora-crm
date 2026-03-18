@@ -63,12 +63,33 @@ const AgendaDayView: React.FC<AgendaDayViewProps> = ({ currentDate, appointments
             {dayAppointments.map(rdv => {
               const styles = getPositionStyles(rdv.startTime, rdv.endTime);
               const isTask = !!(rdv as any).taskId;
+              
+              const colors = rdv.collaborators?.map(c => c.agendaColor || '#6366f1') || ['#6366f1'];
+              const mainColor = colors[0];
+              const textColor = isTask ? '#312e81' : (colors.length > 1 ? '#111827' : mainColor);
+              const borderColor = isTask ? '#6366f1' : mainColor;
+
+              const bubbleStyle: React.CSSProperties = { ...styles };
+
+              if (colors.length > 1) {
+                const borderStops = colors.map((c, i) => `${c} ${(i * 100) / colors.length}%, ${c} ${((i + 1) * 100) / colors.length}%`).join(', ');
+                const bgStops = colors.map((c, i) => `${c}15 ${(i * 100) / colors.length}%, ${c}15 ${((i + 1) * 100) / colors.length}%`).join(', ');
+                bubbleStyle.backgroundImage = `linear-gradient(to bottom, ${borderStops}), linear-gradient(to bottom, ${bgStops})`;
+                bubbleStyle.backgroundSize = `6px 100%, 100% 100%`;
+                bubbleStyle.backgroundPosition = `left center, center center`;
+                bubbleStyle.backgroundRepeat = `no-repeat`;
+                bubbleStyle.borderLeftColor = 'transparent';
+              } else {
+                bubbleStyle.backgroundColor = isTask ? 'rgba(99, 102, 241, 0.05)' : `${mainColor}20`;
+                bubbleStyle.borderLeftColor = borderColor;
+              }
+
               return (
                 <div 
                   key={rdv.id}
                   onClick={() => onAppointmentClick?.(rdv)}
-                  className={`group absolute inset-x-10 rounded-2xl border-l-[6px] p-4 cursor-pointer hover:shadow-2xl hover:scale-[1.01] hover:z-50 transition-all z-20 flex flex-col justify-between shadow-lg ${isTask ? 'bg-indigo-50 border-indigo-500' : 'bg-[#C6F6D5] border-[#38A169]'}`}
-                  style={styles}
+                  className={`group absolute inset-x-10 rounded-2xl border-l-[6px] p-4 cursor-pointer hover:shadow-2xl hover:scale-[1.01] hover:z-50 transition-all z-20 flex flex-col justify-between shadow-lg`}
+                  style={bubbleStyle}
                 >
                   {/* Tooltip au survol - Masqué si privé */}
                   {!rdv.isPrivate && (
@@ -81,7 +102,7 @@ const AgendaDayView: React.FC<AgendaDayViewProps> = ({ currentDate, appointments
                         <div className="flex-1 min-w-0 text-left">
                           <h3 className="text-[15px] font-bold text-gray-900 truncate uppercase tracking-tight">{rdv.title}</h3>
                           <div className="flex gap-2 mt-1">
-                            <span className="px-2 py-0.5 bg-gray-800 text-white text-[10px] font-black rounded-full uppercase tracking-widest">{rdv.type}</span>
+                            <span className="px-2 py-0.5 text-white text-[10px] font-black rounded-full uppercase tracking-widest" style={{ backgroundColor: borderColor }}>{rdv.type}</span>
                             {rdv.location === 'Visio' && (
                               <span className="px-2 py-0.5 bg-gray-800 text-white text-[10px] font-black rounded-full flex items-center justify-center">
                                 <Video size={12} />
@@ -125,10 +146,10 @@ const AgendaDayView: React.FC<AgendaDayViewProps> = ({ currentDate, appointments
 
                   <div className="flex justify-between items-start">
                     <div>
-                      <h4 className={`text-[14px] font-black uppercase tracking-tight ${isTask ? 'text-indigo-900' : 'text-[#22543D]'}`}>
+                      <h4 className={`text-[14px] font-black uppercase tracking-tight`} style={{ color: textColor }}>
                         {rdv.isPrivate ? 'RDV privé' : rdv.title}
                       </h4>
-                      <p className={`text-[12px] font-bold mt-1 opacity-80 ${isTask ? 'text-indigo-700' : 'text-[#2F855A]'}`}>
+                      <p className={`text-[12px] font-bold mt-1 opacity-80`} style={{ color: textColor }}>
                         {rdv.isPrivate ? rdv.collaborators?.[0]?.name : rdv.clientName}
                       </p>
                     </div>
@@ -141,11 +162,11 @@ const AgendaDayView: React.FC<AgendaDayViewProps> = ({ currentDate, appointments
                           <img key={i} src={c.avatar} className="w-8 h-8 rounded-full border-2 border-white shadow-sm" title={c.name} alt="" />
                         ))}
                       </div>
-                      <span className={`text-[10px] font-black px-2 py-1 rounded uppercase ${isTask ? 'bg-indigo-200/50 text-indigo-800' : 'bg-white/40 text-[#22543D]'}`}>
+                      <span className={`text-[10px] font-black px-2 py-1 rounded uppercase`} style={{ backgroundColor: `${borderColor}30`, color: textColor }}>
                         {rdv.type} {!rdv.isPrivate && `• ${rdv.location}`}
                       </span>
                     </div>
-                    <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg ${isTask ? 'text-indigo-600 bg-white/50' : 'text-[#38A169] bg-white/50'}`}>{rdv.startTime} - {rdv.endTime}</span>
+                    <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg bg-white/50`} style={{ color: textColor }}>{rdv.startTime} - {rdv.endTime}</span>
                   </div>
                 </div>
               );

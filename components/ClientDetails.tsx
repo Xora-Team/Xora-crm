@@ -16,6 +16,7 @@ import { Client } from '../types';
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
 import { doc, onSnapshot, collection, query, where, updateDoc } from '@firebase/firestore';
+import { formatPhone } from '../utils';
 import ClientTasks from './ClientTasks';
 import ClientContactInfo from './ClientContactInfo';
 import ClientProjects from './ClientProjects';
@@ -176,7 +177,7 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client: initialClient, on
                     <h1 className="text-[17px] font-bold text-gray-900 leading-tight uppercase">{client.name}</h1>
                   </div>
                   <div className="flex items-center gap-2 text-[13px] font-bold text-gray-700 min-w-[140px]">
-                    <Phone size={16} className="text-gray-300" /> {(client as any).details?.phone || 'Non renseigné'}
+                    <Phone size={16} className="text-gray-300" /> {formatPhone((client as any).details?.phone || '') || 'Non renseigné'}
                   </div>
                   <div className="flex items-center gap-2 text-[13px] font-bold text-gray-700">
                     <Mail size={16} className="text-gray-300" /> {(client as any).details?.email || 'Non renseigné'}
@@ -192,7 +193,7 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client: initialClient, on
                       </h2>
                     </div>
                     <div className="flex items-center gap-2 text-[13px] font-bold text-gray-700 min-w-[140px]">
-                      <Phone size={16} className="text-gray-300" /> {secondaryContact.phone || '-'}
+                      <Phone size={16} className="text-gray-300" /> {formatPhone(secondaryContact.phone || '') || '-'}
                     </div>
                     <div className="flex items-center gap-2 text-[13px] font-bold text-gray-700">
                       <Mail size={16} className="text-gray-300" /> {secondaryContact.email || '-'}

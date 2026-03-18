@@ -26,7 +26,7 @@ const AddProjectArticleModal: React.FC<AddProjectArticleModalProps> = ({
   const [articles, setArticles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState<string | null>(null);
-  const [sortPrice, setSortPrice] = useState<'none' | 'asc' | 'desc'>('none');
+  const [sortPrice, setSortPrice] = useState<'none' | 'asc' | 'desc'>('asc');
   const [sortAlpha, setSortAlpha] = useState<'none' | 'asc' | 'desc'>('none');
 
   // Manual form state

@@ -30,6 +30,7 @@ import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
 import { doc, updateDoc, onSnapshot, writeBatch, collection, query, where, getDocs, addDoc, serverTimestamp } from '@firebase/firestore';
 import UserDocuments from './UserDocuments';
+import { formatPhone } from '../utils';
 
 interface UserProfileProps {
   userProfile: any;
@@ -42,16 +43,6 @@ interface UserProfileProps {
 const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, setUserProfile, onBack, readOnly }) => {
   const [activeTab, setActiveTab] = useState('Informations');
   const [isUploading, setIsUploading] = useState(false);
-
-  const formatPhone = (phone: string) => {
-    if (!phone) return '';
-    const cleaned = phone.replace(/\D/g, '');
-    const match = cleaned.match(/^(\d{0,2})(\d{0,2})(\d{0,2})(\d{0,2})(\d{0,2})$/);
-    if (match) {
-      return [match[1], match[2], match[3], match[4], match[5]].filter(Boolean).join(' ');
-    }
-    return phone;
-  };
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);

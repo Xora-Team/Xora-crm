@@ -8,6 +8,8 @@ import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
 import { doc, onSnapshot, updateDoc, arrayRemove } from '@firebase/firestore';
 
+import { formatPhone } from '../utils';
+
 interface ClientExternalContactProps {
   client: Client;
 }
@@ -82,13 +84,6 @@ const ClientExternalContact: React.FC<ClientExternalContactProps> = ({ client: i
         "details.directoryContacts": arrayRemove(contact)
       });
     } catch (e) { console.error(e); }
-  };
-
-  // Formateur de téléphone local
-  const formatPhone = (val: string) => {
-    const numbers = val.replace(/\D/g, ''); 
-    const limited = numbers.substring(0, 10);
-    return limited.replace(/(\d{2})(?=\d)/g, '$1 ').trim();
   };
 
   return (
@@ -184,7 +179,7 @@ const ClientExternalContact: React.FC<ClientExternalContactProps> = ({ client: i
                           <h4 className="text-[14px] font-bold text-gray-900 uppercase">{contact.firstName} {contact.lastName}</h4>
                           <div className="flex items-center gap-2 mt-0.5">
                             <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{contact.type}</p>
-                            {contact.phone && <span className="text-[11px] text-gray-400 font-medium">• {contact.phone}</span>}
+                            {contact.phone && <span className="text-[11px] text-gray-400 font-medium">• {formatPhone(contact.phone)}</span>}
                           </div>
                         </div>
                       </div>

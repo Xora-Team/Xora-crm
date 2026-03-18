@@ -3,13 +3,7 @@ import { X, ChevronDown, Check, SquarePen, Loader2 } from 'lucide-react';
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
 import { doc, updateDoc, arrayUnion } from '@firebase/firestore';
-
-// Formateur de téléphone : ajoute un espace tous les 2 chiffres
-const formatPhone = (val: string) => {
-  const numbers = val.replace(/\D/g, ''); 
-  const limited = numbers.substring(0, 10);
-  return limited.replace(/(\d{2})(?=\d)/g, '$1 ').trim();
-};
+import { formatPhone } from '../utils';
 
 interface AddExternalContactModalProps {
   isOpen: boolean;

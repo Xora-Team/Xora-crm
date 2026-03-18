@@ -618,7 +618,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
           collaborators: [{
             uid: selectedCollab.uid,
             name: selectedCollab.name,
-            avatar: selectedCollab.avatar
+            avatar: selectedCollab.avatar,
+            agendaColor: selectedCollab.agendaColor || '#6366f1'
           }],
           collaboratorUids: [selectedCollab.uid],
           companyId: userProfile.companyId,

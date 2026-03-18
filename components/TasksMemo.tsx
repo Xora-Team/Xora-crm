@@ -316,7 +316,8 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
                           onDragStart={() => onDragStart(index)}
                           onDragOver={(e) => onDragOver(e, index)}
                           onDragEnd={onDragEnd}
-                          className={`group hover:bg-gray-50 transition-all ${draggedItemIndex === index ? 'opacity-40 bg-indigo-50 border-y-2 border-indigo-200' : 'bg-white'}`}
+                          onClick={() => handleEditClick(task)}
+                          className={`group hover:bg-gray-50 transition-all cursor-pointer ${draggedItemIndex === index ? 'opacity-40 bg-indigo-50 border-y-2 border-indigo-200' : 'bg-white'}`}
                         >
                             <td className="px-6 py-4 text-center">
                               <GripVertical 
@@ -342,19 +343,19 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
                                 {task.type !== 'Tâche auto' ? (
                                     <div className="flex bg-gray-100 rounded-full p-0.5 w-full max-w-[220px] mx-auto border border-gray-200 shadow-inner">
                                         <button 
-                                          onClick={() => updateTaskStatus(task.id, 'pending')}
+                                          onClick={(e) => { e.stopPropagation(); updateTaskStatus(task.id, 'pending'); }}
                                           className={`flex-1 py-1 text-[9px] font-black uppercase rounded-full transition-all ${task.status === 'pending' ? 'bg-white shadow-sm text-gray-800 border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
                                         >
                                           À faire
                                         </button>
                                         <button 
-                                          onClick={() => updateTaskStatus(task.id, 'in-progress')}
+                                          onClick={(e) => { e.stopPropagation(); updateTaskStatus(task.id, 'in-progress'); }}
                                           className={`flex-1 py-1 text-[9px] font-black uppercase rounded-full transition-all ${task.status === 'in-progress' ? 'bg-white shadow-sm text-gray-800 border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
                                         >
                                           En cours
                                         </button>
                                         <button 
-                                          onClick={() => updateTaskStatus(task.id, 'completed')}
+                                          onClick={(e) => { e.stopPropagation(); updateTaskStatus(task.id, 'completed'); }}
                                           className={`flex-1 py-1 text-[9px] font-black uppercase rounded-full transition-all ${task.status === 'completed' ? 'bg-white shadow-sm text-gray-800 border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
                                         >
                                           Terminé
@@ -374,7 +375,12 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
                             <td className="px-6 py-4">
                                 <div 
                                   className={`flex items-start gap-2 max-w-[200px] ${((task as any).note) ? 'cursor-pointer hover:text-indigo-600 transition-colors' : ''}`}
-                                  onClick={() => (task as any).note && setViewingNote((task as any).note)}
+                                  onClick={(e) => {
+                                    if ((task as any).note) {
+                                      e.stopPropagation();
+                                      setViewingNote((task as any).note);
+                                    }
+                                  }}
                                 >
                                     {((task as any).note) ? (
                                       <>
@@ -403,14 +409,14 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
                             <td className="px-6 py-4">
                                 <div className="flex justify-end space-x-2">
                                     <button 
-                                      onClick={() => handleEditClick(task)} 
+                                      onClick={(e) => { e.stopPropagation(); handleEditClick(task); }} 
                                       className="p-1.5 border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-400 shadow-sm transition-all"
                                       title="Modifier"
                                     >
                                       <PenSquare size={16} />
                                     </button>
                                     <button 
-                                      onClick={() => setTaskToDelete(task)} 
+                                      onClick={(e) => { e.stopPropagation(); setTaskToDelete(task); }} 
                                       className="p-1.5 border border-gray-200 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 shadow-sm transition-all"
                                       title="Supprimer"
                                     >

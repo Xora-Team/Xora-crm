@@ -118,16 +118,37 @@ const AgendaWeekView: React.FC<AgendaWeekViewProps> = ({ currentDate, weekDays, 
                   const isTask = !!(rdv as any).taskId;
                   const isLastDays = dayIdx >= 5; // Samedi, Dimanche -> Tooltip à gauche
                   
+                  const colors = rdv.collaborators?.map(c => c.agendaColor || '#6366f1') || ['#6366f1'];
+                  const mainColor = colors[0];
+                  const textColor = isTask ? '#312e81' : (colors.length > 1 ? '#111827' : mainColor);
+                  const borderColor = isTask ? '#6366f1' : mainColor;
+
+                  // Style for multi-color support
+                  const bubbleStyle: React.CSSProperties = { 
+                    ...timeStyles, 
+                    width: layoutStyles.width, 
+                    left: layoutStyles.left,
+                  };
+
+                  if (colors.length > 1) {
+                    const borderStops = colors.map((c, i) => `${c} ${(i * 100) / colors.length}%, ${c} ${((i + 1) * 100) / colors.length}%`).join(', ');
+                    const bgStops = colors.map((c, i) => `${c}15 ${(i * 100) / colors.length}%, ${c}15 ${((i + 1) * 100) / colors.length}%`).join(', ');
+                    bubbleStyle.backgroundImage = `linear-gradient(to bottom, ${borderStops}), linear-gradient(to bottom, ${bgStops})`;
+                    bubbleStyle.backgroundSize = `4px 100%, 100% 100%`;
+                    bubbleStyle.backgroundPosition = `left center, center center`;
+                    bubbleStyle.backgroundRepeat = `no-repeat`;
+                    bubbleStyle.borderLeftColor = 'transparent';
+                  } else {
+                    bubbleStyle.backgroundColor = isTask ? 'rgba(99, 102, 241, 0.05)' : `${mainColor}20`;
+                    bubbleStyle.borderLeftColor = borderColor;
+                  }
+                  
                   return (
                     <div 
                       key={rdv.id}
                       onClick={() => onAppointmentClick?.(rdv)}
-                      className={`group absolute rounded-xl border-l-4 p-2.5 cursor-pointer hover:shadow-2xl hover:scale-[1.02] hover:z-50 transition-all z-20 flex flex-col justify-between shadow-md ${isTask ? 'bg-indigo-50 border-indigo-500' : 'bg-[#C6F6D5] border-[#38A169]'}`}
-                      style={{ 
-                        ...timeStyles, 
-                        width: layoutStyles.width, 
-                        left: layoutStyles.left 
-                      }}
+                      className={`group absolute rounded-xl border-l-4 p-2.5 cursor-pointer hover:shadow-2xl hover:scale-[1.02] hover:z-50 transition-all z-20 flex flex-col justify-between shadow-md`}
+                      style={bubbleStyle}
                     >
                       {/* Tooltip au survol - Masqué si privé */}
                       {!rdv.isPrivate && (
@@ -140,7 +161,7 @@ const AgendaWeekView: React.FC<AgendaWeekViewProps> = ({ currentDate, weekDays, 
                             <div className="flex-1 min-w-0 text-left">
                               <h3 className="text-[15px] font-bold text-gray-900 truncate uppercase tracking-tight">{rdv.title}</h3>
                               <div className="flex gap-2 mt-1">
-                                <span className="px-2 py-0.5 bg-gray-800 text-white text-[10px] font-black rounded-full uppercase tracking-widest">{rdv.type}</span>
+                                <span className="px-2 py-0.5 text-white text-[10px] font-black rounded-full uppercase tracking-widest" style={{ backgroundColor: borderColor }}>{rdv.type}</span>
                                 {rdv.location === 'Visio' && (
                                   <span className="px-2 py-0.5 bg-gray-800 text-white text-[10px] font-black rounded-full flex items-center justify-center">
                                     <Video size={12} />
@@ -184,15 +205,15 @@ const AgendaWeekView: React.FC<AgendaWeekViewProps> = ({ currentDate, weekDays, 
 
                       <div className="space-y-0.5 overflow-hidden">
                         <div className="flex justify-between items-start gap-1">
-                          <h4 className={`text-[11px] font-black leading-tight truncate uppercase tracking-tighter flex-1 ${isTask ? 'text-indigo-900' : 'text-[#22543D]'}`} title={rdv.isPrivate ? 'RDV privé' : rdv.title}>
+                          <h4 className={`text-[11px] font-black leading-tight truncate uppercase tracking-tighter flex-1`} style={{ color: textColor }} title={rdv.isPrivate ? 'RDV privé' : rdv.title}>
                             {rdv.isPrivate ? 'RDV privé' : rdv.title}
                           </h4>
                           {isTask && <CheckSquare size={12} className="text-indigo-400 shrink-0 mt-0.5" />}
                         </div>
-                        <p className={`text-[9px] font-bold truncate opacity-80 ${isTask ? 'text-indigo-700' : 'text-[#2F855A]'}`}>
+                        <p className={`text-[9px] font-bold truncate opacity-80`} style={{ color: textColor }}>
                           {rdv.isPrivate ? rdv.collaborators?.[0]?.name : rdv.clientName}
                         </p>
-                        {!rdv.isPrivate && <p className={`text-[8px] font-medium truncate opacity-60 ${isTask ? 'text-indigo-600' : 'text-[#38A169]'}`}>{rdv.location}</p>}
+                        {!rdv.isPrivate && <p className={`text-[8px] font-medium truncate opacity-60`} style={{ color: textColor }}>{rdv.location}</p>}
                       </div>
                       <div className="flex justify-between items-end mt-1">
                         <div className="flex -space-x-1.5 overflow-hidden">
@@ -205,7 +226,7 @@ const AgendaWeekView: React.FC<AgendaWeekViewProps> = ({ currentDate, weekDays, 
                             </div>
                           )}
                         </div>
-                        <span className={`text-[8px] font-black whitespace-nowrap ${isTask ? 'text-indigo-600' : 'text-[#38A169]'}`}>
+                        <span className={`text-[8px] font-black whitespace-nowrap`} style={{ color: textColor }}>
                           {rdv.startTime} - {rdv.endTime}
                         </span>
                       </div>

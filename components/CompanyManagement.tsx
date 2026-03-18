@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, updateDoc, onSnapshot, collection, query, where } from '@firebase/firestore';
+import { formatPhone } from '../utils';
 import InviteCollaboratorModal from './InviteCollaboratorModal';
 import AddGiftModal from './AddGiftModal';
 import UserProfile from './UserProfile';
@@ -528,8 +529,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                             }`}
                             value={companyInfo?.phone || ''}
                             onChange={(e) => {
-                              const digits = e.target.value.replace(/\D/g, '').substring(0, 10);
-                              const formatted = digits.match(/.{1,2}/g)?.join(' ') || digits;
+                              const formatted = formatPhone(e.target.value);
                               setCompanyInfo({...companyInfo, phone: formatted});
                             }}
                             onBlur={(e) => handleUpdateCompany('phone', e.target.value)}
@@ -1267,7 +1267,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                           <span className="text-sm font-medium text-gray-600">{member.email || ''}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className="text-sm font-medium text-gray-600">{member.portable || member.phone || ''}</span>
+                          <span className="text-sm font-medium text-gray-600">{formatPhone(member.portable || member.phone || '')}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
                           <div className="flex justify-center">

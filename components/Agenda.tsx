@@ -71,14 +71,30 @@ const Agenda: React.FC<AgendaProps> = ({ userProfile }) => {
     return () => unsubscribe();
   }, [userProfile?.companyId]);
 
+  const appointmentsWithColors = useMemo(() => {
+    return appointments.map(rdv => {
+      const updatedCollaborators = rdv.collaborators?.map(c => {
+        const fullCollab = collaborators.find(col => col.uid === c.uid);
+        return {
+          ...c,
+          agendaColor: fullCollab?.agendaColor || (c as any).agendaColor || '#6366f1'
+        };
+      });
+      return {
+        ...rdv,
+        collaborators: updatedCollaborators
+      };
+    });
+  }, [appointments, collaborators]);
+
   const filteredAppointments = useMemo(() => {
-    return appointments.filter(rdv => {
+    return appointmentsWithColors.filter(rdv => {
       const matchesSearch = rdv.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                            rdv.clientName.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesUser = filterUser ? rdv.collaborators?.some(c => c.name === filterUser) : true;
       return matchesSearch && matchesUser;
     });
-  }, [appointments, searchQuery, filterUser]);
+  }, [appointmentsWithColors, searchQuery, filterUser]);
 
   // --- Logique d'ouverture de rdv ou tâche depuis l'agenda ---
   const handleAppointmentClick = async (rdv: Appointment) => {

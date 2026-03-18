@@ -76,11 +76,33 @@ const AgendaMonthView: React.FC<AgendaMonthViewProps> = ({ currentDate, appointm
               <div className="space-y-1 overflow-hidden">
                 {dayAppointments.slice(0, 3).map(rdv => {
                   const isTask = !!(rdv as any).taskId;
+                  
+                  const colors = rdv.collaborators?.map(c => c.agendaColor || '#6366f1') || ['#6366f1'];
+                  const mainColor = colors[0];
+                  const textColor = isTask ? '#312e81' : (colors.length > 1 ? '#111827' : mainColor);
+                  const borderColor = isTask ? '#6366f1' : mainColor;
+
+                  const bubbleStyle: React.CSSProperties = { color: textColor };
+
+                  if (colors.length > 1) {
+                    const borderStops = colors.map((c, i) => `${c} ${(i * 100) / colors.length}%, ${c} ${((i + 1) * 100) / colors.length}%`).join(', ');
+                    const bgStops = colors.map((c, i) => `${c}15 ${(i * 100) / colors.length}%, ${c}15 ${((i + 1) * 100) / colors.length}%`).join(', ');
+                    bubbleStyle.backgroundImage = `linear-gradient(to bottom, ${borderStops}), linear-gradient(to bottom, ${bgStops})`;
+                    bubbleStyle.backgroundSize = `2px 100%, 100% 100%`;
+                    bubbleStyle.backgroundPosition = `left center, center center`;
+                    bubbleStyle.backgroundRepeat = `no-repeat`;
+                    bubbleStyle.borderLeftColor = 'transparent';
+                  } else {
+                    bubbleStyle.backgroundColor = isTask ? 'rgba(99, 102, 241, 0.05)' : `${mainColor}20`;
+                    bubbleStyle.borderLeftColor = borderColor;
+                  }
+
                   return (
                     <div 
                       key={rdv.id} 
                       onClick={() => onAppointmentClick?.(rdv)}
-                      className={`group relative px-2 py-1 border-l-2 rounded-md text-[9px] font-black truncate uppercase flex items-center justify-between cursor-pointer hover:brightness-95 transition-all ${isTask ? 'bg-indigo-50 border-indigo-500 text-indigo-900' : 'bg-[#C6F6D5] border-[#38A169] text-[#22543D]'}`}
+                      className={`group relative px-2 py-1 border-l-2 rounded-md text-[9px] font-black truncate uppercase flex items-center justify-between cursor-pointer hover:brightness-95 transition-all`}
+                      style={bubbleStyle}
                     >
                       <span className="truncate flex-1">{rdv.startTime}-{rdv.endTime} • {rdv.isPrivate ? 'RDV privé' : rdv.title}</span>
                       {isTask && <CheckSquare size={10} className="text-indigo-400 ml-1 shrink-0" />}
@@ -96,7 +118,7 @@ const AgendaMonthView: React.FC<AgendaMonthViewProps> = ({ currentDate, appointm
                             <div className="flex-1 min-w-0 text-left">
                               <h3 className="text-[15px] font-bold text-gray-900 truncate uppercase tracking-tight">{rdv.title}</h3>
                               <div className="flex gap-2 mt-1">
-                                <span className="px-2 py-0.5 bg-gray-800 text-white text-[10px] font-black rounded-full uppercase tracking-widest">{rdv.type}</span>
+                                <span className="px-2 py-0.5 text-white text-[10px] font-black rounded-full uppercase tracking-widest" style={{ backgroundColor: borderColor }}>{rdv.type}</span>
                                 {rdv.location === 'Visio' && (
                                   <span className="px-2 py-0.5 bg-gray-800 text-white text-[10px] font-black rounded-full flex items-center justify-center">
                                     <Video size={12} />

@@ -23,6 +23,7 @@ export interface User {
   companyId?: string;
   role?: string;
   email?: string;
+  agendaColor?: string;
 }
 
 export interface Client {

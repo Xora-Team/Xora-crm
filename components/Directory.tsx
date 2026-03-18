@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp } from '@firebase/firestore';
+import { formatPhone } from '../utils';
 import { Client } from '../types';
 import DirectoryMap from './DirectoryMap';
 import Modal from './Modal';
@@ -159,16 +160,6 @@ const Directory: React.FC<DirectoryProps> = ({
   const [isImporting, setIsImporting] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'createdAt', direction: 'desc' });
   
-  const formatPhone = (phone: string) => {
-    if (!phone) return '-';
-    const cleaned = phone.replace(/\D/g, '');
-    const match = cleaned.match(/^(\d{0,2})(\d{0,2})(\d{0,2})(\d{0,2})(\d{0,2})$/);
-    if (match) {
-      return [match[1], match[2], match[3], match[4], match[5]].filter(Boolean).join(' ');
-    }
-    return phone;
-  };
-
   const toolbarRef = useRef<HTMLDivElement>(null);
 
   // Configuration dynamique basée sur le mode

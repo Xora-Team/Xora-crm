@@ -4,6 +4,7 @@ import { X, Calendar, Clock, MapPin, Loader2, Check, ChevronDown, ChevronLeft, C
 import { db } from '../firebase';
 import { collection, addDoc, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Appointment, User } from '../types';
+import { formatPhone } from '../utils';
 
 interface AddAppointmentModalProps {
   isOpen: boolean;
@@ -342,7 +343,8 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
         collaborators: selectedCollaborators.map(c => ({
           uid: c.uid,
           name: c.name,
-          avatar: c.avatar
+          avatar: c.avatar,
+          agendaColor: (c as any).agendaColor || '#6366f1'
         })),
         collaboratorUids: formData.selectedCollaboratorUids,
         companyId: userProfile.companyId,
@@ -716,11 +718,11 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
                         onChange={e => setFormData({...formData, address: e.target.value})}
                       >
                         <option value={selectedClient?.details?.phone || ''}>
-                          Contact principal: {selectedClient?.details?.phone || 'Non renseigné'}
+                          Contact principal: {formatPhone(selectedClient?.details?.phone || '') || 'Non renseigné'}
                         </option>
                         {selectedClient?.details?.additionalContacts?.[0]?.phone && (
                           <option value={selectedClient.details.additionalContacts[0].phone}>
-                            Contact secondaire: {selectedClient.details.additionalContacts[0].phone}
+                            Contact secondaire: {formatPhone(selectedClient.details.additionalContacts[0].phone)}
                           </option>
                         )}
                       </select>

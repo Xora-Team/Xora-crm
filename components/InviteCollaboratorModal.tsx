@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { X, UserPlus, Mail, User, ChevronDown, CheckCircle2, Loader2, Send, Smartphone, Car, Laptop, Palette, ShieldCheck, Phone } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from '@firebase/firestore';
+import { formatPhone } from '../utils';
 
 interface InviteCollaboratorModalProps {
   isOpen: boolean;
@@ -454,8 +455,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                         placeholder="06 00 00 00 00" 
                         value={formData.phoneMobile}
                         onChange={(e) => {
-                          const digits = e.target.value.replace(/\D/g, '').substring(0, 10);
-                          const formatted = digits.match(/.{1,2}/g)?.join(' ') || digits;
+                          const formatted = formatPhone(e.target.value);
                           setFormData({...formData, phoneMobile: formatted});
                         }}
                         className="w-full pl-16 pr-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
@@ -474,8 +474,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                         placeholder="01 00 00 00 00" 
                         value={formData.phoneFixed}
                         onChange={(e) => {
-                          const digits = e.target.value.replace(/\D/g, '').substring(0, 10);
-                          const formatted = digits.match(/.{1,2}/g)?.join(' ') || digits;
+                          const formatted = formatPhone(e.target.value);
                           setFormData({...formData, phoneFixed: formatted});
                         }}
                         className="w-full pl-16 pr-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"

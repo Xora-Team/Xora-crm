@@ -23,6 +23,7 @@ import {
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
 import { doc, onSnapshot, getDoc, collection, query, where, updateDoc } from '@firebase/firestore';
+import { formatPhone } from '../utils';
 import ProjectGeneralDiscovery from './ProjectGeneralDiscovery';
 import ProjectKitchenDiscovery from './ProjectKitchenDiscovery';
 import ProjectTasks from './ProjectTasks';
@@ -306,7 +307,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project: initialProject
                 <div className="flex items-center gap-8 py-1">
                   <span className="text-[15px] font-bold text-gray-900 uppercase tracking-tight">{project.clientName}</span>
                   <div className="flex items-center gap-2 text-[13px] font-bold text-gray-700">
-                    <Phone size={14} className="text-gray-300" /> {clientData?.details?.phone || 'Non renseigné'}
+                    <Phone size={14} className="text-gray-300" /> {formatPhone(clientData?.details?.phone || '') || 'Non renseigné'}
                   </div>
                   <div className="flex items-center gap-2 text-[13px] font-bold text-gray-700">
                     <Mail size={14} className="text-gray-300" /> {clientData?.details?.email || 'Non renseigné'}
