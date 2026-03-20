@@ -226,7 +226,7 @@ const ClientProjects: React.FC<ClientProjectsProps> = ({ client, userProfile, on
                                   }}
                                   className="w-full text-left px-4 py-2.5 text-[12px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-2"
                                 >
-                                  <Trash2 size={14} /> Supprimer
+                                  <Trash2 size={14} className="text-red-500" /> Supprimer
                                 </button>
                               </div>
                             </>
@@ -269,7 +269,7 @@ const ClientProjects: React.FC<ClientProjectsProps> = ({ client, userProfile, on
                   disabled={isDeleting}
                   className="flex-1 px-6 py-4 bg-red-600 text-white rounded-2xl font-bold text-[13px] hover:bg-red-700 shadow-xl shadow-red-100 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
-                  {isDeleting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Trash2 size={18} />}
+                  {isDeleting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Trash2 size={18} className="text-red-500" />}
                   Supprimer
                 </button>
               </div>

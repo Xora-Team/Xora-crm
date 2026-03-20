@@ -167,18 +167,21 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
 
   // Liste unifiée pour les leads et les tâches manuelles
   const taskStatusOptions = [
-    'À qualifier',
-    'À recontacter',
-    'Projet long terme',
-    'Non qualifié',
+    'Découverte leads',
+    'Étude client',
+    'Dossier technique',
+    'Installation',
+    'SAV',
     'Terminé'
   ];
 
   const projectAutoStatusOptions = [
-    'Etude à réaliser',
-    'Etude à modifier',
-    'Etude à relancer',
-    'Etude cloturée'
+    'Découverte leads',
+    'Étude client',
+    'Dossier technique',
+    'Installation',
+    'SAV',
+    'Terminé'
   ];
 
   const statusOptions = isProjectAutoTask ? projectAutoStatusOptions : taskStatusOptions;
@@ -187,15 +190,12 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
   const getAutoTitle = (status: string, clientName: string) => {
     const name = formatClientNameDisplay(clientName) || 'Client';
     switch (status) {
-      case 'À qualifier': return `Qualifier : ${name}`;
-      case 'À recontacter': return `Recontacter : ${name}`;
-      case 'Projet long terme': return `Suivi long terme : ${name}`;
-      case 'Non qualifié': return `Dossier non qualifié : ${name}`;
+      case 'Découverte leads': return `Découverte leads : ${name}`;
+      case 'Étude client': return `Étude client : ${name}`;
+      case 'Dossier technique': return `Dossier technique : ${name}`;
+      case 'Installation': return `Installation : ${name}`;
+      case 'SAV': return `SAV : ${name}`;
       case 'Terminé': return `Clôturé : ${name}`;
-      case 'Etude à réaliser': return `Suivi : Etude à réaliser - ${name}`;
-      case 'Etude à modifier': return `Suivi : Etude à modifier - ${name}`;
-      case 'Etude à relancer': return `Suivi : Etude à relancer - ${name}`;
-      case 'Etude cloturée': return `Suivi : Etude cloturée - ${name}`;
       default: return `Suivi : ${name}`;
     }
   };
@@ -540,7 +540,14 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
         type: finalType,
         statusLabel: isMemo ? '' : selectedStatusLabel,
         status: operationalStatus,
-        tagColor: isMemo ? 'gray' : (selectedStatusLabel === 'Prioritaire' || selectedStatusLabel === 'Urgent' ? 'pink' : 'gray'),
+        tagColor: isMemo ? 'gray' : (
+          selectedStatusLabel === 'Découverte leads' ? 'purple' :
+          selectedStatusLabel === 'Étude client' ? 'pink' :
+          selectedStatusLabel === 'Dossier technique' ? 'cyan' :
+          selectedStatusLabel === 'Installation' ? 'blue' :
+          selectedStatusLabel === 'SAV' ? 'orange' :
+          selectedStatusLabel === 'Prioritaire' || selectedStatusLabel === 'Urgent' ? 'pink' : 'gray'
+        ),
         date: endDate ? new Date(endDate).toLocaleDateString('fr-FR') : '',
         collaborator: {
           uid: selectedCollab.uid,
@@ -550,6 +557,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
         hasNote: !!note,
         note: note,
         clientId: isMemo ? '' : selectedClientId,
+        clientName: isMemo ? '' : formatClientNameDisplay(selectedClientName),
         projectId: isMemo ? '' : selectedProjectId,
       };
 
@@ -690,7 +698,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   type="text" 
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder={isMemo ? "Ex: Liste de courses showroom" : "Ex: Appeler M. Dubois pour le devis"}
+                  placeholder={isMemo ? "Ex: Liste de courses showroom" : "Ex: Appeler pour devis"}
                   className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-800 focus:border-gray-900 outline-none transition-all"
                 />
               </div>
@@ -802,7 +810,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                       disabled={isDeletingAppointment}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-red-500 hover:bg-red-50 rounded-lg transition-all border border-red-100"
                     >
-                      {isDeletingAppointment ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                      {isDeletingAppointment ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} className="text-red-500" />}
                       Supprimer de l'agenda
                     </button>
                   )}
@@ -926,7 +934,12 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                               type="button"
                               onClick={() => {
                                 setSelectedClientId(client.id);
-                                setClientSearchQuery(formatClientNameDisplay(client.name));
+                                const formattedName = formatClientNameDisplay(client.name);
+                                setClientSearchQuery(formattedName);
+                                // Auto-fill title for manual tasks if empty
+                                if (!isMemo && !title) {
+                                  setTitle(`Appeler : ${formattedName}`);
+                                }
                                 setShowClientResults(false);
                               }}
                               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left ${selectedClientId === client.id ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50 text-gray-700'}`}
@@ -970,7 +983,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
             )}
 
             <div className="space-y-3">
-              <label className="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider">{isMemo ? 'Contenu du mémo' : 'Note de la tâche'}</label>
+              <label className="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider">{isMemo ? 'Contenu du mémos' : 'Note de la tâche'}</label>
               <textarea 
                 rows={isMemo ? 6 : 4}
                 value={note}

@@ -254,7 +254,7 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId, clien
                                   onClick={() => handleDelete(rdv.id)}
                                   className="w-full text-left px-4 py-2.5 text-[12px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-2"
                                 >
-                                  <Trash2 size={14} /> Supprimer
+                                  <Trash2 size={14} className="text-red-500" /> Supprimer
                                 </button>
                               </div>
                             </>

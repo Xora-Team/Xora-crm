@@ -281,7 +281,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, userProfile
                             className="p-2 text-gray-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                             title="Supprimer du serveur"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={16} className="text-red-500" />
                           </button>
                         </>
                       )}

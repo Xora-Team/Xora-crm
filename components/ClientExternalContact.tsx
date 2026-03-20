@@ -197,7 +197,7 @@ const ClientExternalContact: React.FC<ClientExternalContactProps> = ({ client: i
                           onClick={() => removeExternalContact(contact)} 
                           className="p-2 text-gray-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                         >
-                          <Trash2 size={18} />
+                          <Trash2 size={18} className="text-red-500" />
                         </button>
                       </div>
                     </div>
@@ -250,7 +250,7 @@ const ClientExternalContact: React.FC<ClientExternalContactProps> = ({ client: i
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => removeDirectoryContact(contact)} className="p-2 text-gray-200 hover:text-red-500 rounded-lg transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={16} /></button>
+                    <button onClick={() => removeDirectoryContact(contact)} className="p-2 text-gray-200 hover:text-red-500 rounded-lg transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={16} className="text-red-500" /></button>
                   </div>
                 </div>
               ))}

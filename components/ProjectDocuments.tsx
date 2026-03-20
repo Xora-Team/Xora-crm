@@ -300,7 +300,7 @@ const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({ projectId, clientId
                               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDocToDelete(docItem); }}
                               className="p-2 text-gray-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={16} className="text-red-500" />
                             </button>
                           )}
                         </>

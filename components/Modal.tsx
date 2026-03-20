@@ -328,12 +328,12 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
       // Formatage du nom : Prénom (Casse mixte), Nom (MAJUSCULES)
       let finalName = "";
       if (isSupplier) {
-        finalName = formData.lastName.trim().toUpperCase();
+        finalName = formData.lastName.trim().toUpperCase() || "SANS NOM";
       } else {
         const firstNameTrimmed = formData.firstName.trim();
-        const capitalizedFirstName = firstNameTrimmed.charAt(0).toUpperCase() + firstNameTrimmed.slice(1).toLowerCase();
+        const capitalizedFirstName = firstNameTrimmed ? firstNameTrimmed.charAt(0).toUpperCase() + firstNameTrimmed.slice(1).toLowerCase() : "";
         const lastNameUpper = formData.lastName.trim().toUpperCase();
-        finalName = `${capitalizedFirstName} ${lastNameUpper}`;
+        finalName = `${capitalizedFirstName} ${lastNameUpper}`.trim() || "SANS NOM";
       }
       
       const clientData: any = {
@@ -464,10 +464,9 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                   </div>
                   <div className={isSupplier ? "md:col-span-8" : "md:col-span-4"}>
                       <label className="block text-[11px] font-bold text-gray-400 mb-2 uppercase tracking-wider">
-                        {isSupplier ? "Nom du fournisseur*" : "Nom du contact*"}
+                        {isSupplier ? "Nom du fournisseur" : "Nom du contact"}
                       </label>
                       <input 
-                        required
                         value={formData.lastName}
                         onChange={(e) => setFormData({...formData, lastName: e.target.value.toUpperCase()})}
                         type="text" 
@@ -502,9 +501,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                   )}
                   {!isSupplier && (
                     <div className="md:col-span-5">
-                        <label className="block text-[11px] font-bold text-gray-400 mb-2 uppercase tracking-wider">Prénom du contact*</label>
+                        <label className="block text-[11px] font-bold text-gray-400 mb-2 uppercase tracking-wider">Prénom du contact</label>
                         <input 
-                          required
                           value={formData.firstName}
                           onChange={(e) => setFormData({...formData, firstName: e.target.value})}
                           type="text" 
@@ -861,22 +859,28 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                       <label className="block text-[11px] font-bold text-gray-400 mb-2 uppercase tracking-wider">
-                        {isSupplier ? "Responsable fournisseur*" : "Agenceur référent*"}
+                        {isSupplier ? "Responsable fournisseur" : "Agenceur référent"}
                       </label>
                       <div className="relative group">
                           <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10">
-                              <img 
-                                src={teamMembers.find(m => m.name === formData.referent)?.avatar || userProfile?.avatar} 
-                                alt="" 
-                                className="w-7 h-7 rounded-full border border-white shadow-sm" 
-                              />
+                              {formData.referent ? (
+                                <img 
+                                  src={teamMembers.find(m => m.name === formData.referent)?.avatar || userProfile?.avatar} 
+                                  alt="" 
+                                  className="w-7 h-7 rounded-full border border-white shadow-sm" 
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center border border-white shadow-sm">
+                                  <User size={14} className="text-gray-400" />
+                                </div>
+                              )}
                           </div>
                           <select 
                             value={formData.referent}
                             onChange={(e) => setFormData({...formData, referent: e.target.value})}
                             className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-10 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm"
                           >
-                              <option value="">Sélectionner un collaborateur</option>
+                              <option value="">Sans agenceur</option>
                               {/* Afficher le référent actuel s'il n'est pas dans la liste des collaborateurs */}
                               {formData.referent && !teamMembers.find(m => m.name === formData.referent) && (
                                 <option value={formData.referent}>
@@ -891,8 +895,14 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                           </select>
                           <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
                             <div className="flex items-center gap-1">
-                              <Check size={14} className="text-green-500" />
-                              <span className="text-[9px] font-black text-green-500 uppercase tracking-tighter">Attribué</span>
+                              {formData.referent ? (
+                                <>
+                                  <Check size={14} className="text-green-500" />
+                                  <span className="text-[9px] font-black text-green-500 uppercase tracking-tighter">Attribué</span>
+                                </>
+                              ) : (
+                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Non attribué</span>
+                              )}
                             </div>
                             <ChevronDown size={16} className="text-gray-300" />
                           </div>
@@ -944,7 +954,6 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                   isLoading || 
                   !userProfile?.companyId || 
                   (isSupplier ? (
-                    !formData.lastName || 
                     !formData.email || 
                     !formData.phone || 
                     !formData.selectionStatus || 
@@ -952,12 +961,9 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                     !formData.branch || 
                     formData.trades.length === 0
                   ) : (
-                    !formData.lastName || 
-                    !formData.firstName || 
                     !formData.email ||
                     !formData.category || 
                     !formData.origin || 
-                    !formData.referent ||
                     (formData.category === 'Parrainage' && !selectedSponsor)
                   ))
                 }

@@ -379,7 +379,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project: initialProject
                   onClick={handleMarkAsLost}
                   className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-[12px] font-bold text-red-500 hover:bg-red-50 shadow-sm transition-all"
                 >
-                  <Trash2 size={16} /> Projet perdu
+                  <Trash2 size={16} className="text-red-500" /> Projet perdu
                 </button>
               </div>
             </div>

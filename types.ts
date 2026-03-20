@@ -85,7 +85,7 @@ export interface Task {
   title: string;
   subtitle?: string; 
   tag?: string;
-  tagColor?: 'blue' | 'gray' | 'purple' | 'pink';
+  tagColor?: 'blue' | 'gray' | 'purple' | 'pink' | 'cyan' | 'orange';
   type: 'Tâche auto' | 'Tâche manuelle' | 'Mémo';
   date?: string;
   progress?: number; 
@@ -93,7 +93,9 @@ export interface Task {
   statusLabel?: string; 
   statusType: 'progress' | 'toggle'; 
   isLate?: boolean;
+  delayDays?: number;
   collaborator: User;
+  clientName?: string;
   hasNote?: boolean;
   companyId?: string;
 }

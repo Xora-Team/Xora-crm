@@ -275,7 +275,7 @@ const ClientPropertyInfo: React.FC<ClientPropertyInfoProps> = ({ client: initial
                       className="p-1.5 text-gray-200 hover:text-red-500 rounded transition-all"
                       onClick={(e) => { e.stopPropagation(); removeProperty(prop.id); }}
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={16} className="text-red-500" />
                     </button>
                   </>
                 )}

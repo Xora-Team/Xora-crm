@@ -23,10 +23,13 @@ import {
   Truck,
   Hammer,
   Stamp,
-  Upload
+  Upload,
+  CheckSquare,
+  Square,
+  UserPlus
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp, writeBatch } from '@firebase/firestore';
 import { formatPhone } from '../utils';
 import { Client } from '../types';
 import DirectoryMap from './DirectoryMap';
@@ -160,6 +163,12 @@ const Directory: React.FC<DirectoryProps> = ({
   const [isImporting, setIsImporting] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'createdAt', direction: 'desc' });
   
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
+  const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [bulkNewAgenceur, setBulkNewAgenceur] = useState<any>(null);
+  
   const toolbarRef = useRef<HTMLDivElement>(null);
 
   // Configuration dynamique basée sur le mode
@@ -271,7 +280,8 @@ const Directory: React.FC<DirectoryProps> = ({
       const matchesTab = activeTab === 'Tous' || statusValue === activeStatusValue;
       const matchesSearch = !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase());
       const referentName = c.details?.referent || c.addedBy?.name;
-      const matchesAgenceur = !filterAgenceur || referentName === filterAgenceur;
+      const matchesAgenceur = !filterAgenceur || 
+        (filterAgenceur === 'Sans agenceur' ? !referentName : referentName === filterAgenceur);
       const matchesOrigine = !filterOrigine || (c.category || c.details?.category || c.origin) === filterOrigine;
       const matchesLocation = !filterLocation || c.location === filterLocation;
       const matchesProject = !filterProject || (filterProject === 'Avec projet(s)' ? (c.projectCount || 0) > 0 : (c.projectCount || 0) === 0);
@@ -288,6 +298,21 @@ const Directory: React.FC<DirectoryProps> = ({
         if (sortConfig.key === 'createdAt') {
           valA = a.createdAt?.seconds || 0;
           valB = b.createdAt?.seconds || 0;
+        } else if (sortConfig.key === 'agenceur') {
+          valA = (a.details?.referent || a.addedBy?.name || '').toLowerCase();
+          valB = (b.details?.referent || b.addedBy?.name || '').toLowerCase();
+        } else if (sortConfig.key === 'name') {
+          valA = (a.name || '').toLowerCase();
+          valB = (b.name || '').toLowerCase();
+        } else if (sortConfig.key === 'origin') {
+          valA = (a.category || a.details?.category || a.origin || '').toLowerCase();
+          valB = (b.category || b.details?.category || b.origin || '').toLowerCase();
+        } else if (sortConfig.key === 'location') {
+          valA = (a.location || '').toLowerCase();
+          valB = (b.location || '').toLowerCase();
+        } else if (sortConfig.key === 'status') {
+          valA = (a.status || '').toLowerCase();
+          valB = (b.status || '').toLowerCase();
         }
 
         if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
@@ -299,12 +324,95 @@ const Directory: React.FC<DirectoryProps> = ({
     return result;
   }, [clients, activeTab, searchQuery, filterAgenceur, filterOrigine, filterLocation, filterProject, mode, sortConfig]);
 
+  const canModifyClient = (client: Client) => {
+    return !!userProfile;
+  };
+
   const resetFilters = () => {
     setSearchQuery('');
     setFilterAgenceur('');
     setFilterOrigine('');
     setFilterLocation('');
     setFilterProject('');
+    setSelectedIds([]);
+  };
+
+  const toggleSelectAll = () => {
+    const modifiableClients = filteredClients.filter(canModifyClient);
+    if (selectedIds.length === modifiableClients.length && modifiableClients.length > 0) {
+      setSelectedIds([]);
+      setLastSelectedIndex(null);
+    } else {
+      setSelectedIds(modifiableClients.map(c => c.id));
+      setLastSelectedIndex(null);
+    }
+  };
+
+  const toggleSelect = (client: Client, index?: number, isShift?: boolean) => {
+    if (!canModifyClient(client)) return;
+    const id = client.id;
+    
+    if (isShift && lastSelectedIndex !== null && index !== undefined) {
+      const start = Math.min(lastSelectedIndex, index);
+      const end = Math.max(lastSelectedIndex, index);
+      const rangeIds = filteredClients
+        .slice(start, end + 1)
+        .filter(canModifyClient)
+        .map(c => c.id);
+      
+      setSelectedIds(prev => {
+        const newIds = [...prev];
+        rangeIds.forEach(rid => {
+          if (!newIds.includes(rid)) newIds.push(rid);
+        });
+        return newIds;
+      });
+    } else {
+      setSelectedIds(prev => 
+        prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+      );
+    }
+    
+    if (index !== undefined) setLastSelectedIndex(index);
+  };
+
+  const handleBulkUpdateAgenceur = async () => {
+    if (!bulkNewAgenceur || selectedIds.length === 0) return;
+    
+    setIsBulkUpdating(true);
+    try {
+      const batch = writeBatch(db);
+      selectedIds.forEach(id => {
+        const clientRef = doc(db, 'clients', id);
+        if (bulkNewAgenceur.id === 'none') {
+          batch.update(clientRef, {
+            'addedBy.name': '',
+            'addedBy.avatar': '',
+            'addedBy.uid': '',
+            'details.referent': ''
+          });
+        } else {
+          batch.update(clientRef, {
+            'addedBy.name': bulkNewAgenceur.name,
+            'addedBy.avatar': bulkNewAgenceur.avatar,
+            'addedBy.uid': bulkNewAgenceur.id,
+            'details.referent': bulkNewAgenceur.name
+          });
+        }
+      });
+      
+      await batch.commit();
+      setSelectedIds([]);
+      setIsBulkUpdateModalOpen(false);
+      setBulkNewAgenceur(null);
+      // Success message could be added here if there's a toast system
+      alert(`L'agenceur a bien été mis à jour pour ${selectedIds.length} fiches`);
+    } catch (error) {
+      console.error("Error bulk updating agenceur:", error);
+      alert("Erreur lors de la mise à jour groupée");
+    } finally {
+      setIsBulkUpdating(false);
+    }
   };
 
   const handleImportClients = async (importedData: any[]) => {
@@ -362,7 +470,11 @@ const Directory: React.FC<DirectoryProps> = ({
 
   const uniqueAgenceurs = useMemo(() => {
     const names = clients.map(c => c.details?.referent || c.addedBy?.name).filter(Boolean);
-    return Array.from(new Set(names)).sort();
+    const unique = Array.from(new Set(names)).sort();
+    if (clients.some(c => !(c.details?.referent || c.addedBy?.name))) {
+      unique.unshift('Sans agenceur');
+    }
+    return unique;
   }, [clients]);
   const uniqueOrigines = useMemo(() => Array.from(new Set(clients.map(c => c.category || c.details?.category || c.origin).filter(Boolean))).sort(), [clients]);
   const uniqueLocations = useMemo(() => Array.from(new Set(clients.map(c => c.location).filter(Boolean))).sort(), [clients]);
@@ -516,18 +628,128 @@ const Directory: React.FC<DirectoryProps> = ({
         {viewMode === 'map' && <DirectoryMap clients={filteredClients} onClientClick={onClientClick} />}
 
         {viewMode === 'list' && (
-            <div className="flex flex-col h-full overflow-hidden">
+            <div className="flex flex-col h-full overflow-hidden relative">
+                {/* Bulk Action Bar */}
+                {selectedIds.length > 0 && (
+                  <div className="absolute top-0 left-0 right-0 bg-gray-900 text-white p-4 z-30 flex items-center justify-between shadow-2xl animate-in slide-in-from-top duration-300">
+                    <div className="flex items-center gap-4">
+                      <button 
+                        onClick={() => setSelectedIds([])}
+                        className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+                      >
+                        <X size={20} />
+                      </button>
+                      <span className="text-sm font-black uppercase tracking-widest">
+                        {selectedIds.length} fiche{selectedIds.length > 1 ? 's' : ''} sélectionnée{selectedIds.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => setIsBulkUpdateModalOpen(true)}
+                        className="flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg"
+                      >
+                        <UserPlus size={16} className="mr-2" />
+                        Changer l'agenceur
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="overflow-x-auto flex-1 overflow-y-auto hide-scrollbar">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-left border-collapse text-gray-900">
                         <thead>
                             <tr className="bg-white border-b border-gray-100 text-[10px] text-gray-400 uppercase font-black tracking-[0.2em] sticky top-0 z-20 shadow-sm">
-                                <th className="px-8 py-5">{mode === 'suppliers' ? 'Nom' : 'Nom & prénom'}</th>
-                                {mode !== 'suppliers' && <th className="px-8 py-5">Agenceur</th>}
-                                <th className="px-8 py-5">{mode === 'suppliers' ? 'Branche' : 'Origine'}</th>
-                                {mode !== 'suppliers' && <th className="px-8 py-5">Localisation</th>}
+                                <th className="px-4 py-5 w-10">
+                                  <button 
+                                    onClick={toggleSelectAll}
+                                    className="p-1 hover:bg-gray-100 rounded-md transition-colors"
+                                    title="Tout sélectionner (fiches modifiables)"
+                                  >
+                                    {(() => {
+                                      const modifiableCount = filteredClients.filter(canModifyClient).length;
+                                      if (modifiableCount > 0 && selectedIds.length === modifiableCount) {
+                                        return <CheckSquare size={18} className="text-indigo-600" />;
+                                      }
+                                      return <Square size={18} className="text-gray-300" />;
+                                    })()}
+                                  </button>
+                                </th>
+                                <th 
+                                    className="px-4 py-5 cursor-pointer hover:text-gray-900 transition-colors group/sort"
+                                    onClick={() => {
+                                        const direction = sortConfig?.key === 'name' && sortConfig.direction === 'asc' ? 'desc' : 'asc';
+                                        setSortConfig({ key: 'name', direction });
+                                    }}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        {mode === 'suppliers' ? 'Nom' : 'Nom & prénom'}
+                                        <div className={`flex flex-col transition-opacity ${sortConfig?.key === 'name' ? 'opacity-100' : 'opacity-0 group-hover/sort:opacity-50'}`}>
+                                            <ChevronDown size={10} className={`-mb-1 transition-transform ${sortConfig?.key === 'name' && sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
+                                        </div>
+                                    </div>
+                                </th>
+                                {mode !== 'suppliers' && (
+                                    <th 
+                                        className="px-8 py-5 cursor-pointer hover:text-gray-900 transition-colors group/sort"
+                                        onClick={() => {
+                                            const direction = sortConfig?.key === 'agenceur' && sortConfig.direction === 'asc' ? 'desc' : 'asc';
+                                            setSortConfig({ key: 'agenceur', direction });
+                                        }}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            Agenceur
+                                            <div className={`flex flex-col transition-opacity ${sortConfig?.key === 'agenceur' ? 'opacity-100' : 'opacity-0 group-hover/sort:opacity-50'}`}>
+                                                <ChevronDown size={10} className={`-mb-1 transition-transform ${sortConfig?.key === 'agenceur' && sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
+                                            </div>
+                                        </div>
+                                    </th>
+                                )}
+                                <th 
+                                    className="px-8 py-5 cursor-pointer hover:text-gray-900 transition-colors group/sort"
+                                    onClick={() => {
+                                        const direction = sortConfig?.key === 'origin' && sortConfig.direction === 'asc' ? 'desc' : 'asc';
+                                        setSortConfig({ key: 'origin', direction });
+                                    }}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        {mode === 'suppliers' ? 'Branche' : 'Origine'}
+                                        <div className={`flex flex-col transition-opacity ${sortConfig?.key === 'origin' ? 'opacity-100' : 'opacity-0 group-hover/sort:opacity-50'}`}>
+                                            <ChevronDown size={10} className={`-mb-1 transition-transform ${sortConfig?.key === 'origin' && sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
+                                        </div>
+                                    </div>
+                                </th>
+                                {mode !== 'suppliers' && (
+                                    <th 
+                                        className="px-8 py-5 cursor-pointer hover:text-gray-900 transition-colors group/sort"
+                                        onClick={() => {
+                                            const direction = sortConfig?.key === 'location' && sortConfig.direction === 'asc' ? 'desc' : 'asc';
+                                            setSortConfig({ key: 'location', direction });
+                                        }}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            Localisation
+                                            <div className={`flex flex-col transition-opacity ${sortConfig?.key === 'location' ? 'opacity-100' : 'opacity-0 group-hover/sort:opacity-50'}`}>
+                                                <ChevronDown size={10} className={`-mb-1 transition-transform ${sortConfig?.key === 'location' && sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
+                                            </div>
+                                        </div>
+                                    </th>
+                                )}
                                 {mode === 'contacts' && <th className="px-8 py-5 text-center">Projet(s)</th>}
                                 {mode === 'suppliers' && <th className="px-8 py-5">Métiers</th>}
-                                <th className="px-8 py-5 text-center">{mode === 'suppliers' ? 'Sélection' : 'Statut'}</th>
+                                <th 
+                                    className="px-8 py-5 cursor-pointer hover:text-gray-900 transition-colors group/sort text-center"
+                                    onClick={() => {
+                                        const direction = sortConfig?.key === 'status' && sortConfig.direction === 'asc' ? 'desc' : 'asc';
+                                        setSortConfig({ key: 'status', direction });
+                                    }}
+                                >
+                                    <div className="flex items-center justify-center gap-2">
+                                        {mode === 'suppliers' ? 'Sélection' : 'Statut'}
+                                        <div className={`flex flex-col transition-opacity ${sortConfig?.key === 'status' ? 'opacity-100' : 'opacity-0 group-hover/sort:opacity-50'}`}>
+                                            <ChevronDown size={10} className={`-mb-1 transition-transform ${sortConfig?.key === 'status' && sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
+                                        </div>
+                                    </div>
+                                </th>
                                 {mode === 'suppliers' && <th className="px-8 py-5">Email</th>}
                                 {mode === 'suppliers' && <th className="px-8 py-5">Tel</th>}
                                 {mode !== 'suppliers' && (
@@ -552,13 +774,44 @@ const Directory: React.FC<DirectoryProps> = ({
                         <tbody className="divide-y divide-gray-50">
                             {filteredClients.map((client, index) => {
                                 const effectiveStatus = getEffectiveStatus(client);
+                                const isSelected = selectedIds.includes(client.id);
+                                const modifiable = canModifyClient(client);
                                 return (
                                 <tr 
                                     key={client.id} 
-                                    onClick={() => onClientClick(client)}
-                                    className="hover:bg-gray-50/50 transition-colors cursor-pointer group"
+                                    onClick={(e) => {
+                                        if (e.ctrlKey || e.metaKey) {
+                                            toggleSelect(client, index, e.shiftKey);
+                                        } else if (e.shiftKey) {
+                                            toggleSelect(client, index, true);
+                                        } else {
+                                            onClientClick(client);
+                                        }
+                                    }}
+                                    className={`hover:bg-gray-50/50 transition-colors cursor-pointer group ${isSelected ? 'bg-indigo-50/30' : ''} ${!modifiable ? 'opacity-70' : ''}`}
                                 >
-                                    <td className="px-8 py-5 text-[13px] font-black text-gray-900 uppercase tracking-tight">
+                                    <td 
+                                        className="px-4 py-5 w-10" 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleSelect(client, index, e.shiftKey);
+                                        }}
+                                    >
+                                      {modifiable ? (
+                                        <div className="p-1 hover:bg-gray-100 rounded-md transition-colors inline-block">
+                                          {isSelected ? (
+                                            <CheckSquare size={18} className="text-indigo-600" />
+                                          ) : (
+                                            <Square size={18} className="text-gray-300 group-hover:text-gray-400" />
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="p-1 text-gray-200" title="Modification non autorisée">
+                                          <Square size={18} />
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-5 text-[13px] font-black text-gray-900 uppercase tracking-tight">
                                         <div className="flex flex-col">
                                             <span>{client.name}</span>
                                             {mode === 'suppliers' && client.details?.website && (
@@ -575,7 +828,7 @@ const Directory: React.FC<DirectoryProps> = ({
                                         </div>
                                     </td>
                                     {mode !== 'suppliers' && (
-                                        <td className="px-8 py-5">
+                                        <td className="px-4 py-5">
                                             <div className="flex items-center gap-3">
                                                 {(() => {
                                                     const referentName = client.details?.referent || client.addedBy?.name;
@@ -599,7 +852,7 @@ const Directory: React.FC<DirectoryProps> = ({
                                             </div>
                                         </td>
                                     )}
-                                    <td className="px-8 py-5 text-[13px] font-bold text-gray-500 uppercase">
+                                    <td className="px-4 py-5 text-[13px] font-bold text-gray-500 uppercase">
                                         {mode === 'suppliers' ? (
                                             <span className="text-gray-900">{client.details?.branch}</span>
                                         ) : (
@@ -611,9 +864,9 @@ const Directory: React.FC<DirectoryProps> = ({
                                             </div>
                                         )}
                                     </td>
-                                    {mode !== 'suppliers' && <td className="px-8 py-5 text-[13px] font-bold text-gray-500">{client.location}</td>}
+                                    {mode !== 'suppliers' && <td className="px-4 py-5 text-[13px] font-bold text-gray-500">{client.location}</td>}
                                     {mode === 'contacts' && (
-                                      <td className="px-8 py-5">
+                                      <td className="px-4 py-5">
                                           {!client.projectCount || client.projectCount === 0 ? (
                                               <div className="flex justify-center">
                                                 <span className="px-3 py-1 bg-gray-50 text-gray-300 text-[10px] font-black rounded-full">-</span>
@@ -629,7 +882,7 @@ const Directory: React.FC<DirectoryProps> = ({
                                       </td>
                                     )}
                                     {mode === 'suppliers' && (
-                                        <td className="px-8 py-5">
+                                        <td className="px-4 py-5">
                                             <div className="flex flex-wrap gap-1 max-w-[200px]">
                                                 {client.details?.trades?.slice(0, 2).map((trade: string) => (
                                                     <span key={trade} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-bold rounded-md">
@@ -647,7 +900,7 @@ const Directory: React.FC<DirectoryProps> = ({
                                             </div>
                                         </td>
                                     )}
-                                    <td className="px-8 py-5 text-center">
+                                    <td className="px-4 py-5 text-center">
                                         <span className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${
                                             mode === 'suppliers' ? (
                                                 client.details?.selectionStatus === 'Sélectionné' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-sm' :
@@ -663,17 +916,17 @@ const Directory: React.FC<DirectoryProps> = ({
                                         </span>
                                     </td>
                                     {mode === 'suppliers' && (
-                                        <td className="px-8 py-5 text-[12px] font-bold text-gray-500 lowercase truncate max-w-[150px]">
+                                        <td className="px-4 py-5 text-[12px] font-bold text-gray-500 lowercase truncate max-w-[150px]">
                                             {client.details?.email || '-'}
                                         </td>
                                     )}
                                     {mode === 'suppliers' && (
-                                        <td className="px-8 py-5 text-[12px] font-bold text-gray-500 whitespace-nowrap">
+                                        <td className="px-4 py-5 text-[12px] font-bold text-gray-500 whitespace-nowrap">
                                             {formatPhone(client.details?.phone)}
                                         </td>
                                     )}
-                                    {mode !== 'suppliers' && <td className="px-8 py-5 text-[13px] font-black text-gray-400 italic">{client.dateAdded}</td>}
-                                    <td className="px-8 py-5" onClick={(e) => e.stopPropagation()}>
+                                    {mode !== 'suppliers' && <td className="px-4 py-5 text-[13px] font-black text-gray-400 italic">{client.dateAdded}</td>}
+                                    <td className="px-4 py-5" onClick={(e) => e.stopPropagation()}>
                                         <div className="flex justify-end gap-2 relative">
                                             <div className="relative">
                                                 <button 
@@ -698,7 +951,7 @@ const Directory: React.FC<DirectoryProps> = ({
                                                                 onClick={() => { setClientToDelete(client); setActiveMenuId(null); }}
                                                                 className="w-full text-left px-5 py-3 text-[12px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 flex items-center gap-3 transition-colors"
                                                             >
-                                                                <Trash2 size={16} /> Supprimer la fiche
+                                                                <Trash2 size={16} className="text-red-600" /> Supprimer la fiche
                                                             </button>
                                                         </div>
                                                     </>
@@ -740,7 +993,102 @@ const Directory: React.FC<DirectoryProps> = ({
               <div className="flex gap-4 w-full">
                 <button onClick={() => setClientToDelete(null)} className="flex-1 px-6 py-4 bg-gray-50 text-gray-600 rounded-2xl font-bold text-[13px] hover:bg-gray-100 transition-all">Annuler</button>
                 <button onClick={() => { setIsDeleting(true); deleteDoc(doc(db, 'clients', clientToDelete.id)).then(() => { setClientToDelete(null); setIsDeleting(false); }); }} disabled={isDeleting} className="flex-1 px-6 py-4 bg-red-600 text-white rounded-2xl font-bold text-[13px] hover:bg-red-700 shadow-xl shadow-red-100 flex items-center justify-center gap-2">
-                  {isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />} Supprimer
+                  {isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} className="text-red-600" />} Supprimer
+                </button>
+              </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Update Agenceur Modal */}
+      {isBulkUpdateModalOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 p-10">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+                  <UserPlus size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Changer l'agenceur</h3>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{selectedIds.length} fiches sélectionnées</p>
+                </div>
+              </div>
+
+              <div className="space-y-6 mb-10">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Choisir le nouvel agenceur</label>
+                  <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                    {/* Option Sans agenceur */}
+                    <button
+                      onClick={() => setBulkNewAgenceur({ id: 'none', name: 'Sans agenceur' })}
+                      className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${
+                        bulkNewAgenceur?.id === 'none' 
+                        ? 'border-red-600 bg-red-50 shadow-md' 
+                        : 'border-gray-100 hover:border-gray-200 bg-gray-50/50'
+                      }`}
+                    >
+                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-400">
+                        <UserPlus size={20} />
+                      </div>
+                      <div className="text-left">
+                        <p className={`text-sm font-black uppercase tracking-tight ${bulkNewAgenceur?.id === 'none' ? 'text-red-900' : 'text-gray-900'}`}>
+                          Sans agenceur
+                        </p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Désattribuer</p>
+                      </div>
+                      {bulkNewAgenceur?.id === 'none' && (
+                        <div className="ml-auto w-6 h-6 bg-red-600 rounded-full flex items-center justify-center text-white">
+                          <Check size={14} />
+                        </div>
+                      )}
+                    </button>
+
+                    {teamMembers.map(member => (
+                      <button
+                        key={member.id}
+                        onClick={() => setBulkNewAgenceur(member)}
+                        className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${
+                          bulkNewAgenceur?.id === member.id 
+                          ? 'border-indigo-600 bg-indigo-50 shadow-md' 
+                          : 'border-gray-100 hover:border-gray-200 bg-gray-50/50'
+                        }`}
+                      >
+                        <img 
+                          src={member.avatar} 
+                          alt="" 
+                          className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" 
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="text-left">
+                          <p className={`text-sm font-black uppercase tracking-tight ${bulkNewAgenceur?.id === member.id ? 'text-indigo-900' : 'text-gray-900'}`}>
+                            {member.name}
+                          </p>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{member.role || 'Collaborateur'}</p>
+                        </div>
+                        {bulkNewAgenceur?.id === member.id && (
+                          <div className="ml-auto w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center text-white">
+                            <Check size={14} />
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4 w-full">
+                <button 
+                  onClick={() => { setIsBulkUpdateModalOpen(false); setBulkNewAgenceur(null); }} 
+                  className="flex-1 px-6 py-4 bg-gray-50 text-gray-600 rounded-2xl font-bold text-[13px] hover:bg-gray-100 transition-all uppercase tracking-widest"
+                >
+                  Annuler
+                </button>
+                <button 
+                  onClick={handleBulkUpdateAgenceur} 
+                  disabled={isBulkUpdating || !bulkNewAgenceur} 
+                  className="flex-1 px-6 py-4 bg-gray-900 text-white rounded-2xl font-bold text-[13px] hover:bg-black shadow-xl shadow-gray-200 flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isBulkUpdating ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />} Valider
                 </button>
               </div>
           </div>

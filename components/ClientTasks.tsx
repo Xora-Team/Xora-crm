@@ -233,7 +233,7 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
           className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-[12px] font-bold text-gray-800 shadow-sm hover:border-[#A886D7] transition-all active:scale-95"
         >
           <Plus size={16} className="text-[#A886D7]" />
-          Ajouter une tâche / mémo
+          Ajouter une tâche / mémos
         </button>
       </div>
 
@@ -291,10 +291,23 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
                     
                     <td className="px-6 py-5 border-y border-gray-50">
                       <div className="flex flex-col">
-                        <span className="text-[13.5px] font-bold text-gray-900 group-hover:text-purple-700 transition-colors truncate max-w-[250px]">{task.title}</span>
-                        <div className="flex items-center gap-2 mt-0.5">
-                           {task.subtitle && <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tight">{task.subtitle}</span>}
-                        </div>
+                        {(task.type === 'Tâche manuelle' || task.type === 'Tâche auto') ? (
+                          (task.clientName || clientName) ? (
+                            <>
+                              <span className="text-[13.5px] font-bold text-gray-900 group-hover:text-purple-700 transition-colors truncate max-w-[250px]">{task.clientName || clientName}</span>
+                              <span className="text-[11px] text-gray-400 mt-0.5">{task.title}</span>
+                            </>
+                          ) : (
+                            <span className="text-[13.5px] font-bold text-gray-900 group-hover:text-purple-700 transition-colors truncate max-w-[250px]">{task.title}</span>
+                          )
+                        ) : (
+                          <>
+                            <span className="text-[13.5px] font-bold text-gray-900 group-hover:text-purple-700 transition-colors truncate max-w-[250px]">{task.title}</span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                               {task.subtitle && <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tight">{task.subtitle}</span>}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </td>
 
@@ -401,7 +414,7 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
                             className="p-2 bg-white border border-gray-100 rounded-lg text-gray-400 hover:text-red-600 hover:border-red-100 hover:bg-red-50 transition-all shadow-sm"
                             title="Supprimer"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={16} className="text-red-500" />
                           </button>
                        </div>
                     </td>
@@ -440,7 +453,7 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
                   disabled={isDeleting}
                   className="flex-1 px-6 py-4 bg-red-600 text-white rounded-2xl font-bold text-[13px] hover:bg-red-700 shadow-xl shadow-red-100 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
-                  {isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                  {isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} className="text-red-500" />}
                   Supprimer
                 </button>
               </div>

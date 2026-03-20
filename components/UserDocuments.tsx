@@ -231,7 +231,7 @@ const UserDocuments: React.FC<UserDocumentsProps> = ({ userId, userProfile }) =>
                       ) : (
                         <>
                           <a href={docItem.url} target="_blank" rel="noreferrer" className="p-2.5 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><ExternalLink size={18} /></a>
-                          <button onClick={() => setDocToDelete(docItem)} className="p-2.5 text-gray-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button>
+                          <button onClick={() => setDocToDelete(docItem)} className="p-2.5 text-gray-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"><Trash2 size={18} className="text-red-500" /></button>
                         </>
                       )}
                     </div>

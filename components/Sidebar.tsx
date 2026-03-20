@@ -104,7 +104,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             }`}
           >
             <CheckSquare size={22} className={`${isCollapsed ? 'm-0' : 'mr-4'} ${isActive('/tasks') ? 'text-white' : 'text-gray-400 group-hover:text-gray-900'}`} />
-            {!isCollapsed && <span className="text-[15px] font-bold whitespace-nowrap">Tâches & mémo</span>}
+            {!isCollapsed && <span className="text-[15px] font-bold whitespace-nowrap">Tâches & mémos</span>}
           </Link>
 
           {/* Annuaire Group */}

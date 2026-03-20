@@ -183,8 +183,21 @@ const ProjectTasks: React.FC<ProjectTasksProps> = ({ projectId, clientId, projec
                     
                     <td className="px-6 py-5 border-y border-gray-50">
                       <div className="flex flex-col">
-                        <span className="text-[13.5px] font-bold text-gray-900 group-hover:text-purple-700 transition-colors">{task.title}</span>
-                        {task.subtitle && <span className="text-[11px] font-bold text-gray-300 uppercase tracking-tight">{task.subtitle}</span>}
+                        {(task.type === 'Tâche manuelle' || task.type === 'Tâche auto') ? (
+                          task.clientName ? (
+                            <>
+                              <span className="text-[13.5px] font-bold text-gray-900 group-hover:text-purple-700 transition-colors">{task.clientName}</span>
+                              <span className="text-[11px] text-gray-400 mt-0.5">{task.title}</span>
+                            </>
+                          ) : (
+                            <span className="text-[13.5px] font-bold text-gray-900 group-hover:text-purple-700 transition-colors">{task.title}</span>
+                          )
+                        ) : (
+                          <>
+                            <span className="text-[13.5px] font-bold text-gray-900 group-hover:text-purple-700 transition-colors">{task.title}</span>
+                            {task.subtitle && <span className="text-[11px] font-bold text-gray-300 uppercase tracking-tight">{task.subtitle}</span>}
+                          </>
+                        )}
                       </div>
                     </td>
 
@@ -295,7 +308,7 @@ const ProjectTasks: React.FC<ProjectTasksProps> = ({ projectId, clientId, projec
                                   onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id); }}
                                   className="w-full text-left px-4 py-2.5 text-[12px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-2"
                                 >
-                                  <Trash2 size={14} /> Supprimer
+                                  <Trash2 size={14} className="text-red-500" /> Supprimer
                                 </button>
                               </div>
                             </>

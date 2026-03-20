@@ -127,7 +127,7 @@ const ContactCard: React.FC<ContactCardProps> = ({
               className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
               title="Supprimer ce contact"
             >
-              <Trash2 size={16} />
+              <Trash2 size={16} className="text-red-500" />
             </button>
           )}
           <div className="p-1 hover:bg-gray-100 rounded text-gray-400">

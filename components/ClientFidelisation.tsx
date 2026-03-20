@@ -435,7 +435,7 @@ const ClientFidelisation: React.FC<ClientFidelisationProps> = ({ client, userPro
                           className="p-2 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
                           title="Supprimer le lien"
                         >
-                          <Trash2 size={18} />
+                          <Trash2 size={18} className="text-red-500" />
                         </button>
                       </div>
                     </div>
@@ -495,7 +495,7 @@ const ClientFidelisation: React.FC<ClientFidelisationProps> = ({ client, userPro
                       onClick={() => handleDeleteOfferedGift(gift)}
                       className="p-2 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                     >
-                      <Trash2 size={18} />
+                      <Trash2 size={18} className="text-red-500" />
                     </button>
                   </div>
                 ))}

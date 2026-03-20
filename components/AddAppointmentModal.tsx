@@ -807,7 +807,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
                 disabled={isLoading}
                 className="flex items-center gap-2 px-8 py-3 bg-red-50 text-red-600 rounded-lg text-sm font-bold hover:bg-red-100 transition-all disabled:opacity-50"
               >
-                <Trash2 size={18} />
+                <Trash2 size={18} className="text-red-500" />
                 Supprimer
               </button>
             )}

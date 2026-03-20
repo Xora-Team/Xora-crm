@@ -16,7 +16,9 @@ import {
   CheckSquare,
   FileText,
   AlertTriangle,
-  X
+  AlertCircle,
+  X,
+  Check
 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, writeBatch } from '@firebase/firestore';
@@ -40,8 +42,34 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
   const [isDeleting, setIsDeleting] = useState(false);
   const [viewingNote, setViewingNote] = useState<string | null>(null);
   
+  // New filters state
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [collaboratorFilter, setCollaboratorFilter] = useState<string>('all');
+  const [dueDateFilter, setDueDateFilter] = useState<string>('all');
+
+  // Set default collaborator filter to current user
+  useEffect(() => {
+    if (userProfile?.uid && collaboratorFilter === 'all') {
+      setCollaboratorFilter(userProfile.uid);
+    }
+  }, [userProfile?.uid]);
+
+  // Unique collaborators for filter
+  const [collaborators, setCollaborators] = useState<{uid: string, name: string}[]>([]);
+  
   // Drag and Drop state
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
+
+  const statusOptions = [
+    { label: 'Découverte leads', color: 'purple' },
+    { label: 'Étude client', color: 'pink' },
+    { label: 'Dossier technique', color: 'cyan' },
+    { label: 'Installation', color: 'blue' },
+    { label: 'SAV', color: 'orange' },
+    { label: 'Terminé', color: 'gray' }
+  ];
   const [filterLabel, setFilterLabel] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,12 +85,25 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
     const tasksRef = collection(db, 'tasks');
     const q = query(
       tasksRef, 
-      where('companyId', '==', userProfile.companyId),
-      where('collaborator.uid', '==', userProfile.uid)
+      where('companyId', '==', userProfile.companyId)
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
       
+      // Extract unique collaborators and ensure current user is included
+      const uniqueCollabs = Array.from(new Set(data.map(t => t.collaborator?.uid).filter(Boolean)))
+        .map(uid => {
+          const task = data.find(t => t.collaborator?.uid === uid);
+          return { uid, name: task.collaborator.name };
+        });
+      
+      // Add current user if not already in the list
+      if (userProfile?.uid && !uniqueCollabs.find(c => c.uid === userProfile.uid)) {
+        uniqueCollabs.push({ uid: userProfile.uid, name: userProfile.name });
+      }
+      
+      setCollaborators(uniqueCollabs.sort((a, b) => a.name.localeCompare(b.name)));
+
       const sortedData = data.sort((a, b) => {
         const indexA = a.orderIndex ?? 9999;
         const indexB = b.orderIndex ?? 9999;
@@ -173,11 +214,37 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
                         (task.statusLabel === 'Projet long terme' && isTaskLate(task.date));
       }
 
+      // New filters
+      const matchesType = typeFilter === 'all' || task.type === typeFilter;
+      const matchesStatus = statusFilter === 'all' || task.status === statusFilter || task.statusLabel === statusFilter;
+      const matchesCollaborator = collaboratorFilter === 'all' || task.collaborator.uid === collaboratorFilter;
+      
+      let matchesDueDate = true;
+      if (dueDateFilter !== 'all' && task.date) {
+        const [d, m, y] = task.date.split('/').map(Number);
+        const dueDate = new Date(y, m - 1, d);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (dueDateFilter === 'today') {
+          matchesDueDate = dueDate.getTime() === today.getTime();
+        } else if (dueDateFilter === 'week') {
+          const nextWeek = new Date();
+          nextWeek.setDate(today.getDate() + 7);
+          matchesDueDate = dueDate >= today && dueDate <= nextWeek;
+        } else if (dueDateFilter === 'late') {
+          matchesDueDate = dueDate < today;
+        }
+      } else if (dueDateFilter === 'late' && !task.date) {
+        matchesDueDate = false;
+      }
+
       const matchesSearch = 
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
         (task.subtitle?.toLowerCase().includes(searchQuery.toLowerCase())) ||
         ((task as any).note?.toLowerCase().includes(searchQuery.toLowerCase()));
-      return matchesTab && matchesFilter && matchesSearch;
+      
+      return matchesTab && matchesFilter && matchesSearch && matchesType && matchesStatus && matchesCollaborator && matchesDueDate;
     });
   };
 
@@ -187,20 +254,20 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
     switch (type) {
       case 'Tâche auto':
         return (
-          <span className="px-2.5 py-1 bg-indigo-50 border border-indigo-100 text-indigo-600 text-[9px] font-black rounded-lg uppercase tracking-tight shadow-sm">
-            Auto
+          <span className="px-2.5 py-1 bg-gray-100 text-gray-500 text-[9px] font-black rounded-full uppercase tracking-tight shadow-sm">
+            Tâche auto
           </span>
         );
       case 'Mémo':
         return (
-          <span className="px-2.5 py-1 bg-purple-50 border border-purple-100 text-purple-600 text-[9px] font-black rounded-lg uppercase tracking-tight shadow-sm">
+          <span className="px-2.5 py-1 bg-gray-700 text-white text-[9px] font-black rounded-full uppercase tracking-tight shadow-sm">
             Mémo
           </span>
         );
       default:
         return (
-          <span className="px-2.5 py-1 bg-gray-50 border border-gray-100 text-gray-400 text-[9px] font-black rounded-lg uppercase tracking-tight shadow-sm">
-            Manuelle
+          <span className="px-2.5 py-1 bg-gray-100 text-gray-500 text-[9px] font-black rounded-full uppercase tracking-tight shadow-sm">
+            Tâche manuelle
           </span>
         );
     }
@@ -261,22 +328,130 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
                 className="flex items-center px-4 py-2.5 bg-gray-900 text-white border border-gray-900 rounded-xl text-sm font-bold hover:bg-black transition-all shadow-lg shadow-gray-200"
             >
                 <Plus size={16} className="mr-2" />
-                Ajouter une tâche
+                Ajouter une tâche manuelle ou un mémo
             </button>
         </div>
       </div>
 
-      {/* BLOC 2 : Barre de Recherche */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-        <div className="md:col-span-4 relative">
+      {/* BLOC 2 : Barre de Recherche et Filtres */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input 
                 type="text" 
-                placeholder="Rechercher une tâche, un projet, une note..." 
+                placeholder="Rechercher" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-md text-sm focus:outline-none focus:border-gray-400 text-gray-800 shadow-sm transition-all"
+                className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-gray-400 text-gray-800 shadow-sm transition-all"
             />
+        </div>
+
+        {/* Filtre Type */}
+        <div className="relative">
+          <select 
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="w-full pl-4 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:outline-none focus:border-gray-400 appearance-none shadow-sm cursor-pointer"
+          >
+            <option value="all">Type de tâche</option>
+            <option value="Tâche manuelle">Tâche manuelle</option>
+            <option value="Tâche auto">Tâche auto</option>
+            <option value="Mémo">Mémo</option>
+          </select>
+          <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
+
+        {/* Filtre Statut */}
+        <div className="relative">
+          <button 
+            onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+            className="w-full pl-4 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:outline-none focus:border-gray-400 appearance-none shadow-sm cursor-pointer flex items-center justify-between"
+          >
+            <span className="truncate">
+              {statusFilter === 'all' ? 'Tout les statuts' : statusFilter}
+            </span>
+            <ChevronDown size={16} className={`text-gray-400 transition-transform ${isStatusDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {isStatusDropdownOpen && (
+            <>
+              <div 
+                className="fixed inset-0 z-10" 
+                onClick={() => setIsStatusDropdownOpen(false)}
+              />
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-xl shadow-xl z-20 overflow-hidden py-1 min-w-[200px]">
+                <button
+                  onClick={() => {
+                    setStatusFilter('all');
+                    setIsStatusDropdownOpen(false);
+                  }}
+                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center justify-between group"
+                >
+                  <span className={`font-medium ${statusFilter === 'all' ? 'text-blue-600' : 'text-gray-700'}`}>
+                    Tout les statuts
+                  </span>
+                  {statusFilter === 'all' && <Check size={14} className="text-blue-600" />}
+                </button>
+                
+                <div className="h-px bg-gray-100 my-1" />
+                
+                {statusOptions.map((option) => (
+                  <button
+                    key={option.label}
+                    onClick={() => {
+                      setStatusFilter(option.label);
+                      setIsStatusDropdownOpen(false);
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 flex items-center justify-between group"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${
+                        option.color === 'purple' ? 'bg-purple-500' :
+                        option.color === 'pink' ? 'bg-pink-500' :
+                        option.color === 'cyan' ? 'bg-cyan-500' :
+                        option.color === 'blue' ? 'bg-blue-500' :
+                        option.color === 'orange' ? 'bg-orange-500' : 'bg-gray-400'
+                      }`} />
+                      <span className={`font-medium ${statusFilter === option.label ? 'text-blue-600' : 'text-gray-700'}`}>
+                        {option.label}
+                      </span>
+                    </div>
+                    {statusFilter === option.label && <Check size={14} className="text-blue-600" />}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Filtre Collaborateur */}
+        <div className="relative">
+          <select 
+            value={collaboratorFilter}
+            onChange={(e) => setCollaboratorFilter(e.target.value)}
+            className="w-full pl-4 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:outline-none focus:border-gray-400 appearance-none shadow-sm cursor-pointer"
+          >
+            <option value="all">Collaborateur</option>
+            {collaborators.map(collab => (
+              <option key={collab.uid} value={collab.uid}>{collab.name}</option>
+            ))}
+          </select>
+          <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
+
+        {/* Filtre Échéance */}
+        <div className="relative">
+          <select 
+            value={dueDateFilter}
+            onChange={(e) => setDueDateFilter(e.target.value)}
+            className="w-full pl-4 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:outline-none focus:border-gray-400 appearance-none shadow-sm cursor-pointer"
+          >
+            <option value="all">Échéance</option>
+            <option value="today">Aujourd'hui</option>
+            <option value="week">Cette semaine</option>
+            <option value="late">En retard</option>
+          </select>
+          <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
         </div>
       </div>
 
@@ -297,14 +472,14 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
             <table className="w-full text-left border-collapse">
                 <thead>
                     <tr className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-400 uppercase font-bold tracking-wider">
-                        <th className="px-6 py-4 w-12 text-center">#</th>
-                        <th className="px-6 py-4">Titre & Projet</th>
-                        <th className="px-6 py-4 text-center">ETAT</th>
-                        <th className="px-6 py-4 text-center min-w-[200px]">Statut</th>
-                        <th className="px-6 py-4">Notes</th>
+                        <th className="px-6 py-4 w-12 text-center">Order</th>
+                        <th className="px-6 py-4">Descriptif</th>
                         <th className="px-6 py-4 text-center">Type</th>
+                        <th className="px-6 py-4 text-center">Statut</th>
                         <th className="px-6 py-4 text-center">Échéance</th>
                         <th className="px-6 py-4">Collaborateur</th>
+                        <th className="px-6 py-4 text-center">Note</th>
+                        <th className="px-6 py-4 text-center min-w-[200px]">Progression</th>
                         <th className="px-6 py-4 text-right">Action</th>
                     </tr>
                 </thead>
@@ -320,27 +495,106 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
                           className={`group hover:bg-gray-50 transition-all cursor-pointer ${draggedItemIndex === index ? 'opacity-40 bg-indigo-50 border-y-2 border-indigo-200' : 'bg-white'}`}
                         >
                             <td className="px-6 py-4 text-center">
-                              <GripVertical 
-                                size={16} 
-                                className={`mx-auto transition-colors ${activeStatusTab === 'en-cours' ? 'text-gray-300 group-hover:text-indigo-500 cursor-grab active:cursor-grabbing' : 'text-gray-100'}`} 
-                              />
+                              <div className="flex items-center justify-center space-x-2">
+                                <GripVertical 
+                                  size={16} 
+                                  className={`transition-colors ${activeStatusTab === 'en-cours' ? 'text-gray-300 group-hover:text-indigo-500 cursor-grab active:cursor-grabbing' : 'text-gray-100'}`} 
+                                />
+                                <span className="text-gray-400 text-xs">-</span>
+                              </div>
                             </td>
                             <td className="px-6 py-4">
                                 <div className="flex flex-col">
-                                    <span className={`text-sm font-bold transition-colors ${draggedItemIndex === index ? 'text-indigo-600' : 'text-gray-900'}`}>{task.title}</span>
-                                    {task.subtitle && <span className="text-[11px] font-bold text-indigo-400 uppercase">{task.subtitle}</span>}
+                                    {(task.type === 'Tâche manuelle' || task.type === 'Tâche auto') ? (
+                                      task.clientName ? (
+                                        <>
+                                          <span className={`text-sm font-bold transition-colors ${draggedItemIndex === index ? 'text-indigo-600' : 'text-gray-900'}`}>
+                                            {task.clientName}
+                                          </span>
+                                          {task.title && (
+                                            <span className="text-[11px] text-gray-400 mt-0.5">{task.title}</span>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span className={`text-sm font-bold transition-colors ${draggedItemIndex === index ? 'text-indigo-600' : 'text-gray-900'}`}>
+                                            {task.title}
+                                          </span>
+                                          {task.subtitle && (
+                                            <span className="text-[11px] text-gray-400 mt-0.5">{task.subtitle}</span>
+                                          )}
+                                        </>
+                                      )
+                                    ) : (
+                                      <>
+                                        <span className={`text-sm font-bold transition-colors ${draggedItemIndex === index ? 'text-indigo-600' : 'text-gray-900'}`}>
+                                          {task.title}
+                                        </span>
+                                        {task.subtitle && (
+                                          <span className="text-[11px] text-gray-400 mt-0.5">{task.subtitle}</span>
+                                        )}
+                                      </>
+                                    )}
                                 </div>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                                {getTypeBadge(task.type)}
                             </td>
                             <td className="px-6 py-4 text-center">
                                 <span className={`px-3 py-1 rounded-md text-[11px] font-extrabold uppercase tracking-tight ${
                                     task.tagColor === 'purple' ? 'bg-purple-100 text-purple-700' : 
-                                    task.tagColor === 'pink' ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-600'
+                                    task.tagColor === 'pink' ? 'bg-pink-100 text-pink-700' : 
+                                    task.tagColor === 'blue' ? 'bg-blue-100 text-blue-700' : 
+                                    task.tagColor === 'cyan' ? 'bg-cyan-100 text-cyan-700' : 
+                                    task.tagColor === 'orange' ? 'bg-orange-100 text-orange-700' : 
+                                    task.tagColor === 'gray' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600'
                                 }`}>
                                     {task.statusLabel || 'Normal'}
                                 </span>
                             </td>
+                            <td className="px-6 py-4 text-center text-sm font-bold text-gray-700">
+                                {task.isLate ? (
+                                    <span className="text-red-500">{task.delayDays || 0} jours de retard</span>
+                                ) : (
+                                    <span>{task.date || '-'}</span>
+                                )}
+                            </td>
+                            <td className="px-6 py-4">
+                                <div className="flex items-center">
+                                    <img src={task.collaborator.avatar} className="w-6 h-6 rounded-full mr-2 border border-gray-100" alt="" />
+                                    <span className="text-sm font-medium text-gray-800">{task.collaborator.name}</span>
+                                </div>
+                            </td>
+                            <td className="px-6 py-4">
+                                <div 
+                                  className={`flex items-center justify-center gap-2 ${((task as any).note) ? 'cursor-pointer hover:text-indigo-600 transition-colors' : ''}`}
+                                  onClick={(e) => {
+                                    if ((task as any).note) {
+                                      e.stopPropagation();
+                                      setViewingNote((task as any).note);
+                                    }
+                                  }}
+                                >
+                                    {((task as any).note) ? (
+                                      <FileText size={14} className="text-gray-300 group-hover:text-indigo-400" />
+                                    ) : (
+                                      <span className="text-gray-200 text-[11px] font-medium">-</span>
+                                    )}
+                                </div>
+                            </td>
                             <td className="px-6 py-4 text-center">
-                                {task.type !== 'Tâche auto' ? (
+                                {task.statusType === 'progress' ? (
+                                    <div className="flex items-center space-x-3 w-full max-w-[200px] mx-auto">
+                                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                            <div 
+                                                className={`h-full rounded-full ${task.progress === 100 ? 'bg-green-500' : 'bg-indigo-500'}`}
+                                                style={{ width: `${task.progress || 0}%` }}
+                                            />
+                                        </div>
+                                        <span className="text-[10px] font-bold text-indigo-600">{task.progress || 0}%</span>
+                                        {task.isLate && <AlertCircle size={14} className="text-red-500" />}
+                                    </div>
+                                ) : (
                                     <div className="flex bg-gray-100 rounded-full p-0.5 w-full max-w-[220px] mx-auto border border-gray-200 shadow-inner">
                                         <button 
                                           onClick={(e) => { e.stopPropagation(); updateTaskStatus(task.id, 'pending'); }}
@@ -361,50 +615,7 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
                                           Terminé
                                         </button>
                                     </div>
-                                ) : (
-                                    <div className="flex justify-center">
-                                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                            task.status === 'completed' ? 'bg-green-50 text-green-600 border border-green-100' : 
-                                            task.status === 'in-progress' ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : 'bg-gray-50 text-gray-400 border border-gray-100'
-                                        }`}>
-                                            {task.status === 'completed' ? 'Terminée' : task.status === 'in-progress' ? 'En cours' : 'À faire'}
-                                        </span>
-                                    </div>
                                 )}
-                            </td>
-                            <td className="px-6 py-4">
-                                <div 
-                                  className={`flex items-start gap-2 max-w-[200px] ${((task as any).note) ? 'cursor-pointer hover:text-indigo-600 transition-colors' : ''}`}
-                                  onClick={(e) => {
-                                    if ((task as any).note) {
-                                      e.stopPropagation();
-                                      setViewingNote((task as any).note);
-                                    }
-                                  }}
-                                >
-                                    {((task as any).note) ? (
-                                      <>
-                                        <FileText size={14} className="text-gray-300 mt-0.5 shrink-0 group-hover:text-indigo-400" />
-                                        <span className="text-[12px] text-gray-500 italic font-medium truncate" title="Cliquez pour voir la note complète">
-                                            {(task as any).note}
-                                        </span>
-                                      </>
-                                    ) : (
-                                      <span className="text-gray-200 text-[11px] italic font-medium">Aucune note</span>
-                                    )}
-                                </div>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                                {getTypeBadge(task.type)}
-                            </td>
-                            <td className="px-6 py-4 text-center text-sm font-bold text-gray-700">
-                                <span className={task.isLate ? 'text-red-500' : ''}>{task.date || '-'}</span>
-                            </td>
-                            <td className="px-6 py-4">
-                                <div className="flex items-center">
-                                    <img src={task.collaborator.avatar} className="w-6 h-6 rounded-full mr-2 border border-gray-100" alt="" />
-                                    <span className="text-sm font-medium text-gray-800">{task.collaborator.name}</span>
-                                </div>
                             </td>
                             <td className="px-6 py-4">
                                 <div className="flex justify-end space-x-2">
@@ -420,7 +631,7 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
                                       className="p-1.5 border border-gray-200 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 shadow-sm transition-all"
                                       title="Supprimer"
                                     >
-                                      <Trash2 size={16} />
+                                      <Trash2 size={16} className="text-red-500" />
                                     </button>
                                 </div>
                             </td>
@@ -468,7 +679,7 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
                   disabled={isDeleting}
                   className="flex-1 px-6 py-4 bg-red-600 text-white rounded-2xl font-bold text-[13px] hover:bg-red-700 shadow-xl shadow-red-100 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
-                  {isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                  {isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} className="text-red-500" />}
                   Supprimer définitivement
                 </button>
               </div>

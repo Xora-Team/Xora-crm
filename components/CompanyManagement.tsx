@@ -593,7 +593,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                                 }}
                                 className="p-1.5 bg-white border border-gray-200 rounded-lg text-gray-400 hover:text-red-500 transition-colors shadow-sm"
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={16} className="text-red-500" />
                               </button>
                             </div>
                             <div className="p-1.5 bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -799,7 +799,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                                 }}
                                 className="p-2 text-gray-300 hover:text-red-500 transition-all"
                               >
-                                <Trash2 size={18} />
+                                <Trash2 size={18} className="text-red-500" />
                               </button>
                               <ChevronDown 
                                 size={20} 
@@ -970,7 +970,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                               onClick={() => handleDeleteDocument(doc.id)}
                               className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             >
-                              <Trash2 size={18} />
+                              <Trash2 size={18} className="text-red-500" />
                             </button>
                           </div>
                         </div>
@@ -1011,7 +1011,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                             onClick={() => handleDeleteGift(gift.id)}
                             className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
-                            <Trash2 size={18} />
+                            <Trash2 size={18} className="text-red-500" />
                           </button>
                         </div>
                       ))}
@@ -1305,7 +1305,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                               onClick={() => handleDeleteMember(member.uid)}
                               className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all border border-transparent hover:border-red-100 shadow-sm"
                             >
-                              <Trash2 size={18} />
+                              <Trash2 size={18} className="text-red-500" />
                             </button>
                           </div>
                         </td>

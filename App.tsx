@@ -256,7 +256,7 @@ function App() {
       case 'prescriber': return 'Annuaire Prescripteurs';
       case 'agenda': return 'Agenda';
       case 'articles': return 'Articles';
-      case 'tasks': return 'Tâches & mémo';
+      case 'tasks': return 'Tâches & mémos';
       case 'projects': return 'Suivi projets';
       case 'company': return 'Paramètres';
       case 'our_company': return 'Notre entreprise';

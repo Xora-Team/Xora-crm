@@ -165,7 +165,7 @@ const KPICard: React.FC<KPICardProps> = ({ kpi }) => {
             onClick={handleDelete}
             className="text-[11px] font-black text-red-400 uppercase tracking-widest flex items-center gap-2 hover:text-red-600 transition-all py-2 px-4 hover:bg-red-50 rounded-xl"
           >
-            <Trash2 size={14} /> Supprimer l'indicateur
+            <Trash2 size={14} className="text-red-500" /> Supprimer l'indicateur
           </button>
           
           <div className="flex items-center gap-2">

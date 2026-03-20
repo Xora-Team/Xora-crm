@@ -6,7 +6,6 @@ import {
   ArrowUpRight, 
   Plus, 
   AlertTriangle, 
-  MoreVertical, 
   ChevronDown, 
   Euro, 
   User,
@@ -41,7 +40,6 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
   const [allProjects, setAllProjects] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -126,13 +124,12 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
 
   const handleDeleteTask = async (id: string) => {
     if (!window.confirm("Supprimer cette tâche ?")) return;
-    try { await deleteDoc(doc(db, 'tasks', id)); setActiveMenuId(null); } catch (e) { console.error(e); }
+    try { await deleteDoc(doc(db, 'tasks', id)); } catch (e) { console.error(e); }
   };
 
   const handleEditTask = (task: Task) => {
     setEditingTask(task);
     setIsAddTaskModalOpen(true);
-    setActiveMenuId(null);
   };
 
   const isTaskLate = (dateStr: string | undefined): boolean => {
@@ -293,7 +290,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
                     <div className="flex items-center gap-4">
                       <button onClick={() => { setEditingTask(null); setIsAddTaskModalOpen(true); }} className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 rounded-xl text-[11px] font-bold hover:bg-gray-50 text-gray-800 shadow-sm transition-all active:scale-95 group">
                           <Plus size={14} className="text-indigo-500 group-hover:rotate-90 transition-transform duration-300" />
-                          <span>AJOUTER UNE TÂCHE MANUELLE OU UN MÉMO</span>
+                          <span>AJOUTER UNE TÂCHE MANUELLE OU UN MÉMOS</span>
                       </button>
                       <button onClick={() => onNavigate?.('projects')} className="p-3 bg-gray-50 text-gray-400 hover:text-gray-900 rounded-xl border border-gray-100 hover:bg-white transition-all shadow-sm">
                           <ArrowUpRight size={18} />
@@ -324,19 +321,30 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
 
                             {/* Titre & Infos */}
                             <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-3">
-                                   <h4 className={`text-[13.5px] font-bold truncate uppercase tracking-tight transition-colors ${task.type === 'Mémo' ? 'text-gray-400 italic' : 'text-gray-900 group-hover:text-indigo-600'}`}>{task.title}</h4>
-                                   {(task.tag || task.statusLabel) && (
-                                     <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${
-                                       task.tagColor === 'blue' ? 'bg-blue-50 text-blue-500 border border-blue-100' :
-                                       task.tagColor === 'purple' ? 'bg-purple-50 text-purple-500 border border-purple-100' :
-                                       task.tagColor === 'pink' ? 'bg-pink-50 text-pink-500 border border-pink-100' :
-                                       'bg-gray-100 text-gray-400 border border-gray-200'
-                                     }`}>
-                                       {task.tag || task.statusLabel}
-                                     </span>
-                                   )}
-                                </div>
+                                {(task.type === 'Tâche manuelle' || task.type === 'Tâche auto') ? (
+                                  task.clientName ? (
+                                    <>
+                                      <h4 className="text-[13.5px] font-bold truncate text-gray-900 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{task.clientName}</h4>
+                                      <p className="text-[11px] text-gray-400 mt-0.5 truncate">{task.title}</p>
+                                    </>
+                                  ) : (
+                                    <h4 className="text-[13.5px] font-bold truncate text-gray-900 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{task.title}</h4>
+                                  )
+                                ) : (
+                                  <div className="flex items-center gap-3">
+                                     <h4 className={`text-[13.5px] font-bold truncate uppercase tracking-tight transition-colors ${task.type === 'Mémo' ? 'text-gray-400 italic' : 'text-gray-900 group-hover:text-indigo-600'}`}>{task.title}</h4>
+                                     {(task.tag || task.statusLabel) && (
+                                       <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${
+                                         task.tagColor === 'blue' ? 'bg-blue-50 text-blue-500 border border-blue-100' :
+                                         task.tagColor === 'purple' ? 'bg-purple-50 text-purple-500 border border-purple-100' :
+                                         task.tagColor === 'pink' ? 'bg-pink-50 text-pink-500 border border-pink-100' :
+                                         'bg-gray-100 text-gray-400 border border-gray-200'
+                                       }`}>
+                                         {task.tag || task.statusLabel}
+                                       </span>
+                                     )}
+                                  </div>
+                                )}
                                 <div className="flex items-center gap-4 mt-1">
                                    <span className={`text-[10px] font-bold uppercase tracking-tighter ${task.isLate ? 'text-red-500 font-black' : 'text-gray-300'}`}>
                                       {delayText || 'Sans échéance'}
@@ -385,20 +393,21 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
                                   </div>
                                 )}
                                 
-                                <div className="relative">
-                                  <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === task.id ? null : task.id); }} className={`p-2 rounded-lg transition-all ${activeMenuId === task.id ? 'bg-gray-100 text-gray-900 shadow-sm border border-gray-200' : 'text-gray-300 hover:bg-gray-50 border border-transparent'}`}>
-                                    <MoreVertical size={18} />
+                                <div className="flex items-center gap-1">
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); handleEditTask(task); }} 
+                                    className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                    title="Modifier"
+                                  >
+                                    <PenSquare size={18} />
                                   </button>
-                                  {activeMenuId === task.id && (
-                                    <>
-                                      <div className="fixed inset-0 z-40" onClick={() => setActiveMenuId(null)}></div>
-                                      <div className="absolute right-0 bottom-full mb-2 lg:bottom-auto lg:top-full lg:mt-2 bg-white border border-gray-100 rounded-xl shadow-2xl z-50 py-2 w-48 animate-in fade-in zoom-in-95 duration-150">
-                                        <button onClick={() => handleEditTask(task)} className="w-full text-left px-4 py-2.5 text-[12px] font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2"><PenSquare size={14} className="text-gray-400" /> Modifier</button>
-                                        <div className="h-px bg-gray-50 my-1 mx-2" />
-                                        <button onClick={() => handleDeleteTask(task.id)} className="w-full text-left px-4 py-2.5 text-[12px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} /> Supprimer</button>
-                                      </div>
-                                    </>
-                                  )}
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id); }} 
+                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                    title="Supprimer"
+                                  >
+                                    <Trash2 size={18} className="text-red-500" />
+                                  </button>
                                 </div>
                             </div>
                         </div>
