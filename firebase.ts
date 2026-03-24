@@ -4,23 +4,14 @@ import { getAuth } from "firebase/auth";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, writeBatch, collection, getDoc } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-const getEnv = (key: string, fallback: string): string => {
-  try {
-    // @ts-ignore
-    return process.env[key] || fallback;
-  } catch (e) {
-    return fallback;
-  }
-};
-
 const firebaseConfig = {
-  apiKey: getEnv("VITE_FIREBASE_API_KEY", "AIzaSyAN59kl6vkvbxdMsBG3mvcg3N8ynnYxK9c"),
-  authDomain: getEnv("VITE_FIREBASE_AUTH_DOMAIN", "xora-41903.firebaseapp.com"),
-  projectId: getEnv("VITE_FIREBASE_PROJECT_ID", "xora-41903"),
-  storageBucket: getEnv("VITE_FIREBASE_STORAGE_BUCKET", "xora-41903.firebasestorage.app"),
-  messagingSenderId: getEnv("VITE_FIREBASE_MESSAGING_SENDER_ID", "250582798310"),
-  appId: getEnv("VITE_FIREBASE_APP_ID", "1:250582798310:web:2d19531984e8d9fb6e1027"),
-  measurementId: getEnv("VITE_FIREBASE_MEASUREMENT_ID", "G-3DD87LVRGG")
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);
@@ -53,7 +44,6 @@ export const seedDatabase = async (companyId: string, currentUser: any) => {
     });
   }
 
-  // 2. KPIs Financiers - Utilisation des types d'icônes mis à jour
   const kpis = [
     { id: 'ca', label: 'CA Généré', value: '53.456€', target: '110.000€', percentage: 65, iconName: 'euro', companyId },
     { id: 'marge', label: 'Marge générée', value: '12.326€', target: '15.000€', percentage: 73, iconName: 'trending-up', companyId },
@@ -66,7 +56,6 @@ export const seedDatabase = async (companyId: string, currentUser: any) => {
     batch.set(ref, kpi);
   });
 
-  // 3. Statuts du Dashboard
   const statusCards = [
     { id: 'leads', label: 'Leads', count: 3, color: 'purple', order: 1, companyId },
     { id: 'etudes', label: 'Etudes en cours', count: 2, color: 'fuchsia', order: 2, companyId },
@@ -80,7 +69,6 @@ export const seedDatabase = async (companyId: string, currentUser: any) => {
     batch.set(ref, card);
   });
 
-  // 4. Quelques clients exemples
   const clientsData = [
     {
       name: "CHARLES DUBOIS",
