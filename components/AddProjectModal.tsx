@@ -3,6 +3,7 @@ import { X, Briefcase, Check, Loader2, ChevronDown, MapPin, CheckCircle2, ArrowR
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
 import { collection, addDoc, query, where, onSnapshot, doc, updateDoc, increment, getDocs, getDoc } from '@firebase/firestore';
+import { formatFullNameFirstLast } from '../utils';
 
 const HIERARCHY_DATA: Record<string, Record<string, string[]>> = {
   "Prospection": {
@@ -386,7 +387,7 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
                    </div>
                 )}
                 {(clientId || isEdit) && (
-                  <p className="text-[11px] text-gray-400 font-medium">Pour le client : <span className="text-gray-900 font-bold uppercase">{clientName || formData.projectName}</span></p>
+                  <p className="text-[11px] text-gray-400 font-medium">Pour le client : <span className="text-gray-900 font-bold">{formatFullNameFirstLast(clientName) || formData.projectName}</span></p>
                 )}
               </div>
             </div>
@@ -444,7 +445,7 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
                     const found = agenceurs.find(a => a.name === e.target.value);
                     setFormData({...formData, agenceurReferent: e.target.value, agenceurUid: found?.uid || '', agenceurAvatar: found?.avatar || ''});
                   }} className="w-full appearance-none bg-white border border-gray-100 rounded-xl pl-12 pr-4 py-3 text-[14px] text-gray-900 outline-none focus:border-gray-900 transition-all font-bold shadow-sm">
-                    {agenceurs.map(a => <option key={a.uid} value={a.name}>{a.name}</option>)}
+                    {agenceurs.map(a => <option key={a.uid} value={a.name}>{formatFullNameFirstLast(a.name)}</option>)}
                   </select>
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
                     <img src={formData.agenceurAvatar || 'https://i.pravatar.cc/150?u=fallback'} className="w-6 h-6 rounded-full border border-white shadow-sm" alt="" />

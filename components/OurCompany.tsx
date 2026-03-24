@@ -70,10 +70,14 @@ const OurCompany: React.FC<OurCompanyProps> = ({ userProfile }) => {
   });
 
   const allMetiers = [
-    'Agenceur', 'Concepteur.rice', 'Assistant.e commercial.e', 'Adv', 
-    'Assistant.e de direction', 'Poseur', 'Métreur', 'Secrétaire', 
-    'Magasinier.e', 'Directeur.rice', 'Chef.fe d\'entreprise', 
-    'Cuisiniste', 'Bainiste', 'Décorateur', 'Architecte d\'intérieur', 'Marbrier'
+    'Chef.fe d\'entreprise',
+    'Responsable magasin',
+    'Agenceur',
+    'ADV',
+    'Secrétaire',
+    'Responsable technique',
+    'Installateur.rice',
+    'Métreur'
   ].sort();
 
   if (selectedMember) {
@@ -168,7 +172,7 @@ const OurCompany: React.FC<OurCompanyProps> = ({ userProfile }) => {
                     
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-5 items-center gap-4">
                       <div>
-                        <h4 className="text-sm font-bold text-gray-900 uppercase tracking-tight">{member.name}</h4>
+                        <h4 className="text-sm font-bold text-gray-900 tracking-tight">{member.name}</h4>
                       </div>
                       
                       <div className="text-center md:text-left">

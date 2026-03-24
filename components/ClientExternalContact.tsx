@@ -8,7 +8,7 @@ import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
 import { doc, onSnapshot, updateDoc, arrayRemove } from '@firebase/firestore';
 
-import { formatPhone } from '../utils';
+import { formatPhone, formatNameFirstLast } from '../utils';
 
 interface ClientExternalContactProps {
   client: Client;
@@ -140,7 +140,11 @@ const ClientExternalContact: React.FC<ClientExternalContactProps> = ({ client: i
                           <input 
                             type="text" 
                             value={editData.firstName} 
-                            onChange={(e) => setEditData({...editData, firstName: e.target.value})}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const formatted = val ? val.charAt(0).toUpperCase() + val.slice(1).toLowerCase() : "";
+                              setEditData({...editData, firstName: formatted});
+                            }}
                             className="w-full bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-xs font-bold"
                           />
                         </div>
@@ -176,7 +180,7 @@ const ClientExternalContact: React.FC<ClientExternalContactProps> = ({ client: i
                           <User size={24} />
                         </div>
                         <div>
-                          <h4 className="text-[14px] font-bold text-gray-900 uppercase">{contact.firstName} {contact.lastName}</h4>
+                          <h4 className="text-[14px] font-bold text-gray-900">{formatNameFirstLast(contact.firstName, contact.lastName)}</h4>
                           <div className="flex items-center gap-2 mt-0.5">
                             <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{contact.type}</p>
                             {contact.phone && <span className="text-[11px] text-gray-400 font-medium">• {formatPhone(contact.phone)}</span>}

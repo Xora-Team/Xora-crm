@@ -16,6 +16,7 @@ import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc } from '@firebase/firestore';
 import { Appointment } from '../types';
 import AddAppointmentModal from './AddAppointmentModal';
+import { formatFullNameFirstLast } from '../utils';
 
 interface ClientAppointmentsProps {
   clientId: string;
@@ -218,8 +219,8 @@ const ClientAppointments: React.FC<ClientAppointmentsProps> = ({ clientId, clien
                          </div>
                          <span className="text-[12px] font-bold text-gray-700">
                            {rdv.collaborators 
-                             ? (rdv.collaborators.length === 1 ? rdv.collaborators[0].name : `${rdv.collaborators.length} collab.`)
-                             : ((rdv as any).collaborator?.name || 'N/A')}
+                             ? (rdv.collaborators.length === 1 ? formatFullNameFirstLast(rdv.collaborators[0].name) : `${rdv.collaborators.length} collab.`)
+                             : (formatFullNameFirstLast((rdv as any).collaborator?.name) || 'N/A')}
                          </span>
                        </div>
                     </td>

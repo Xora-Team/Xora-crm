@@ -28,6 +28,7 @@ interface SidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
   companyLogo?: string | null;
+  userProfile?: any;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -36,7 +37,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   isCollapsed,
   setIsCollapsed,
-  companyLogo
+  companyLogo,
+  userProfile
 }) => {
   const location = useLocation();
   const [isAnnuaireOpen, setIsAnnuaireOpen] = useState(true);

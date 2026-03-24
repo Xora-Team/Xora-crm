@@ -4,7 +4,7 @@ import { X, Calendar, Clock, MapPin, Loader2, Check, ChevronDown, ChevronLeft, C
 import { db } from '../firebase';
 import { collection, addDoc, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Appointment, User } from '../types';
-import { formatPhone } from '../utils';
+import { formatPhone, formatFullNameFirstLast } from '../utils';
 
 interface AddAppointmentModalProps {
   isOpen: boolean;
@@ -319,7 +319,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
       const rdvDate = `${d}/${m}/${y}`;
 
       const finalClientId = isClientLinked ? (clientId || formData.selectedClientId) : null;
-      const finalClientName = isClientLinked ? (clientSearch || clientName || 'Client divers') : 'Client divers';
+      const finalClientName = isClientLinked ? formatFullNameFirstLast(clientSearch || clientName || 'Client divers') : 'Client divers';
 
       const appointmentData = {
         clientId: finalClientId || null,
@@ -411,7 +411,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
                 <Calendar size={18} />
               </div>
               <h2 className="text-[16px] font-bold text-gray-900">
-                {isEdit ? 'Modifier le rendez-vous' : 'Ajouter un rendez-vous'} - {appointmentToEdit?.clientName || clientName || 'Nouveau Client'}
+                {isEdit ? 'Modifier le rendez-vous' : 'Ajouter un rendez-vous'} - {formatFullNameFirstLast(appointmentToEdit?.clientName || clientName || 'Nouveau Client')}
               </h2>
             </div>
             <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-full transition-all text-gray-400 border border-gray-100">

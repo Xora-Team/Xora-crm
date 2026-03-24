@@ -51,6 +51,8 @@ const AddExternalContactModal: React.FC<AddExternalContactModalProps> = ({ isOpe
       await updateDoc(clientRef, {
         "details.externalContacts": arrayUnion({
           ...formData,
+          lastName: formData.lastName.toUpperCase(),
+          firstName: formData.firstName.charAt(0).toUpperCase() + formData.firstName.slice(1).toLowerCase(),
           id: Date.now().toString()
         })
       });
@@ -120,7 +122,11 @@ const AddExternalContactModal: React.FC<AddExternalContactModalProps> = ({ isOpe
                   required
                   type="text" 
                   value={formData.firstName}
-                  onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const formatted = val ? val.charAt(0).toUpperCase() + val.slice(1).toLowerCase() : "";
+                    setFormData({...formData, firstName: formatted});
+                  }}
                   className="w-full bg-[#F8F9FA] border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-indigo-400 transition-all shadow-sm"
                 />
               </div>

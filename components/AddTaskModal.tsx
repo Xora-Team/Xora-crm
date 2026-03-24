@@ -4,6 +4,7 @@ import { X, ChevronDown, Plus, CheckSquare, Calendar as CalendarIcon, Loader2, S
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
 import { collection, addDoc, query, where, onSnapshot, getDocs, doc, updateDoc, getCountFromServer, deleteDoc, getDoc } from '@firebase/firestore';
+import { formatFullNameFirstLast } from '../utils';
 import { Task } from '../types';
 
 // Structure de données hiérarchique unifiée
@@ -66,22 +67,6 @@ const HIERARCHY_DATA: Record<string, Record<string, string[]>> = {
   "Autres": {
     "Autre": []
   }
-};
-
-// Fonction utilitaire pour formater le nom du client (Prénom en casse mixte, Nom en majuscules)
-const formatClientNameDisplay = (fullName: string) => {
-  if (!fullName) return '';
-  const parts = fullName.trim().split(/\s+/);
-  if (parts.length < 2) return fullName;
-  
-  // On considère que le premier mot est le Prénom et le reste le Nom
-  const firstName = parts[0];
-  const lastName = parts.slice(1).join(' ');
-  
-  const formattedFirst = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
-  const formattedLast = lastName.toUpperCase();
-  
-  return `${formattedFirst} ${formattedLast}`;
 };
 
 interface AddTaskModalProps {
@@ -188,7 +173,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
 
   // MAPPING DES TITRES AUTOMATIQUES
   const getAutoTitle = (status: string, clientName: string) => {
-    const name = formatClientNameDisplay(clientName) || 'Client';
+    const name = formatFullNameFirstLast(clientName) || 'Client';
     switch (status) {
       case 'Découverte leads': return `Découverte leads : ${name}`;
       case 'Étude client': return `Étude client : ${name}`;
@@ -438,7 +423,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
       if (currentClientId) {
         const found = loadedClients.find(c => c.id === currentClientId);
         if (found) {
-          setClientSearchQuery(formatClientNameDisplay(found.name));
+          setClientSearchQuery(formatFullNameFirstLast(found.name));
           setSelectedClientId(found.id);
         }
       }
@@ -556,9 +541,9 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
         },
         hasNote: !!note,
         note: note,
-        clientId: isMemo ? '' : selectedClientId,
-        clientName: isMemo ? '' : formatClientNameDisplay(selectedClientName),
-        projectId: isMemo ? '' : selectedProjectId,
+        clientId: selectedClientId,
+        clientName: formatFullNameFirstLast(selectedClientName),
+        projectId: selectedProjectId,
       };
 
       let taskId = '';
@@ -894,8 +879,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
               )}
             </div>
 
-            {!isMemo && (
-              <div className={`grid grid-cols-1 ${isLeadAutoTask ? 'md:grid-cols-1' : 'md:grid-cols-2'} gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+            <div className={`grid grid-cols-1 ${isLeadAutoTask ? 'md:grid-cols-1' : 'md:grid-cols-2'} gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                 <div className="space-y-2 relative" ref={clientSearchRef}>
                   <label className="block text-xs font-bold text-gray-500 ml-1">Client lié {(isLeadAutoTask || isProjectAutoTask || initialClientId) ? '(verrouillé)' : ''}</label>
                   <div className="relative">
@@ -934,7 +918,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                               type="button"
                               onClick={() => {
                                 setSelectedClientId(client.id);
-                                const formattedName = formatClientNameDisplay(client.name);
+                                const formattedName = formatFullNameFirstLast(client.name);
                                 setClientSearchQuery(formattedName);
                                 // Auto-fill title for manual tasks if empty
                                 if (!isMemo && !title) {
@@ -947,7 +931,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                               <div className={`p-1.5 rounded-lg ${selectedClientId === client.id ? 'bg-white text-indigo-600' : 'bg-gray-100 text-gray-400'}`}>
                                 <UserIcon size={14} />
                               </div>
-                              <span className="text-sm font-bold">{formatClientNameDisplay(client.name)}</span>
+                              <span className="text-sm font-bold">{formatFullNameFirstLast(client.name)}</span>
                             </button>
                           ))
                         ) : (
@@ -980,7 +964,6 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   </div>
                 )}
               </div>
-            )}
 
             <div className="space-y-3">
               <label className="block text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider">{isMemo ? 'Contenu du mémos' : 'Note de la tâche'}</label>

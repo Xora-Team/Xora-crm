@@ -18,6 +18,7 @@ import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, writeBatch } from '@firebase/firestore';
 import { Task } from '../types';
 import AddTaskModal from './AddTaskModal';
+import { formatFullNameFirstLast } from '../utils';
 
 interface ClientTasksProps {
   clientId: string;
@@ -294,7 +295,7 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
                         {(task.type === 'Tâche manuelle' || task.type === 'Tâche auto') ? (
                           (task.clientName || clientName) ? (
                             <>
-                              <span className="text-[13.5px] font-bold text-gray-900 group-hover:text-purple-700 transition-colors truncate max-w-[250px]">{task.clientName || clientName}</span>
+                              <span className="text-[13.5px] font-bold text-gray-900 group-hover:text-purple-700 transition-colors truncate max-w-[250px]">{formatFullNameFirstLast(task.clientName || clientName)}</span>
                               <span className="text-[11px] text-gray-400 mt-0.5">{task.title}</span>
                             </>
                           ) : (
@@ -334,7 +335,7 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
                     <td className="px-6 py-5 border-y border-gray-50">
                       <div className="flex items-center gap-3">
                         <img src={task.collaborator.avatar} className="w-8 h-8 rounded-full border border-gray-100 shadow-sm" alt="" />
-                        <span className="text-[12px] font-bold text-gray-700">{task.collaborator.name}</span>
+                        <span className="text-[12px] font-bold text-gray-700">{formatFullNameFirstLast(task.collaborator.name)}</span>
                       </div>
                     </td>
 

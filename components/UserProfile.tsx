@@ -30,7 +30,7 @@ import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
 import { doc, updateDoc, onSnapshot, writeBatch, collection, query, where, getDocs, addDoc, serverTimestamp } from '@firebase/firestore';
 import UserDocuments from './UserDocuments';
-import { formatPhone } from '../utils';
+import { formatPhone, formatNameFirstLast } from '../utils';
 
 interface UserProfileProps {
   userProfile: any;
@@ -71,7 +71,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
     lng: userProfile?.lng || null,
     contractType: userProfile?.contractType || 'CDI',
     metier: Array.isArray(userProfile?.metier) ? userProfile.metier : (userProfile?.metier ? [userProfile.metier] : (userProfile?.jobTitle ? [userProfile.jobTitle] : (userProfile?.role ? [userProfile.role] : []))),
-    role: userProfile?.role || 'Agenceur',
+    role: userProfile?.role || 'Concepteur.rice',
     hasPhone: userProfile?.hasPhone ?? true,
     hasCar: userProfile?.hasCar ?? true,
     hasLaptop: userProfile?.hasLaptop ?? true,
@@ -93,17 +93,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
   ];
 
   const jobs = [
-    'Concepteur.rice',
-    'Assistant.e commercial.e',
-    'Adv',
-    'Assistant.e de direction',
-    'Poseur',
-    'Métreur',
+    'Chef.fe d\'entreprise',
+    'Responsable magasin',
+    'Agenceur',
+    'ADV',
     'Secrétaire',
-    'Magasinier.e',
-    'Directeur.rice',
-    'Chef.fe d\'entreprise'
-  ];
+    'Responsable technique',
+    'Installateur.rice',
+    'Métreur'
+  ].sort();
 
   useEffect(() => {
     if (userProfile && !isEditing) {
@@ -234,12 +232,16 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
       finalValue = formatPhone(value);
     }
     
+    if (field === 'lastName') {
+      finalValue = value.toUpperCase();
+    }
+    
+    if (field === 'firstName') {
+      finalValue = value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : "";
+    }
+    
     setFormData(prev => {
       const newData = { ...prev, [field]: finalValue };
-      // Si le métier est Chef.fe d'entreprise, on force le rôle Administrateur.rice
-      if (field === 'metier' && Array.isArray(finalValue) && finalValue.includes("Chef.fe d'entreprise")) {
-        newData.role = "Administrateur.rice";
-      }
       return newData;
     });
     setHasUnsavedChanges(true);
@@ -266,10 +268,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
     setIsSyncing(true);
     try {
       const userRef = doc(db, 'users', userProfile.uid);
-      const finalFirst = formData.firstName;
-      const finalLast = formData.lastName.toUpperCase();
+      const firstNameTrimmed = formData.firstName.trim();
+      const finalFirst = firstNameTrimmed ? firstNameTrimmed.charAt(0).toUpperCase() + firstNameTrimmed.slice(1).toLowerCase() : "";
+      const finalLast = formData.lastName.trim().toUpperCase();
       const finalAvatar = formData.avatar;
-      const fullName = `${finalFirst} ${finalLast}`;
+      const fullName = `${finalLast} ${finalFirst}`.trim() || "SANS NOM";
 
       // Logic for Point 4: Cancel license if employee left
       let updatedFormData = { ...formData };
@@ -344,7 +347,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
           await updateDoc(userRef, { avatar: base64String });
           
           // Sync everywhere (clients, projects)
-          const fullName = `${formData.firstName} ${formData.lastName.toUpperCase()}`;
+          const fullName = formatNameFirstLast(formData.firstName, formData.lastName);
           await syncProfileEverywhere(fullName, base64String);
           
           // Update parent state to keep everything in sync
@@ -407,7 +410,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
             
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-gray-900">{formData.firstName} {formData.lastName}</h1>
+                <h1 className="text-xl font-bold text-gray-900">{formatNameFirstLast(formData.firstName, formData.lastName)}</h1>
                 {formData.isSubscriptionActive && (
                   <div className="px-2 py-0.5 bg-gradient-to-r from-orange-400 via-purple-500 to-blue-500 rounded-md shadow-sm">
                     <span className="text-[9px] font-black text-white tracking-widest uppercase">XORA</span>
@@ -740,7 +743,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                     <label className="text-[11px] font-medium text-gray-400 ml-1">Rôle</label>
                     <div className="relative">
                       <select 
-                        disabled={!isEditing || formData.metier.includes("Chef.fe d'entreprise")}
+                        disabled={!isEditing}
                         value={formData.role} 
                         onChange={(e) => handleUpdate('role', e.target.value)} 
                         className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50 disabled:bg-gray-50"
@@ -750,9 +753,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                       </select>
                       <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
-                    {formData.metier.includes("Chef.fe d'entreprise") && isEditing && (
-                      <p className="text-[10px] text-indigo-500 font-medium ml-1">Le rôle Administrateur.rice est requis pour ce métier.</p>
-                    )}
                   </div>
 
                   {/* Toggles Row */}
@@ -912,7 +912,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                 {/* Content */}
                 <div className="p-12 space-y-10">
                   <p className="text-lg text-gray-600 text-center leading-relaxed">
-                    Vous êtes sur le point de {formData.isSubscriptionActive ? 'désactiver' : 'activer'} l'accès à Xora pour <span className="font-bold text-gray-900">{formData.firstName} {formData.lastName}</span>, êtes-vous sûr ?
+                    Vous êtes sur le point de {formData.isSubscriptionActive ? 'désactiver' : 'activer'} l'accès à Xora pour <span className="font-bold text-gray-900">{formatNameFirstLast(formData.firstName, formData.lastName)}</span>, êtes-vous sûr ?
                   </p>
 
                   <div className="flex flex-col sm:flex-row items-center gap-4">

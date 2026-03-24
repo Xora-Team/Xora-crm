@@ -67,7 +67,7 @@ const HIERARCHY_DATA: Record<string, Record<string, string[]>> = {
   }
 };
 
-import { formatPhone } from '../utils';
+import { formatPhone, formatNameFirstLast, formatFullNameFirstLast } from '../utils';
 
 interface AdditionalContact {
   id: string;
@@ -114,8 +114,8 @@ const ContactCard: React.FC<ContactCardProps> = ({
            </div>
            <h4 className={`text-sm font-bold ${isMain ? 'text-gray-900' : 'text-gray-600'}`}>
              {isMain 
-               ? (data.firstName || data.lastName ? `${data.firstName} ${data.lastName}` : "Contact principal") 
-               : (data.firstName || data.lastName ? `${data.firstName} ${data.lastName}` : "Contact supplémentaire")
+               ? (data.firstName || data.lastName ? formatNameFirstLast(data.firstName, data.lastName) : "Contact principal") 
+               : (data.firstName || data.lastName ? formatNameFirstLast(data.firstName, data.lastName) : "Contact supplémentaire")
              }
            </h4>
            {!isMain && <span className="px-2 py-0.5 bg-gray-200 text-gray-500 rounded text-[9px] font-black uppercase tracking-widest">Secondaire</span>}
@@ -168,7 +168,11 @@ const ContactCard: React.FC<ContactCardProps> = ({
               <input 
                 type="text" 
                 value={data.firstName} 
-                onChange={(e) => onFieldChange('firstName', e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const formatted = val ? val.charAt(0).toUpperCase() + val.slice(1).toLowerCase() : "";
+                  onFieldChange('firstName', formatted);
+                }}
                 onBlur={onBlur}
                 className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 shadow-sm" 
               />
@@ -311,11 +315,18 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
 
   const saveMainContactField = async (field: string, value: any) => {
     try {
-      const updates: any = { [`details.${field}`]: value };
+      let finalValue = value;
+      if (field === 'firstName') {
+        finalValue = value.trim() ? value.trim().charAt(0).toUpperCase() + value.trim().slice(1).toLowerCase() : "";
+      } else if (field === 'lastName') {
+        finalValue = value.trim().toUpperCase();
+      }
+
+      const updates: any = { [`details.${field}`]: finalValue };
       if (field === 'firstName' || field === 'lastName') {
-        const newFirstName = field === 'firstName' ? value : mainContact.firstName;
-        const newLastName = field === 'lastName' ? value : mainContact.lastName;
-        updates.name = `${newFirstName} ${newLastName}`.toUpperCase().trim();
+        const newFirstName = field === 'firstName' ? finalValue : mainContact.firstName;
+        const newLastName = field === 'lastName' ? finalValue : mainContact.lastName;
+        updates.name = formatNameFirstLast(newFirstName, newLastName);
       }
       await updateDoc(doc(db, 'clients', client.id), updates);
     } catch (e) { console.error(e); }
@@ -345,8 +356,13 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
 
   const saveAdditionalContacts = async (list: AdditionalContact[]) => {
     try {
+      const formattedList = list.map(contact => ({
+        ...contact,
+        firstName: contact.firstName.trim() ? contact.firstName.trim().charAt(0).toUpperCase() + contact.firstName.trim().slice(1).toLowerCase() : "",
+        lastName: contact.lastName.trim().toUpperCase()
+      }));
       await updateDoc(doc(db, 'clients', client.id), {
-        "details.additionalContacts": list
+        "details.additionalContacts": formattedList
       });
     } catch (e) { console.error(e); }
   };
@@ -428,7 +444,7 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
 
   const handleSelectSponsor = async (sponsor: any) => {
     try {
-      const sponsorName = sponsor.name.toUpperCase();
+      const sponsorName = formatFullNameFirstLast(sponsor.name);
       setSponsorSearch(sponsorName);
       setIsSponsorSearching(false);
       setSponsorSuggestions([]);
@@ -707,12 +723,12 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
                     type="text" 
                     value={sponsorSearch} 
                     onChange={(e) => {
-                      setSponsorSearch(e.target.value.toUpperCase());
+                      setSponsorSearch(e.target.value);
                       setIsSponsorSearching(true);
                     }}
                     onBlur={saveSponsorName}
                     placeholder="Rechercher ou saisir un nom..."
-                    className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 transition-all shadow-sm uppercase" 
+                    className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 transition-all shadow-sm" 
                   />
                   {isSponsorSearching && sponsorSuggestions.length > 0 && (
                     <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl z-[100] max-h-60 overflow-y-auto border-gray-100">
@@ -730,7 +746,7 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
                             <User size={14} />
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-[13px] font-bold text-gray-900 uppercase">{s.name}</span>
+                            <span className="text-[13px] font-bold text-gray-900">{formatFullNameFirstLast(s.name)}</span>
                             <span className="text-[11px] text-gray-400">{s.status}</span>
                           </div>
                         </button>
@@ -781,12 +797,12 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
                 {/* Afficher le référent actuel s'il n'est pas dans la liste des collaborateurs */}
                 {client.details?.referent && !teamMembers.find(m => m.name === client.details?.referent) && (
                   <option value={client.details.referent}>
-                    {client.details.referent}
+                    {formatFullNameFirstLast(client.details.referent)}
                   </option>
                 )}
                 {teamMembers.map((member) => (
                   <option key={member.uid} value={member.name}>
-                    {member.name} {member.uid === userProfile?.uid ? '(Moi)' : ''}
+                    {formatFullNameFirstLast(member.name)} {member.uid === userProfile?.uid ? '(Moi)' : ''}
                   </option>
                 ))}
               </select>

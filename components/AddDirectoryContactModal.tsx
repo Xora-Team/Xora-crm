@@ -4,6 +4,7 @@ import { X, Search, Check, SquarePen, Plus, Loader2, MapPin } from 'lucide-react
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
 import { collection, query, where, onSnapshot, doc, updateDoc, arrayUnion } from '@firebase/firestore';
+import { formatFullNameFirstLast } from '../utils';
 
 interface AddDirectoryContactModalProps {
   isOpen: boolean;
@@ -126,7 +127,7 @@ const AddDirectoryContactModal: React.FC<AddDirectoryContactModalProps> = ({ isO
                       <Plus size={20} />
                     </div>
                     <div>
-                      <h4 className="text-[14px] font-bold text-gray-900">{c.name}</h4>
+                      <h4 className="text-[14px] font-bold text-gray-900">{formatFullNameFirstLast(c.name)}</h4>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${
                           c.status === 'Client' ? 'bg-cyan-100 text-cyan-600' : 

@@ -283,8 +283,26 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               <div className={`space-y-4 ${!invitationData ? 'pt-4' : ''}`}>
                 <div className="flex items-center gap-2 text-indigo-500"><User size={16} /><span className="text-[11px] font-black uppercase tracking-widest">{invitationData ? 'Mes informations' : 'Compte Administrateur.rice'}</span></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <input type="text" required placeholder="Prénom" value={registerData.firstName} onChange={(e) => setRegisterData({...registerData, firstName: e.target.value})} className="w-full bg-[#F8F9FA] border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900" />
-                  <input type="text" required placeholder="Nom" value={registerData.lastName} onChange={(e) => setRegisterData({...registerData, lastName: e.target.value})} className="w-full bg-[#F8F9FA] border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900" />
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="Prénom" 
+                    value={registerData.firstName} 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const formatted = val ? val.charAt(0).toUpperCase() + val.slice(1).toLowerCase() : "";
+                      setRegisterData({...registerData, firstName: formatted});
+                    }} 
+                    className="w-full bg-[#F8F9FA] border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900" 
+                  />
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="Nom" 
+                    value={registerData.lastName} 
+                    onChange={(e) => setRegisterData({...registerData, lastName: e.target.value.toUpperCase()})} 
+                    className="w-full bg-[#F8F9FA] border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900" 
+                  />
                 </div>
                 <input type="email" required placeholder="Email professionnel" value={registerData.email} onChange={(e) => setRegisterData({...registerData, email: e.target.value})} className="w-full bg-[#F8F9FA] border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900" />
                 <div className="grid grid-cols-2 gap-4">

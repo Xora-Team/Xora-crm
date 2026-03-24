@@ -30,11 +30,19 @@ import {
 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp, writeBatch } from '@firebase/firestore';
-import { formatPhone } from '../utils';
+import { formatPhone, formatName, formatFullName, formatFullNameFirstLast, formatNameFirstLast } from '../utils';
 import { Client } from '../types';
 import DirectoryMap from './DirectoryMap';
 import Modal from './Modal';
 import ClientImportModal from './ClientImportModal';
+
+const normalizeString = (str: string) => {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[-'.\s]/g, '');
+};
 
 interface FilterDropdownProps {
   label: string;
@@ -278,12 +286,50 @@ const Directory: React.FC<DirectoryProps> = ({
       const activeStatusValue = activeTab === 'Lead' ? 'Leads' : activeTab;
       
       const matchesTab = activeTab === 'Tous' || statusValue === activeStatusValue;
-      const matchesSearch = !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const searchNormalized = normalizeString(searchQuery);
+      const primaryNameNormalized = normalizeString(c.name || '');
+      const primaryEmail = normalizeString(c.details?.email || '');
+      const primaryPhone = normalizeString(c.details?.phone || '');
+      const primaryFixed = normalizeString(c.details?.fixed || '');
+      
+      // Vérifier le contact principal
+      const matchesPrimary = primaryNameNormalized.includes(searchNormalized) ||
+                            primaryEmail.includes(searchNormalized) ||
+                            primaryPhone.includes(searchNormalized) ||
+                            primaryFixed.includes(searchNormalized);
+      
+      // Vérifier tous les contacts secondaires possibles
+      const secondaryContacts = [
+        ...((c as any).details?.additionalContacts || []),
+        (c as any).details?.secondaryContact
+      ].filter(Boolean);
+      
+      const matchesSecondary = secondaryContacts.some(sc => {
+        const fn = normalizeString(sc.firstName || '');
+        const ln = normalizeString(sc.lastName || '');
+        const full = normalizeString(`${sc.firstName || ''} ${sc.lastName || ''}`);
+        const email = normalizeString(sc.email || '');
+        const mobile = normalizeString(sc.mobile || '');
+        const landline = normalizeString(sc.landline || '');
+        return fn.includes(searchNormalized) || 
+               ln.includes(searchNormalized) || 
+               full.includes(searchNormalized) ||
+               email.includes(searchNormalized) ||
+               mobile.includes(searchNormalized) ||
+               landline.includes(searchNormalized);
+      });
+      
+      const matchesSearch = !searchQuery || matchesPrimary || matchesSecondary;
       const referentName = c.details?.referent || c.addedBy?.name;
       const matchesAgenceur = !filterAgenceur || 
         (filterAgenceur === 'Sans agenceur' ? !referentName : referentName === filterAgenceur);
       const matchesOrigine = !filterOrigine || (c.category || c.details?.category || c.origin) === filterOrigine;
-      const matchesLocation = !filterLocation || c.location === filterLocation;
+      
+      const clientCity = c.details?.city || '';
+      const matchesLocation = !filterLocation || 
+                             (clientCity && clientCity === filterLocation) ||
+                             (!clientCity && c.location?.includes(filterLocation));
+
       const matchesProject = !filterProject || (filterProject === 'Avec projet(s)' ? (c.projectCount || 0) > 0 : (c.projectCount || 0) === 0);
       
       return matchesTab && matchesSearch && matchesAgenceur && matchesOrigine && matchesLocation && matchesProject;
@@ -299,11 +345,11 @@ const Directory: React.FC<DirectoryProps> = ({
           valA = a.createdAt?.seconds || 0;
           valB = b.createdAt?.seconds || 0;
         } else if (sortConfig.key === 'agenceur') {
-          valA = (a.details?.referent || a.addedBy?.name || '').toLowerCase();
-          valB = (b.details?.referent || b.addedBy?.name || '').toLowerCase();
+          valA = formatFullNameFirstLast(a.details?.referent || a.addedBy?.name || '').toLowerCase();
+          valB = formatFullNameFirstLast(b.details?.referent || b.addedBy?.name || '').toLowerCase();
         } else if (sortConfig.key === 'name') {
-          valA = (a.name || '').toLowerCase();
-          valB = (b.name || '').toLowerCase();
+          valA = formatFullNameFirstLast(a.name).toLowerCase();
+          valB = formatFullNameFirstLast(b.name).toLowerCase();
         } else if (sortConfig.key === 'origin') {
           valA = (a.category || a.details?.category || a.origin || '').toLowerCase();
           valB = (b.category || b.details?.category || b.origin || '').toLowerCase();
@@ -430,23 +476,33 @@ const Directory: React.FC<DirectoryProps> = ({
           uid: userProfile.uid
         };
 
+        const firstNameTrimmed = item.firstName?.trim() || "";
+        const capitalizedFirstName = firstNameTrimmed ? firstNameTrimmed.charAt(0).toUpperCase() + firstNameTrimmed.slice(1).toLowerCase() : "";
+        const lastNameUpper = item.lastName?.trim().toUpperCase() || "";
+        const finalName = `${lastNameUpper} ${capitalizedFirstName}`.trim() || "SANS NOM";
+
+        const address = item.address || "";
+        const postcodeMatch = address.match(/\d{5}\s+([A-Za-zÀ-ÖØ-öø-ÿ\s\-]+)$/);
+        const extractedCity = postcodeMatch ? postcodeMatch[1].trim() : (address.length < 30 ? address : "");
+
         await addDoc(collection(db, 'clients'), {
-          name: `${item.firstName} ${item.lastName}`.trim(),
+          name: finalName,
           status: item.status,
           origin: item.subOrigin || '',
           category: item.origin || '',
-          location: item.address,
+          location: item.address || 'Non renseignée',
           addedBy,
           dateAdded: new Date().toLocaleDateString('fr-FR'),
           companyId: userProfile.companyId,
           details: {
             ...(item.civility ? { civility: item.civility } : {}),
-            lastName: item.lastName,
-            firstName: item.firstName,
+            lastName: lastNameUpper,
+            firstName: capitalizedFirstName,
             email: item.email,
             phone: item.phone,
             fixed: item.fixed,
             address: item.address,
+            city: extractedCity,
             category: item.origin,
             origin: item.subOrigin,
             subOrigin: item.source,
@@ -477,7 +533,22 @@ const Directory: React.FC<DirectoryProps> = ({
     return unique;
   }, [clients]);
   const uniqueOrigines = useMemo(() => Array.from(new Set(clients.map(c => c.category || c.details?.category || c.origin).filter(Boolean))).sort(), [clients]);
-  const uniqueLocations = useMemo(() => Array.from(new Set(clients.map(c => c.location).filter(Boolean))).sort(), [clients]);
+  const uniqueLocations = useMemo(() => {
+    const cities = clients.map(c => {
+      if (c.details?.city) return c.details.city;
+      if (!c.location || c.location === 'Non renseignée') return '';
+      
+      // Heuristic for French addresses: "Street 12345 City"
+      const postcodeMatch = c.location.match(/\d{5}\s+([A-Za-zÀ-ÖØ-öø-ÿ\s\-]+)$/);
+      if (postcodeMatch) return postcodeMatch[1].trim();
+      
+      // If no postcode but short string, likely just the city
+      if (c.location.length < 30) return c.location.trim();
+      
+      return '';
+    }).filter(Boolean);
+    return Array.from(new Set(cities)).sort();
+  }, [clients]);
 
   return (
     <div className="p-6 space-y-4 bg-gray-50 h-[calc(100vh-64px)] flex flex-col overflow-hidden font-sans">
@@ -581,7 +652,7 @@ const Directory: React.FC<DirectoryProps> = ({
           />
           <FilterDropdown 
             id="localisation"
-            label="Localisation" 
+            label="Ville" 
             value={filterLocation} 
             options={uniqueLocations} 
             onSelect={setFilterLocation} 
@@ -682,7 +753,7 @@ const Directory: React.FC<DirectoryProps> = ({
                                     }}
                                 >
                                     <div className="flex items-center gap-2">
-                                        {mode === 'suppliers' ? 'Nom' : 'Nom & prénom'}
+                                        {mode === 'suppliers' ? 'Nom' : 'Prénom & nom'}
                                         <div className={`flex flex-col transition-opacity ${sortConfig?.key === 'name' ? 'opacity-100' : 'opacity-0 group-hover/sort:opacity-50'}`}>
                                             <ChevronDown size={10} className={`-mb-1 transition-transform ${sortConfig?.key === 'name' && sortConfig.direction === 'asc' ? 'rotate-180' : ''}`} />
                                         </div>
@@ -811,9 +882,39 @@ const Directory: React.FC<DirectoryProps> = ({
                                         </div>
                                       )}
                                     </td>
-                                    <td className="px-4 py-5 text-[13px] font-black text-gray-900 uppercase tracking-tight">
+                                    <td className="px-4 py-5 text-[13px] font-black text-gray-900 tracking-tight">
                                         <div className="flex flex-col">
-                                            <span>{client.name}</span>
+                                            <span>{(() => {
+                                                const queryNormalized = normalizeString(searchQuery);
+                                                if (!queryNormalized) return formatFullNameFirstLast(client.name);
+                                                
+                                                // Chercher un match dans les contacts secondaires
+                                                const secondaryContacts = [
+                                                    ...((client as any).details?.additionalContacts || []),
+                                                    (client as any).details?.secondaryContact
+                                                ].filter(Boolean);
+                                                
+                                                for (const sc of secondaryContacts) {
+                                                    const fn = normalizeString(sc.firstName || '');
+                                                    const ln = normalizeString(sc.lastName || '');
+                                                    const full = normalizeString(`${sc.firstName || ''} ${sc.lastName || ''}`);
+                                                    const email = normalizeString(sc.email || '');
+                                                    const mobile = normalizeString(sc.mobile || '');
+                                                    const landline = normalizeString(sc.landline || '');
+                                                    
+                                                    if (fn.includes(queryNormalized) || 
+                                                        ln.includes(queryNormalized) || 
+                                                        full.includes(queryNormalized) ||
+                                                        email.includes(queryNormalized) ||
+                                                        mobile.includes(queryNormalized) ||
+                                                        landline.includes(queryNormalized)) {
+                                                        const displayName = formatNameFirstLast(sc.firstName, sc.lastName);
+                                                        if (displayName) return displayName;
+                                                    }
+                                                }
+                                                
+                                                return formatFullNameFirstLast(client.name);
+                                            })()}</span>
                                             {mode === 'suppliers' && client.details?.website && (
                                                 <a 
                                                     href={client.details.website.startsWith('http') ? client.details.website : `https://${client.details.website}`} 
@@ -845,7 +946,7 @@ const Directory: React.FC<DirectoryProps> = ({
                                                                 className="w-8 h-8 rounded-full border border-white shadow-sm object-cover bg-gray-50" 
                                                                 referrerPolicy="no-referrer"
                                                             />
-                                                            <span className="text-[13px] font-bold text-gray-700">{referentName}</span>
+                                                            <span className="text-[13px] font-bold text-gray-700">{formatFullNameFirstLast(referentName)}</span>
                                                         </>
                                                     );
                                                 })()}

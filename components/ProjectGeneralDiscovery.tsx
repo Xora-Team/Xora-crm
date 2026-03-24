@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, updateDoc, getDoc } from '@firebase/firestore';
+import { formatFullNameFirstLast } from '../utils';
 
 // Structure de données hiérarchique unifiée (Source de vérité)
 const HIERARCHY_DATA: Record<string, Record<string, string[]>> = {
@@ -576,7 +577,7 @@ const ProjectGeneralDiscovery: React.FC<ProjectGeneralDiscoveryProps> = ({ proje
         <Field label="Agenceur référent" colSpan="col-span-12 md:col-span-6">
           <div className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 flex items-center gap-3 shadow-sm">
             <img src={project.agenceur?.avatar} className="w-8 h-8 rounded-full object-cover border border-gray-50 shadow-sm" alt="" />
-            <span className="text-[13px] font-bold text-gray-900">{project.agenceur?.name}</span>
+            <span className="text-[13px] font-bold text-gray-900">{formatFullNameFirstLast(project.agenceur?.name)}</span>
             <ChevronDown size={18} className="ml-auto text-gray-400" />
           </div>
         </Field>

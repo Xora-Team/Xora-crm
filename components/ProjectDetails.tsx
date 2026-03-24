@@ -23,7 +23,7 @@ import {
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
 import { doc, onSnapshot, getDoc, collection, query, where, updateDoc } from '@firebase/firestore';
-import { formatPhone } from '../utils';
+import { formatPhone, formatFullNameFirstLast } from '../utils';
 import ProjectGeneralDiscovery from './ProjectGeneralDiscovery';
 import ProjectKitchenDiscovery from './ProjectKitchenDiscovery';
 import ProjectTasks from './ProjectTasks';
@@ -305,7 +305,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project: initialProject
                 </div>
 
                 <div className="flex items-center gap-8 py-1">
-                  <span className="text-[15px] font-bold text-gray-900 uppercase tracking-tight">{project.clientName}</span>
+                  <span className="text-[15px] font-bold text-gray-900 tracking-tight">{formatFullNameFirstLast(project.clientName)}</span>
                   <div className="flex items-center gap-2 text-[13px] font-bold text-gray-700">
                     <Phone size={14} className="text-gray-300" /> {formatPhone(clientData?.details?.phone || '') || 'Non renseigné'}
                   </div>
@@ -640,7 +640,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project: initialProject
                <div className="flex items-center gap-4">
                   <img src={project.agenceur?.avatar} className="w-10 h-10 rounded-full border-2 border-white shadow-md" alt="" />
                   <div>
-                    <p className="text-[12px] font-black text-gray-900 uppercase tracking-tighter">{project.agenceur?.name}</p>
+                    <p className="text-[12px] font-black text-gray-900 tracking-tighter">{formatFullNameFirstLast(project.agenceur?.name)}</p>
                     <p className="text-[10px] font-bold text-gray-400 uppercase">Agenceur Référent</p>
                   </div>
                </div>

@@ -325,7 +325,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
     
     setIsLoading(true);
     try {
-      // Formatage du nom : Prénom (Casse mixte), Nom (MAJUSCULES)
+      // Formatage du nom : Nom (MAJUSCULES) Prénom (Casse mixte)
       let finalName = "";
       if (isSupplier) {
         finalName = formData.lastName.trim().toUpperCase() || "SANS NOM";
@@ -333,17 +333,19 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
         const firstNameTrimmed = formData.firstName.trim();
         const capitalizedFirstName = firstNameTrimmed ? firstNameTrimmed.charAt(0).toUpperCase() + firstNameTrimmed.slice(1).toLowerCase() : "";
         const lastNameUpper = formData.lastName.trim().toUpperCase();
-        finalName = `${capitalizedFirstName} ${lastNameUpper}`.trim() || "SANS NOM";
+        finalName = `${lastNameUpper} ${capitalizedFirstName}`.trim() || "SANS NOM";
       }
       
       const clientData: any = {
         name: finalName,
         origin: isSupplier ? formData.supplierType : formData.origin,
         category: isSupplier ? formData.supplierType : formData.category,
-        location: formData.city || 'Non renseignée',
+        location: formData.address || formData.city || 'Non renseignée',
         directoryType: mode,
         details: {
           ...formData,
+          firstName: isSupplier ? "" : (formData.firstName.trim() ? formData.firstName.trim().charAt(0).toUpperCase() + formData.firstName.trim().slice(1).toLowerCase() : ""),
+          lastName: formData.lastName.trim().toUpperCase(),
           sponsorId: selectedSponsor?.id || null,
           sponsorName: selectedSponsor?.name || null,
         }
@@ -504,7 +506,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                         <label className="block text-[11px] font-bold text-gray-400 mb-2 uppercase tracking-wider">Prénom du contact</label>
                         <input 
                           value={formData.firstName}
-                          onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const formatted = val ? val.charAt(0).toUpperCase() + val.slice(1).toLowerCase() : "";
+                            setFormData({...formData, firstName: formatted});
+                          }}
                           type="text" 
                           placeholder="Ex: Chloé" 
                           className="w-full bg-white border border-gray-200 rounded-xl py-3 px-4 text-sm font-semibold text-gray-800 focus:outline-none focus:border-gray-900 transition-all" 

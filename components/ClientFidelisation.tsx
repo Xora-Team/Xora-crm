@@ -4,6 +4,7 @@ import { Gift, Plus, Trash2, Loader2, Check, Users, Heart, ShieldCheck, ChevronD
 import { db } from '../firebase';
 import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs, orderBy } from '@firebase/firestore';
 import { Client } from '../types';
+import { formatNameFirstLast, formatFullNameFirstLast } from '../utils';
 
 interface ClientFidelisationProps {
   client: Client;
@@ -224,12 +225,12 @@ const ClientFidelisation: React.FC<ClientFidelisationProps> = ({ client, userPro
             {[
               { 
                 id: 'primary', 
-                name: `${client.details?.firstName || ''} ${client.details?.lastName || ''}`.trim() || client.name,
+                name: formatNameFirstLast(client.details?.firstName || '', client.details?.lastName || '') || formatFullNameFirstLast(client.name),
                 exists: true 
               },
               { 
                 id: 'secondary', 
-                name: client.details?.additionalContacts?.[0] ? `${client.details.additionalContacts[0].firstName || ''} ${client.details.additionalContacts[0].lastName || ''}`.trim() : null,
+                name: client.details?.additionalContacts?.[0] ? formatNameFirstLast(client.details.additionalContacts[0].firstName, client.details.additionalContacts[0].lastName) : null,
                 exists: !!client.details?.additionalContacts?.[0]
               }
             ].filter(c => c.exists).map((contact) => (
@@ -407,9 +408,9 @@ const ClientFidelisation: React.FC<ClientFidelisationProps> = ({ client, userPro
                       <div className="col-span-4">
                         <button 
                           onClick={() => onClientClick?.(godchild)}
-                          className="text-[13px] font-bold text-gray-900 uppercase tracking-tight hover:text-indigo-600 transition-colors text-left"
+                          className="text-[13px] font-bold text-gray-900 tracking-tight hover:text-indigo-600 transition-colors text-left"
                         >
-                          {godchild.name}
+                          {formatFullNameFirstLast(godchild.name)}
                         </button>
                       </div>
                       <div className="col-span-2 flex justify-center">

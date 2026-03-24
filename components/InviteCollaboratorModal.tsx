@@ -27,7 +27,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
     address: '',
     contractType: 'CDI',
     metier: [] as string[],
-    role: 'Agenceur',
+    role: 'Concepteur.rice',
     hasPhone: false,
     hasCar: false,
     hasLaptop: false,
@@ -59,17 +59,15 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
   ];
 
   const jobs = [
-    'Concepteur.rice',
-    'Assistant.e commercial.e',
-    'Adv',
-    'Assistant.e de direction',
-    'Poseur',
-    'Métreur',
+    'Chef.fe d\'entreprise',
+    'Responsable magasin',
+    'Agenceur',
+    'ADV',
     'Secrétaire',
-    'Magasinier.e',
-    'Directeur.rice',
-    'Chef.fe d\'entreprise'
-  ];
+    'Responsable technique',
+    'Installateur.rice',
+    'Métreur'
+  ].sort();
 
   const toggleJob = (job: string) => {
     const currentJobs = formData.metier;
@@ -111,7 +109,11 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
       const invitationRef = doc(collection(db, 'invitations'));
       const invitationId = invitationRef.id;
       
-      const registrationLink = `${appUrl}?view=register&inviteId=${userProfile.companyId}&email=${encodeURIComponent(inviteEmail)}&firstName=${encodeURIComponent(formData.firstName)}&lastName=${encodeURIComponent(formData.lastName)}&role=${encodeURIComponent(formData.role)}&hasSubscription=${formData.hasSubscription}&address=${encodeURIComponent(formData.address)}&avatar=${encodeURIComponent(formData.avatar || '')}`;
+      const firstNameTrimmed = formData.firstName.trim();
+      const finalFirst = firstNameTrimmed ? firstNameTrimmed.charAt(0).toUpperCase() + firstNameTrimmed.slice(1).toLowerCase() : "";
+      const finalLast = formData.lastName.trim().toUpperCase();
+      
+      const registrationLink = `${appUrl}?view=register&inviteId=${userProfile.companyId}&email=${encodeURIComponent(inviteEmail)}&firstName=${encodeURIComponent(finalFirst)}&lastName=${encodeURIComponent(finalLast)}&role=${encodeURIComponent(formData.role)}&hasSubscription=${formData.hasSubscription}&address=${encodeURIComponent(formData.address)}&avatar=${encodeURIComponent(formData.avatar || '')}`;
 
       await setDoc(invitationRef, {
         to: inviteEmail,
@@ -221,7 +223,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
           address: '',
           contractType: 'CDI',
           metier: [],
-          role: 'Agenceur',
+          role: 'Concepteur.rice',
           hasPhone: false,
           hasCar: false,
           hasLaptop: false,
@@ -360,7 +362,9 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                             </button>
                           </>
                         ) : (
-                          <User size={32} className="text-gray-200" />
+                          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                            {/* Empty circle as requested */}
+                          </div>
                         )}
                       </div>
                       <input 
@@ -412,7 +416,11 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                       type="text" 
                       placeholder="Jérémy" 
                       value={formData.firstName}
-                      onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const formatted = val ? val.charAt(0).toUpperCase() + val.slice(1).toLowerCase() : "";
+                        setFormData({...formData, firstName: formatted});
+                      }}
                       className="w-full px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
                     />
                   </div>

@@ -17,6 +17,7 @@ import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc } from '@firebase/firestore';
 import { Task } from '../types';
 import AddTaskModal from './AddTaskModal';
+import { formatFullNameFirstLast } from '../utils';
 
 interface ProjectTasksProps {
   projectId: string;
@@ -186,7 +187,7 @@ const ProjectTasks: React.FC<ProjectTasksProps> = ({ projectId, clientId, projec
                         {(task.type === 'Tâche manuelle' || task.type === 'Tâche auto') ? (
                           task.clientName ? (
                             <>
-                              <span className="text-[13.5px] font-bold text-gray-900 group-hover:text-purple-700 transition-colors">{task.clientName}</span>
+                              <span className="text-[13.5px] font-bold text-gray-900 group-hover:text-purple-700 transition-colors">{formatFullNameFirstLast(task.clientName)}</span>
                               <span className="text-[11px] text-gray-400 mt-0.5">{task.title}</span>
                             </>
                           ) : (
@@ -224,7 +225,7 @@ const ProjectTasks: React.FC<ProjectTasksProps> = ({ projectId, clientId, projec
                     <td className="px-6 py-5 border-y border-gray-50">
                       <div className="flex items-center gap-3">
                         <img src={task.collaborator.avatar} className="w-8 h-8 rounded-full border border-gray-100 shadow-sm" alt="" />
-                        <span className="text-[12px] font-bold text-gray-700">{task.collaborator.name}</span>
+                        <span className="text-[12px] font-bold text-gray-700">{formatFullNameFirstLast(task.collaborator.name)}</span>
                       </div>
                     </td>
 

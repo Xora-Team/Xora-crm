@@ -1131,29 +1131,19 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
         });
 
         const allMetiers = [
-          'Agenceur',
-          'Concepteur.rice',
-          'Assistant.e commercial.e',
-          'Adv',
-          'Assistant.e de direction',
-          'Poseur',
-          'Métreur',
-          'Secrétaire',
-          'Magasinier.e',
-          'Directeur.rice',
           'Chef.fe d\'entreprise',
-          'Cuisiniste',
-          'Bainiste',
-          'Décorateur',
-          'Architecte d\'intérieur',
-          'Marbrier'
+          'Responsable magasin',
+          'Agenceur',
+          'ADV',
+          'Secrétaire',
+          'Responsable technique',
+          'Installateur.rice',
+          'Métreur'
         ].sort();
         
         const allRoles = [
           'Administrateur.rice',
-          'Agenceur',
-          'Métreur',
-          'Poseur'
+          'Concepteur.rice'
         ].sort();
 
         return (
@@ -1249,10 +1239,14 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                       <tr key={member.uid} className={`transition-colors group ${member.hasLeft ? 'bg-gray-50/80 opacity-60' : 'hover:bg-gray-50/50'}`}>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            {member.avatar && (
+                            {member.avatar ? (
                               <img src={member.avatar} className="w-8 h-8 rounded-full object-cover shadow-sm" alt="" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-gray-100 border border-gray-100 shadow-sm flex items-center justify-center">
+                                {/* Empty circle as requested */}
+                              </div>
                             )}
-                            <span className="text-sm font-bold text-gray-900 uppercase">{member.name}</span>
+                            <span className="text-sm font-bold text-gray-900">{member.name}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">

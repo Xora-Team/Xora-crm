@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, increment } from '@firebase/firestore';
+import { formatFullName, formatFullNameFirstLast } from '../utils';
 import AddProjectModal from './AddProjectModal';
 
 interface Project {
@@ -99,7 +100,7 @@ const ProjectTracking: React.FC<ProjectTrackingProps> = ({ userProfile, onProjec
   const [searchQuery, setSearchQuery] = useState('');
   
   // États des filtres - filterAgenceur est pré-rempli avec le nom de l'utilisateur connecté
-  const [filterAgenceur, setFilterAgenceur] = useState(userProfile?.name || '');
+  const [filterAgenceur, setFilterAgenceur] = useState(formatFullNameFirstLast(userProfile?.name) || '');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -151,7 +152,7 @@ const ProjectTracking: React.FC<ProjectTrackingProps> = ({ userProfile, onProjec
   }, []);
 
   const uniqueAgenceurs = useMemo(() => 
-    Array.from(new Set(projects.map(p => p.agenceur?.name).filter(Boolean))).sort(), 
+    Array.from(new Set(projects.map(p => formatFullNameFirstLast(p.agenceur?.name)).filter(Boolean))).sort(), 
   [projects]);
 
   const uniqueStatuses = useMemo(() => 
@@ -170,7 +171,7 @@ const ProjectTracking: React.FC<ProjectTrackingProps> = ({ userProfile, onProjec
     return projects.filter(p => {
       const matchesSearch = p.projectName.toLowerCase().includes(searchQuery.toLowerCase()) || 
                            p.clientName.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesAgenceur = !filterAgenceur || p.agenceur?.name === filterAgenceur;
+      const matchesAgenceur = !filterAgenceur || formatFullNameFirstLast(p.agenceur?.name) === filterAgenceur;
       const matchesStatus = !filterStatus || p.status === filterStatus;
       const matchesDate = !filterDate || p.addedDate === filterDate;
       
@@ -300,7 +301,7 @@ const ProjectTracking: React.FC<ProjectTrackingProps> = ({ userProfile, onProjec
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-400 uppercase font-bold tracking-wider">
-                <th className="px-6 py-4">Nom & prénom</th>
+                <th className="px-6 py-4">Prénom & nom</th>
                 <th className="px-6 py-4">Agenceur.s</th>
                 <th className="px-6 py-4">Nom du projet</th>
                 <th className="px-6 py-4">Statut du projet</th>
@@ -317,14 +318,14 @@ const ProjectTracking: React.FC<ProjectTrackingProps> = ({ userProfile, onProjec
                 >
                   <td className="px-6 py-4 text-sm font-bold text-gray-900">
                     <div className="flex items-center gap-2">
-                      {project.clientName}
+                      {formatFullNameFirstLast(project.clientName)}
                       <ArrowUpRight size={14} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center">
                       <img src={project.agenceur?.avatar} alt="" className="w-6 h-6 rounded-full mr-2 border border-gray-100 shadow-sm" />
-                      <span className="text-sm font-medium text-gray-800">{project.agenceur?.name}</span>
+                      <span className="text-sm font-medium text-gray-800">{formatFullNameFirstLast(project.agenceur?.name || '')}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm font-semibold text-gray-700 uppercase">

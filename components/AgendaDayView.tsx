@@ -2,6 +2,7 @@
 import React from 'react';
 import { Clock, CheckSquare, Calendar, Video, MapPin } from 'lucide-react';
 import { Appointment } from '../types';
+import { formatFullName } from '../utils';
 
 interface AgendaDayViewProps {
   currentDate: Date;
@@ -150,7 +151,7 @@ const AgendaDayView: React.FC<AgendaDayViewProps> = ({ currentDate, appointments
                         {rdv.isPrivate ? 'RDV privé' : rdv.title}
                       </h4>
                       <p className={`text-[12px] font-bold mt-1 opacity-80`} style={{ color: textColor }}>
-                        {rdv.isPrivate ? rdv.collaborators?.[0]?.name : rdv.clientName}
+                        {rdv.isPrivate ? formatFullName(rdv.collaborators?.[0]?.name || '') : formatFullName(rdv.clientName)}
                       </p>
                     </div>
                     {isTask && <CheckSquare size={16} className="text-indigo-400 shrink-0" />}

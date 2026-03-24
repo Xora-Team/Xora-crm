@@ -18,6 +18,7 @@ import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc } from '@firebase/firestore';
 import { Appointment } from '../types';
 import AddAppointmentModal from './AddAppointmentModal';
+import { formatFullNameFirstLast } from '../utils';
 
 interface ProjectAppointmentsProps {
   projectId: string;
@@ -198,11 +199,11 @@ const ProjectAppointments: React.FC<ProjectAppointmentsProps> = ({
                        <div className="flex items-center gap-3">
                          <div className="flex -space-x-2">
                            {rdv.collaborators?.map((c, i) => (
-                             <img key={i} src={c.avatar} className="w-7 h-7 rounded-full border-2 border-white shadow-sm" title={c.name} alt="" />
+                             <img key={i} src={c.avatar} className="w-7 h-7 rounded-full border-2 border-white shadow-sm" title={formatFullNameFirstLast(c.name)} alt="" />
                            ))}
                          </div>
                          <span className="text-[12px] font-bold text-gray-700">
-                           {rdv.collaborators?.length === 1 ? rdv.collaborators[0].name : `${rdv.collaborators?.length} collab.`}
+                           {rdv.collaborators?.length === 1 ? formatFullNameFirstLast(rdv.collaborators[0].name) : `${rdv.collaborators?.length} collab.`}
                          </span>
                        </div>
                     </td>

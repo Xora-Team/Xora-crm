@@ -3,16 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, writeBatch, collection, getDoc } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
-};
+import { firebaseConfig } from "./firebase.config";
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
@@ -44,6 +35,7 @@ export const seedDatabase = async (companyId: string, currentUser: any) => {
     });
   }
 
+  // 2. KPIs Financiers - Utilisation des types d'icônes mis à jour
   const kpis = [
     { id: 'ca', label: 'CA Généré', value: '53.456€', target: '110.000€', percentage: 65, iconName: 'euro', companyId },
     { id: 'marge', label: 'Marge générée', value: '12.326€', target: '15.000€', percentage: 73, iconName: 'trending-up', companyId },
@@ -56,6 +48,7 @@ export const seedDatabase = async (companyId: string, currentUser: any) => {
     batch.set(ref, kpi);
   });
 
+  // 3. Statuts du Dashboard
   const statusCards = [
     { id: 'leads', label: 'Leads', count: 3, color: 'purple', order: 1, companyId },
     { id: 'etudes', label: 'Etudes en cours', count: 2, color: 'fuchsia', order: 2, companyId },
@@ -69,6 +62,7 @@ export const seedDatabase = async (companyId: string, currentUser: any) => {
     batch.set(ref, card);
   });
 
+  // 4. Quelques clients exemples
   const clientsData = [
     {
       name: "CHARLES DUBOIS",

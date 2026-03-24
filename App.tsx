@@ -151,7 +151,7 @@ function App() {
                 email: user.email,
                 companyId: 'temp_company',
                 avatar: null,
-                role: 'Agenceur',
+                role: 'Concepteur.rice',
                 lastName: '',
                 firstName: '',
                 isSubscriptionActive: true
@@ -372,6 +372,7 @@ function App() {
         isCollapsed={isSidebarCollapsed}
         setIsCollapsed={setIsSidebarCollapsed}
         companyLogo={companyLogo}
+        userProfile={userProfile}
       />
       
       <div className="flex-1 flex flex-col h-screen overflow-hidden transition-all duration-300">
@@ -446,7 +447,7 @@ function App() {
               />
             } />
             <Route path="/project/:id" element={<ProjectDetailsWrapper userProfile={userProfile} />} />
-            <Route path="/company" element={<CompanyManagement userProfile={userProfile} />} />
+            <Route path="/company" element={userProfile?.role === 'Administrateur.rice' ? <CompanyManagement userProfile={userProfile} /> : <Navigate to="/" replace />} />
             <Route path="/our_company" element={<OurCompany userProfile={userProfile} />} />
             <Route path="/profile" element={<UserProfile userProfile={userProfile} setUserProfile={setUserProfile} onBack={() => navigate(-1)} readOnly={false} />} />
             <Route path="/kpi" element={<KPIManagement userProfile={userProfile} />} />

@@ -20,8 +20,17 @@ import {
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, limit, doc, deleteDoc, updateDoc, writeBatch } from '@firebase/firestore';
 import { FinancialKPI, Task, Client, Page, Appointment } from '../types';
+import { formatNameFirstLast, formatFullNameFirstLast } from '../utils';
 import AddTaskModal from './AddTaskModal';
 import AddAppointmentModal from './AddAppointmentModal';
+
+const normalizeString = (str: string) => {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[-'.\s]/g, '');
+};
 
 interface DashboardProps {
   userProfile?: any;
@@ -217,12 +226,73 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
         </div>
         {showSearchDropdown && searchQuery.trim() && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50">
-            {allClients.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5).map(client => (
-              <button key={client.id} onClick={() => onClientClick?.(client)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors group">
-                <span className="text-sm font-bold text-gray-900">{client.name}</span>
-                <span className="px-2 py-0.5 text-[9px] font-black bg-purple-100 text-purple-600 rounded uppercase tracking-widest">{client.status}</span>
-              </button>
-            ))}
+            {allClients.filter(c => {
+              const queryNormalized = normalizeString(searchQuery);
+              const primaryNameNormalized = normalizeString(c.name || '');
+              const primaryEmail = normalizeString(c.details?.email || '');
+              const primaryPhone = normalizeString(c.details?.phone || '');
+              const primaryFixed = normalizeString(c.details?.fixed || '');
+              
+              if (primaryNameNormalized.includes(queryNormalized) ||
+                  primaryEmail.includes(queryNormalized) ||
+                  primaryPhone.includes(queryNormalized) ||
+                  primaryFixed.includes(queryNormalized)) return true;
+              
+              const secondaryContacts = [
+                ...((c as any).details?.additionalContacts || []),
+                (c as any).details?.secondaryContact
+              ].filter(Boolean);
+              
+              return secondaryContacts.some(sc => {
+                const fn = normalizeString(sc.firstName || '');
+                const ln = normalizeString(sc.lastName || '');
+                const full = normalizeString(`${sc.firstName || ''} ${sc.lastName || ''}`);
+                const email = normalizeString(sc.email || '');
+                const mobile = normalizeString(sc.mobile || '');
+                const landline = normalizeString(sc.landline || '');
+                return fn.includes(queryNormalized) || 
+                       ln.includes(queryNormalized) || 
+                       full.includes(queryNormalized) ||
+                       email.includes(queryNormalized) ||
+                       mobile.includes(queryNormalized) ||
+                       landline.includes(queryNormalized);
+              });
+            }).slice(0, 5).map(client => {
+              const queryNormalized = normalizeString(searchQuery);
+              let displayName = client.name;
+              
+              // Chercher si un contact secondaire match pour l'affichage
+              const secondaryContacts = [
+                ...((client as any).details?.additionalContacts || []),
+                (client as any).details?.secondaryContact
+              ].filter(Boolean);
+              
+              for (const sc of secondaryContacts) {
+                const fn = normalizeString(sc.firstName || '');
+                const ln = normalizeString(sc.lastName || '');
+                const full = normalizeString(`${sc.firstName || ''} ${sc.lastName || ''}`);
+                const email = normalizeString(sc.email || '');
+                const mobile = normalizeString(sc.mobile || '');
+                const landline = normalizeString(sc.landline || '');
+                
+                if (fn.includes(queryNormalized) || 
+                    ln.includes(queryNormalized) || 
+                    full.includes(queryNormalized) ||
+                    email.includes(queryNormalized) ||
+                    mobile.includes(queryNormalized) ||
+                    landline.includes(queryNormalized)) {
+                  displayName = formatNameFirstLast(sc.firstName, sc.lastName);
+                  if (displayName) break;
+                }
+              }
+
+              return (
+                <button key={client.id} onClick={() => onClientClick?.(client)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors group">
+                  <span className="text-sm font-bold text-gray-900">{displayName === client.name ? formatFullNameFirstLast(client.name) : displayName}</span>
+                  <span className="px-2 py-0.5 text-[9px] font-black bg-purple-100 text-purple-600 rounded uppercase tracking-widest">{client.status}</span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -324,15 +394,15 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
                                 {(task.type === 'Tâche manuelle' || task.type === 'Tâche auto') ? (
                                   task.clientName ? (
                                     <>
-                                      <h4 className="text-[13.5px] font-bold truncate text-gray-900 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{task.clientName}</h4>
+                                      <h4 className="text-[13.5px] font-bold truncate text-gray-900 group-hover:text-indigo-600 transition-colors tracking-tight">{formatFullNameFirstLast(task.clientName)}</h4>
                                       <p className="text-[11px] text-gray-400 mt-0.5 truncate">{task.title}</p>
                                     </>
                                   ) : (
-                                    <h4 className="text-[13.5px] font-bold truncate text-gray-900 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{task.title}</h4>
+                                    <h4 className="text-[13.5px] font-bold truncate text-gray-900 group-hover:text-indigo-600 transition-colors tracking-tight">{task.title}</h4>
                                   )
                                 ) : (
                                   <div className="flex items-center gap-3">
-                                     <h4 className={`text-[13.5px] font-bold truncate uppercase tracking-tight transition-colors ${task.type === 'Mémo' ? 'text-gray-400 italic' : 'text-gray-900 group-hover:text-indigo-600'}`}>{task.title}</h4>
+                                     <h4 className={`text-[13.5px] font-bold truncate tracking-tight transition-colors ${task.type === 'Mémo' ? 'text-gray-400 italic' : 'text-gray-900 group-hover:text-indigo-600'}`}>{task.title}</h4>
                                      {(task.tag || task.statusLabel) && (
                                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${
                                          task.tagColor === 'blue' ? 'bg-blue-50 text-blue-500 border border-blue-100' :
@@ -461,11 +531,11 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
                                               className="p-3 rounded-xl border bg-white border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
                                             >
                                                 <span className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter block mb-1">{rdv.startTime}</span>
-                                                <h4 className="text-[12px] font-bold leading-tight line-clamp-2 uppercase tracking-tight text-gray-900 group-hover:text-indigo-600 transition-colors">{rdv.title}</h4>
+                                                <h4 className="text-[12px] font-bold leading-tight line-clamp-2 tracking-tight text-gray-900 group-hover:text-indigo-600 transition-colors">{rdv.title}</h4>
                                                 <div className="flex items-center justify-between mt-2">
                                                     <div className="flex items-center gap-1 text-[9px] font-bold text-gray-400 min-w-0">
                                                        <User size={10} className="shrink-0" />
-                                                       <span className="truncate">{rdv.clientName}</span>
+                                                       <span className="truncate">{formatFullNameFirstLast(rdv.clientName)}</span>
                                                     </div>
                                                     {rdv.collaborators && rdv.collaborators.length > 0 && (
                                                       <div className="flex -space-x-1.5 shrink-0">

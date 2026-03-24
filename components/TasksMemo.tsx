@@ -49,11 +49,13 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
   const [dueDateFilter, setDueDateFilter] = useState<string>('all');
 
   // Set default collaborator filter to current user
+  /* 
   useEffect(() => {
     if (userProfile?.uid && collaboratorFilter === 'all') {
       setCollaboratorFilter(userProfile.uid);
     }
   }, [userProfile?.uid]);
+  */
 
   // Unique collaborators for filter
   const [collaborators, setCollaborators] = useState<{uid: string, name: string}[]>([]);
@@ -82,6 +84,26 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
 
   useEffect(() => {
     if (!userProfile?.companyId) return;
+    
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('companyId', '==', userProfile.companyId));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const collabs = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          uid: doc.id,
+          name: data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'Utilisateur'
+        };
+      });
+      setCollaborators(collabs.sort((a, b) => a.name.localeCompare(b.name)));
+    });
+
+    return () => unsubscribe();
+  }, [userProfile?.companyId]);
+
+  useEffect(() => {
+    if (!userProfile?.companyId) return;
     const tasksRef = collection(db, 'tasks');
     const q = query(
       tasksRef, 
@@ -90,20 +112,6 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
       
-      // Extract unique collaborators and ensure current user is included
-      const uniqueCollabs = Array.from(new Set(data.map(t => t.collaborator?.uid).filter(Boolean)))
-        .map(uid => {
-          const task = data.find(t => t.collaborator?.uid === uid);
-          return { uid, name: task.collaborator.name };
-        });
-      
-      // Add current user if not already in the list
-      if (userProfile?.uid && !uniqueCollabs.find(c => c.uid === userProfile.uid)) {
-        uniqueCollabs.push({ uid: userProfile.uid, name: userProfile.name });
-      }
-      
-      setCollaborators(uniqueCollabs.sort((a, b) => a.name.localeCompare(b.name)));
-
       const sortedData = data.sort((a, b) => {
         const indexA = a.orderIndex ?? 9999;
         const indexB = b.orderIndex ?? 9999;
@@ -201,6 +209,25 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
       return dueDate < today;
     } catch (e) {
       return false;
+    }
+  };
+
+  const getTaskDelayInfo = (task: Task) => {
+    if (!task.date || task.status === 'completed') return { isLate: false, text: task.date || '-' };
+    try {
+      const [d, m, y] = task.date.split('/').map(Number);
+      const dueDate = new Date(y, m - 1, d);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (dueDate < today) {
+        const diffTime = Math.abs(today.getTime() - dueDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return { isLate: true, text: `${diffDays} jour${diffDays > 1 ? 's' : ''} de retard` };
+      }
+      return { isLate: false, text: task.date };
+    } catch (e) {
+      return { isLate: false, text: task.date || '-' };
     }
   };
 
@@ -431,7 +458,7 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
             onChange={(e) => setCollaboratorFilter(e.target.value)}
             className="w-full pl-4 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:outline-none focus:border-gray-400 appearance-none shadow-sm cursor-pointer"
           >
-            <option value="all">Collaborateur</option>
+            <option value="all">Tous les collaborateurs</option>
             {collaborators.map(collab => (
               <option key={collab.uid} value={collab.uid}>{collab.name}</option>
             ))}
@@ -505,26 +532,15 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
                             </td>
                             <td className="px-6 py-4">
                                 <div className="flex flex-col">
-                                    {(task.type === 'Tâche manuelle' || task.type === 'Tâche auto') ? (
-                                      task.clientName ? (
-                                        <>
-                                          <span className={`text-sm font-bold transition-colors ${draggedItemIndex === index ? 'text-indigo-600' : 'text-gray-900'}`}>
-                                            {task.clientName}
-                                          </span>
-                                          {task.title && (
-                                            <span className="text-[11px] text-gray-400 mt-0.5">{task.title}</span>
-                                          )}
-                                        </>
-                                      ) : (
-                                        <>
-                                          <span className={`text-sm font-bold transition-colors ${draggedItemIndex === index ? 'text-indigo-600' : 'text-gray-900'}`}>
-                                            {task.title}
-                                          </span>
-                                          {task.subtitle && (
-                                            <span className="text-[11px] text-gray-400 mt-0.5">{task.subtitle}</span>
-                                          )}
-                                        </>
-                                      )
+                                    {task.clientName ? (
+                                      <>
+                                        <span className={`text-sm font-bold transition-colors ${draggedItemIndex === index ? 'text-indigo-600' : 'text-gray-900'}`}>
+                                          {task.clientName}
+                                        </span>
+                                        {task.title && (
+                                          <span className="text-[11px] text-gray-400 mt-0.5">{task.title}</span>
+                                        )}
+                                      </>
                                     ) : (
                                       <>
                                         <span className={`text-sm font-bold transition-colors ${draggedItemIndex === index ? 'text-indigo-600' : 'text-gray-900'}`}>
@@ -553,11 +569,14 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
                                 </span>
                             </td>
                             <td className="px-6 py-4 text-center text-sm font-bold text-gray-700">
-                                {task.isLate ? (
-                                    <span className="text-red-500">{task.delayDays || 0} jours de retard</span>
-                                ) : (
-                                    <span>{task.date || '-'}</span>
-                                )}
+                                {(() => {
+                                  const delayInfo = getTaskDelayInfo(task);
+                                  return (
+                                    <span className={delayInfo.isLate ? "text-red-600" : ""}>
+                                      {delayInfo.text}
+                                    </span>
+                                  );
+                                })()}
                             </td>
                             <td className="px-6 py-4">
                                 <div className="flex items-center">
