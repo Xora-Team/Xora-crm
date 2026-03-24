@@ -3,13 +3,13 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, query, where, getDocs, limit } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAN59kl6vkvbxdMsBG3mvcg3N8ynnYxK9c",
-  authDomain: "xora-41903.firebaseapp.com",
-  projectId: "xora-41903",
-  storageBucket: "xora-41903.firebasestorage.app",
-  messagingSenderId: "250582798310",
-  appId: "1:250582798310:web:2d19531984e8d9fb6e1027",
-  measurementId: "G-3DD87LVRGG"
+  apiKey: process.env.VITE_FIREBASE_API_KEY,
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.VITE_FIREBASE_APP_ID,
+  measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);
