@@ -4,7 +4,7 @@ import { X, Calendar, Clock, MapPin, Loader2, Check, ChevronDown, ChevronLeft, C
 import { db } from '../firebase';
 import { collection, addDoc, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Appointment, User } from '../types';
-import { formatPhone, formatFullNameFirstLast } from '../utils';
+import { formatPhone, formatFullNameFirstLast, normalizeString } from '../utils';
 
 interface AddAppointmentModalProps {
   isOpen: boolean;
@@ -216,7 +216,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clients;
-    return clients.filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase()));
+    return clients.filter(c => normalizeString(c.name || '').includes(normalizeString(clientSearch)));
   }, [clients, clientSearch]);
 
   const selectedClient = useMemo(() => {
@@ -445,14 +445,14 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
                     Rechercher le client* {isEdit && !formData.selectedClientId && <span className="text-red-500">(Non lié)</span>}
                     {(clientId || isEdit) && <span className="ml-1 text-[9px] text-gray-300 italic">(Verrouillé)</span>}
                   </label>
-                  <div className="relative">
+                  <div className="relative group">
                     <div className="relative">
-                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" />
                       <input 
                         type="text"
                         disabled={!!clientId || isEdit}
                         placeholder="Rechercher un client..."
-                        className="w-full bg-white border border-gray-100 rounded-lg pl-9 pr-4 py-2.5 text-sm font-medium text-gray-900 outline-none focus:border-indigo-400 transition-all disabled:bg-gray-50 disabled:text-gray-400"
+                        className="w-full bg-white border border-gray-100 rounded-2xl pl-12 pr-4 py-3.5 text-sm font-medium text-gray-800 outline-none focus:border-gray-400 transition-all disabled:bg-gray-50 disabled:text-gray-400 shadow-sm placeholder:text-gray-400"
                         value={clientSearch}
                         onChange={(e) => {
                           setClientSearch(e.target.value);

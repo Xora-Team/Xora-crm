@@ -123,11 +123,11 @@ const AddGiftModal: React.FC<AddGiftModalProps> = ({ isOpen, onClose, userProfil
             <>
               <div className="space-y-4">
                 <div className="relative group">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={20} />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
                   <input 
                     type="text"
                     placeholder="Rechercher un article..."
-                    className="w-full bg-[#F8F9FA] border border-gray-100 rounded-2xl pl-12 pr-5 py-4 text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
+                    className="w-full bg-white border border-gray-200 rounded-2xl pl-12 pr-4 py-3.5 text-sm font-medium text-gray-800 outline-none focus:border-gray-400 transition-all placeholder:text-gray-400 shadow-sm"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />

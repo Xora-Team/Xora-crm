@@ -46,22 +46,28 @@ const ClientImportModal: React.FC<ClientImportModalProps> = ({ isOpen, onClose, 
     const fetchData = async () => {
       if (!userProfile?.companyId) return;
       
-      // Fetch Team
-      const qTeam = query(collection(db, 'users'), where('companyId', '==', userProfile.companyId));
-      const snapTeam = await getDocs(qTeam);
-      setTeamMembers(snapTeam.docs.map(d => ({ id: d.id, ...d.data() })));
+      try {
+        // Fetch Team
+        const qTeam = query(collection(db, 'users'), where('companyId', '==', userProfile.companyId));
+        const snapTeam = await getDocs(qTeam);
+        setTeamMembers(snapTeam.docs.map(d => ({ id: d.id, ...d.data() })));
 
-      // Fetch Existing Client Emails
-      const qClients = query(collection(db, 'clients'), where('companyId', '==', userProfile.companyId));
-      const snapClients = await getDocs(qClients);
-      const emails = new Set<string>();
-      snapClients.docs.forEach(doc => {
-        const data = doc.data();
-        if (data.details?.email) {
-          emails.add(data.details.email.toLowerCase().trim());
-        }
-      });
-      setExistingEmails(emails);
+        // Fetch Existing Client Emails - ALL clients of the company
+        const qClients = query(collection(db, 'clients'), where('companyId', '==', userProfile.companyId));
+        const snapClients = await getDocs(qClients);
+        const emails = new Set<string>();
+        snapClients.docs.forEach(doc => {
+          const data = doc.data();
+          // Check both root and details for email to be exhaustive
+          const email = data.details?.email || data.email;
+          if (email && typeof email === 'string') {
+            emails.add(email.toLowerCase().trim());
+          }
+        });
+        setExistingEmails(emails);
+      } catch (error) {
+        console.error("Error fetching data for import audit:", error);
+      }
     };
     if (isOpen) fetchData();
   }, [isOpen, userProfile?.companyId]);
@@ -241,7 +247,13 @@ const ClientImportModal: React.FC<ClientImportModalProps> = ({ isOpen, onClose, 
           if (mapped) {
             collaborator = { id: mapped.id, name: mapped.name || `${mapped.firstName} ${mapped.lastName}`, avatar: mapped.avatar };
           }
+        } else {
+          // Si le collaborateur est inconnu et que l'utilisateur a choisi "Laisser vide"
+          collaborator = { id: 'none', name: 'Sans agenceur', avatar: '' };
         }
+      } else {
+        // Si aucun collaborateur n'est renseigné dans le fichier
+        collaborator = { id: 'none', name: 'Sans agenceur', avatar: '' };
       }
 
       // Case-Insensitive Origin Mapping

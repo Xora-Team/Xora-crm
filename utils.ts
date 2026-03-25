@@ -105,3 +105,16 @@ export const formatFullNameFirstLast = (fullName: string | undefined | null): st
   
   return `${firstNames} ${lastName}`.trim();
 };
+
+/**
+ * Normalise une chaîne de caractères pour la recherche (minuscules, sans accents, sans caractères spéciaux)
+ * @param str La chaîne à normaliser
+ * @returns La chaîne normalisée
+ */
+export const normalizeString = (str: string): string => {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[-'.\s]/g, '');
+};

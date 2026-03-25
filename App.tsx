@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -20,11 +20,11 @@ import LoginPage from './components/LoginPage';
 import BackupPage from './components/BackupPage';
 import AddTaskModal from './components/AddTaskModal';
 import { Page, Client } from './types';
-import { Construction, AlertCircle, Loader2 } from 'lucide-react';
+import { Construction, AlertCircle, Loader2, ShieldAlert } from 'lucide-react';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 // Use @firebase/firestore to fix named export resolution issues
-import { doc, setDoc, onSnapshot, collection, query, where, getDocs, updateDoc } from '@firebase/firestore';
+import { doc, setDoc, onSnapshot, collection, query, where, getDocs, updateDoc, writeBatch } from '@firebase/firestore';
 
 // Wrapper component to handle ClientDetails with URL params
 const ClientDetailsWrapper = ({ userProfile, onProjectSelect }: { userProfile: any, onProjectSelect: (project: any) => void }) => {
@@ -98,6 +98,7 @@ const ProjectDetailsWrapper: React.FC<{ userProfile: any }> = ({ userProfile }) 
 
 function App() {
   const navigate = useNavigate();
+  const cleanupInProgress = useRef(false);
   const location = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -186,17 +187,19 @@ function App() {
 
   useEffect(() => {
     const cleanupSpontane = async () => {
-      if (!isAuthenticated || !userProfile?.companyId) return;
+      if (!isAuthenticated || !userProfile?.companyId || cleanupInProgress.current) return;
       
       const cleanupDone = sessionStorage.getItem('xora_cleanup_spontane_done');
       if (cleanupDone) return;
+
+      cleanupInProgress.current = true;
 
       try {
         const clientsRef = collection(db, 'clients');
         const q = query(clientsRef, where('companyId', '==', userProfile.companyId));
         const querySnapshot = await getDocs(q);
         
-        const updates: Promise<void>[] = [];
+        const docsToUpdate: { id: string, data: any }[] = [];
         
         querySnapshot.forEach((docSnap) => {
           const data = docSnap.data();
@@ -215,17 +218,27 @@ function App() {
           }
 
           if (needsUpdate) {
-            updates.push(updateDoc(doc(db, 'clients', docSnap.id), updateData));
+            docsToUpdate.push({ id: docSnap.id, data: updateData });
           }
         });
 
-        if (updates.length > 0) {
-          await Promise.all(updates);
+        if (docsToUpdate.length > 0) {
+          const BATCH_SIZE = 500;
+          for (let i = 0; i < docsToUpdate.length; i += BATCH_SIZE) {
+            const batch = writeBatch(db);
+            const chunk = docsToUpdate.slice(i, i + BATCH_SIZE);
+            chunk.forEach(item => {
+              batch.update(doc(db, 'clients', item.id), item.data);
+            });
+            await batch.commit();
+          }
         }
         
         sessionStorage.setItem('xora_cleanup_spontane_done', 'true');
       } catch (error) {
         console.error("Erreur lors du nettoyage de la base de données:", error);
+      } finally {
+        cleanupInProgress.current = false;
       }
     };
 
@@ -361,6 +374,31 @@ function App() {
 
   if (!isAuthenticated) {
     return <LoginPage onLogin={() => {}} />;
+  }
+
+  if (userProfile?.role === 'Aucun') {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-[#F8F9FA] p-6">
+        <div className="max-w-md w-full bg-white p-10 rounded-[32px] shadow-xl border border-gray-100 text-center space-y-6">
+          <div className="w-20 h-20 bg-gray-50 rounded-3xl flex items-center justify-center text-gray-400 mx-auto">
+            <ShieldAlert size={40} />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-bold text-gray-900">Accès restreint</h2>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              Votre compte n'a pas les autorisations nécessaires pour accéder à Xora. 
+              Veuillez contacter votre administrateur pour plus d'informations.
+            </p>
+          </div>
+          <button 
+            onClick={handleLogout}
+            className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold text-sm hover:bg-black transition-all"
+          >
+            Se déconnecter
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

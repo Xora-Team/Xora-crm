@@ -114,12 +114,12 @@ const ClientProjects: React.FC<ClientProjectsProps> = ({ client, userProfile, on
         
         {/* Barre de Filtres */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-          <div className="md:col-span-3 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          <div className="md:col-span-3 relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
             <input 
               type="text" 
-              placeholder="Rechercher projet" 
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-100 rounded-lg text-[13px] text-gray-900 outline-none focus:border-gray-300 shadow-sm placeholder:text-gray-300"
+              placeholder="Rechercher un projet..." 
+              className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl text-sm focus:outline-none focus:border-gray-400 text-gray-800 shadow-sm transition-all placeholder:text-gray-400 font-medium"
             />
           </div>
           <div className="md:col-span-2.25 relative flex-1">

@@ -576,7 +576,13 @@ const ProjectGeneralDiscovery: React.FC<ProjectGeneralDiscoveryProps> = ({ proje
         </Field>
         <Field label="Agenceur référent" colSpan="col-span-12 md:col-span-6">
           <div className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 flex items-center gap-3 shadow-sm">
-            <img src={project.agenceur?.avatar} className="w-8 h-8 rounded-full object-cover border border-gray-50 shadow-sm" alt="" />
+            {project.agenceur?.name === "Sans agenceur" ? (
+              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200 shadow-sm">
+                <X size={16} className="text-gray-900" />
+              </div>
+            ) : (
+              <img src={project.agenceur?.avatar} className="w-8 h-8 rounded-full object-cover border border-gray-50 shadow-sm" alt="" />
+            )}
             <span className="text-[13px] font-bold text-gray-900">{formatFullNameFirstLast(project.agenceur?.name)}</span>
             <ChevronDown size={18} className="ml-auto text-gray-400" />
           </div>
@@ -625,7 +631,7 @@ const ProjectGeneralDiscovery: React.FC<ProjectGeneralDiscoveryProps> = ({ proje
         <Field label="Adresse chantier" colSpan="col-span-12 md:col-span-6">
           <div className="relative" ref={chantierRef}>
             <div className="relative group">
-              <MapPin className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearchingChantier ? 'text-indigo-500' : 'text-gray-400 group-focus-within:text-indigo-600'}`} size={18} />
+              <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearchingChantier ? 'text-indigo-500' : 'text-gray-400 group-focus-within:text-gray-900'}`} size={18} />
               <input 
                 type="text" 
                 value={chantierSearch}
@@ -635,7 +641,7 @@ const ProjectGeneralDiscovery: React.FC<ProjectGeneralDiscoveryProps> = ({ proje
                 }}
                 onFocus={() => setShowChantierSuggestions(true)}
                 placeholder="Choisir ou saisir l'adresse du chantier..."
-                className={`w-full border rounded-xl pl-12 pr-12 py-3 text-[13px] font-bold text-gray-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 shadow-sm transition-all ${chantierSearch ? 'bg-indigo-50/50 border-indigo-600' : 'bg-white border-gray-200'}`}
+                className="w-full pl-12 pr-12 py-3.5 bg-white border border-gray-100 rounded-2xl text-sm font-medium text-gray-800 focus:outline-none focus:border-gray-400 transition-all placeholder:text-gray-400 shadow-sm"
               />
               {chantierSearch && (
                 <button 

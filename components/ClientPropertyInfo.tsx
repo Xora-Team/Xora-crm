@@ -291,7 +291,7 @@ const ClientPropertyInfo: React.FC<ClientPropertyInfoProps> = ({ client: initial
                   <div className="space-y-1.5 relative">
                     <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Adresse</label>
                     <div className="relative group">
-                      <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearching && activeSearchId === prop.id ? 'text-indigo-500' : 'text-gray-300'}`} size={16} />
+                      <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearching && activeSearchId === prop.id ? 'text-indigo-500' : 'text-gray-400 group-focus-within:text-gray-900'}`} size={18} />
                       <input 
                         type="text" 
                         value={activeSearchId === prop.id ? searchQuery : prop.address} 
@@ -305,11 +305,11 @@ const ClientPropertyInfo: React.FC<ClientPropertyInfoProps> = ({ client: initial
                         }}
                         onBlur={() => saveProperties(properties)}
                         placeholder="Rechercher l'adresse du bien..."
-                        className="w-full bg-white border border-gray-200 rounded-xl pl-11 pr-10 py-3 text-sm font-bold text-gray-900 outline-none focus:border-gray-900 shadow-sm transition-all" 
+                        className="w-full bg-white border border-gray-100 rounded-2xl pl-12 pr-10 py-3.5 text-sm font-medium text-gray-800 outline-none focus:border-gray-400 shadow-sm transition-all placeholder:text-gray-400" 
                       />
                       {isSearching && activeSearchId === prop.id && (
                         <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                          <Loader2 size={14} className="animate-spin text-indigo-500" />
+                          <Loader2 size={16} className="animate-spin text-indigo-500" />
                         </div>
                       )}
                     </div>

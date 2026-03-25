@@ -30,19 +30,11 @@ import {
 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp, writeBatch } from '@firebase/firestore';
-import { formatPhone, formatName, formatFullName, formatFullNameFirstLast, formatNameFirstLast } from '../utils';
+import { formatPhone, formatName, formatFullName, formatFullNameFirstLast, formatNameFirstLast, normalizeString } from '../utils';
 import { Client } from '../types';
 import DirectoryMap from './DirectoryMap';
 import Modal from './Modal';
 import ClientImportModal from './ClientImportModal';
-
-const normalizeString = (str: string) => {
-  return str
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[-'.\s]/g, '');
-};
 
 interface FilterDropdownProps {
   label: string;
@@ -345,11 +337,11 @@ const Directory: React.FC<DirectoryProps> = ({
           valA = a.createdAt?.seconds || 0;
           valB = b.createdAt?.seconds || 0;
         } else if (sortConfig.key === 'agenceur') {
-          valA = formatFullNameFirstLast(a.details?.referent || a.addedBy?.name || '').toLowerCase();
-          valB = formatFullNameFirstLast(b.details?.referent || b.addedBy?.name || '').toLowerCase();
+          valA = formatFullName(a.details?.referent || a.addedBy?.name || '').toLowerCase();
+          valB = formatFullName(b.details?.referent || b.addedBy?.name || '').toLowerCase();
         } else if (sortConfig.key === 'name') {
-          valA = formatFullNameFirstLast(a.name).toLowerCase();
-          valB = formatFullNameFirstLast(b.name).toLowerCase();
+          valA = formatFullName(a.name).toLowerCase();
+          valB = formatFullName(b.name).toLowerCase();
         } else if (sortConfig.key === 'origin') {
           valA = (a.category || a.details?.category || a.origin || '').toLowerCase();
           valB = (b.category || b.details?.category || b.origin || '').toLowerCase();
@@ -471,9 +463,9 @@ const Directory: React.FC<DirectoryProps> = ({
           avatar: item.collaborator.avatar,
           uid: item.collaborator.id
         } : {
-          name: userProfile.name,
-          avatar: userProfile.avatar,
-          uid: userProfile.uid
+          name: 'Sans agenceur',
+          avatar: '',
+          uid: 'none'
         };
 
         const firstNameTrimmed = item.firstName?.trim() || "";
@@ -525,12 +517,12 @@ const Directory: React.FC<DirectoryProps> = ({
   };
 
   const uniqueAgenceurs = useMemo(() => {
-    const names = clients.map(c => c.details?.referent || c.addedBy?.name).filter(Boolean);
+    const names = clients.map(c => c.details?.referent || c.addedBy?.name || 'Sans agenceur');
     const unique = Array.from(new Set(names)).sort();
-    if (clients.some(c => !(c.details?.referent || c.addedBy?.name))) {
-      unique.unshift('Sans agenceur');
-    }
-    return unique;
+    // Placer 'Sans agenceur' en premier
+    const filtered = unique.filter(n => n !== 'Sans agenceur');
+    filtered.unshift('Sans agenceur');
+    return filtered;
   }, [clients]);
   const uniqueOrigines = useMemo(() => Array.from(new Set(clients.map(c => c.category || c.details?.category || c.origin).filter(Boolean))).sort(), [clients]);
   const uniqueLocations = useMemo(() => {
@@ -932,20 +924,24 @@ const Directory: React.FC<DirectoryProps> = ({
                                         <td className="px-4 py-5">
                                             <div className="flex items-center gap-3">
                                                 {(() => {
-                                                    const referentName = client.details?.referent || client.addedBy?.name;
+                                                    const referentName = client.details?.referent || client.addedBy?.name || 'Sans agenceur';
                                                     const referent = teamMembers.find(m => m.name === referentName);
                                                     const avatar = referent?.avatar || client.addedBy?.avatar;
                                                     
-                                                    if (!referentName) return <span className="text-[13px] font-bold text-gray-300">-</span>;
-                                                    
                                                     return (
                                                         <>
-                                                            <img 
-                                                                src={avatar} 
-                                                                alt="" 
-                                                                className="w-8 h-8 rounded-full border border-white shadow-sm object-cover bg-gray-50" 
-                                                                referrerPolicy="no-referrer"
-                                                            />
+                                                            {referentName === 'Sans agenceur' ? (
+                                                                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-900 border border-white shadow-sm">
+                                                                    <X size={14} />
+                                                                </div>
+                                                            ) : (
+                                                                <img 
+                                                                    src={avatar} 
+                                                                    alt="" 
+                                                                    className="w-8 h-8 rounded-full border border-white shadow-sm object-cover bg-gray-50" 
+                                                                    referrerPolicy="no-referrer"
+                                                                />
+                                                            )}
                                                             <span className="text-[13px] font-bold text-gray-700">{formatFullNameFirstLast(referentName)}</span>
                                                         </>
                                                     );

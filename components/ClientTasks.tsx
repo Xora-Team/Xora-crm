@@ -12,13 +12,14 @@ import {
   Trash2,
   MoreVertical,
   Check,
-  X
+  X,
+  Search
 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, writeBatch } from '@firebase/firestore';
 import { Task } from '../types';
 import AddTaskModal from './AddTaskModal';
-import { formatFullNameFirstLast } from '../utils';
+import { formatFullNameFirstLast, normalizeString } from '../utils';
 
 interface ClientTasksProps {
   clientId: string;
@@ -35,6 +36,7 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Note editing state
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
@@ -110,15 +112,17 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
     if (!userProfile?.companyId) return;
 
     try {
-      const batch = writeBatch(db);
       const currentFiltered = tasks.filter(t => filter === 'en-cours' ? t.status !== 'completed' : t.status === 'completed');
       
-      currentFiltered.forEach((task, idx) => {
-        const taskRef = doc(db, 'tasks', task.id);
-        batch.update(taskRef, { orderIndex: idx });
-      });
-      
-      await batch.commit();
+      const BATCH_SIZE = 500;
+      for (let i = 0; i < currentFiltered.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        const chunk = currentFiltered.slice(i, i + BATCH_SIZE);
+        chunk.forEach((task, idx) => {
+          batch.update(doc(db, 'tasks', task.id), { orderIndex: i + idx });
+        });
+        await batch.commit();
+      }
     } catch (e) {
       console.error("Erreur sauvegarde ordre tâches:", e);
     }
@@ -177,9 +181,33 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
     }
   };
 
-  const filteredTasks = tasks.filter(t => 
-    filter === 'en-cours' ? t.status !== 'completed' : t.status === 'completed'
-  );
+  const getTaskDelayInfo = (task: Task) => {
+    if (!task.date || task.status === 'completed') return { isLate: false, text: task.date || '-' };
+    try {
+      const [d, m, y] = task.date.split('/').map(Number);
+      const dueDate = new Date(y, m - 1, d);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (dueDate < today) {
+        const diffTime = Math.abs(today.getTime() - dueDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return { isLate: true, text: `${diffDays} jour${diffDays > 1 ? 's' : ''} de retard` };
+      }
+      return { isLate: false, text: task.date };
+    } catch (e) {
+      return { isLate: false, text: task.date || '-' };
+    }
+  };
+
+  const filteredTasks = tasks.filter(t => {
+    const matchesTab = filter === 'en-cours' ? t.status !== 'completed' : t.status === 'completed';
+    const searchNormalized = normalizeString(searchQuery);
+    const titleNormalized = normalizeString(t.title || '');
+    const clientNameNormalized = normalizeString(t.clientName || clientName || '');
+    const matchesSearch = !searchQuery || titleNormalized.includes(searchNormalized) || clientNameNormalized.includes(searchNormalized);
+    return matchesTab && matchesSearch;
+  });
 
   const getTypeBadge = (type: string) => {
     switch (type) {
@@ -239,6 +267,19 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
       </div>
 
       <div className="bg-[#f8f9fa] border border-gray-100 rounded-[28px] p-6 min-h-[500px] relative overflow-visible">
+        <div className="mb-6">
+          <div className="relative group max-w-md">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
+            <input 
+              type="text" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher une tâche ou un mémo..." 
+              className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-100 rounded-2xl text-sm font-medium text-gray-800 focus:outline-none focus:border-gray-400 transition-all placeholder:text-gray-400 shadow-sm"
+            />
+          </div>
+        </div>
+
         {isLoading && (
           <div className="absolute inset-0 bg-white/40 flex items-center justify-center z-10">
             <Loader2 className="animate-spin text-[#A886D7]" size={32} />
@@ -327,9 +368,14 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
                     </td>
 
                     <td className="px-6 py-5 border-y border-gray-50 text-center">
-                      <span className={`text-[12px] font-bold ${task.isLate ? 'text-red-500' : 'text-gray-800'}`}>
-                        {task.date || '-'}
-                      </span>
+                      {(() => {
+                        const delayInfo = getTaskDelayInfo(task);
+                        return (
+                          <span className={`text-[12px] font-bold ${delayInfo.isLate ? 'text-red-500' : 'text-gray-800'}`}>
+                            {delayInfo.text}
+                          </span>
+                        );
+                      })()}
                     </td>
 
                     <td className="px-6 py-5 border-y border-gray-50">

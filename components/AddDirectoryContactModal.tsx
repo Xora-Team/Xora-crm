@@ -4,7 +4,7 @@ import { X, Search, Check, SquarePen, Plus, Loader2, MapPin } from 'lucide-react
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
 import { collection, query, where, onSnapshot, doc, updateDoc, arrayUnion } from '@firebase/firestore';
-import { formatFullNameFirstLast } from '../utils';
+import { formatFullNameFirstLast, normalizeString } from '../utils';
 
 interface AddDirectoryContactModalProps {
   isOpen: boolean;
@@ -35,16 +35,16 @@ const AddDirectoryContactModal: React.FC<AddDirectoryContactModalProps> = ({ isO
   }, [isOpen, companyId]);
 
   const filteredClients = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    // Exclure le client actuel de la liste des liens possibles
     const list = allClients.filter(c => c.id !== clientId);
     
-    if (!q) return list; // On retourne toute la liste si pas de recherche
+    if (!search.trim()) return list;
+    
+    const q = normalizeString(search);
     
     return list.filter(c => 
-      c.name.toLowerCase().includes(q) || 
-      (c.details?.email || "").toLowerCase().includes(q) ||
-      (c.location || "").toLowerCase().includes(q)
+      normalizeString(c.name || '').includes(q) || 
+      normalizeString(c.details?.email || '').includes(q) ||
+      normalizeString(c.location || '').includes(q)
     );
   }, [search, allClients, clientId]);
 
@@ -90,12 +90,12 @@ const AddDirectoryContactModal: React.FC<AddDirectoryContactModalProps> = ({ isO
 
         {/* Search Input */}
         <div className="px-8 pt-6">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
             <input 
               type="text" 
               placeholder="Rechercher par nom, ville ou email..." 
-              className="w-full bg-white border border-gray-200 rounded-xl pl-12 pr-4 py-4 text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 transition-all placeholder:text-gray-300 shadow-sm"
+              className="w-full bg-white border border-gray-100 rounded-2xl pl-12 pr-4 py-3.5 text-sm font-medium text-gray-800 outline-none focus:border-gray-400 transition-all placeholder:text-gray-400 shadow-sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               autoFocus

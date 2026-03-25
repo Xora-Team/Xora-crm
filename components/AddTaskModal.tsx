@@ -4,7 +4,7 @@ import { X, ChevronDown, Plus, CheckSquare, Calendar as CalendarIcon, Loader2, S
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
 import { collection, addDoc, query, where, onSnapshot, getDocs, doc, updateDoc, getCountFromServer, deleteDoc, getDoc } from '@firebase/firestore';
-import { formatFullNameFirstLast } from '../utils';
+import { formatFullNameFirstLast, normalizeString } from '../utils';
 import { Task } from '../types';
 
 // Structure de données hiérarchique unifiée
@@ -458,7 +458,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
 
   const filteredClients = useMemo(() => {
     if (!clientSearchQuery.trim()) return clients;
-    return clients.filter(c => c.name.toLowerCase().includes(clientSearchQuery.toLowerCase()));
+    return clients.filter(c => normalizeString(c.name || '').includes(normalizeString(clientSearchQuery)));
   }, [clientSearchQuery, clients]);
 
   const filteredProjects = useMemo(() => {
@@ -882,21 +882,21 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
             <div className={`grid grid-cols-1 ${isLeadAutoTask ? 'md:grid-cols-1' : 'md:grid-cols-2'} gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                 <div className="space-y-2 relative" ref={clientSearchRef}>
                   <label className="block text-xs font-bold text-gray-500 ml-1">Client lié {(isLeadAutoTask || isProjectAutoTask || initialClientId) ? '(verrouillé)' : ''}</label>
-                  <div className="relative">
-                    <input 
-                      disabled={isLeadAutoTask || isProjectAutoTask || !!initialClientId}
-                      type="text"
-                      value={clientSearchQuery}
-                      onChange={(e) => {
-                        setClientSearchQuery(e.target.value);
-                        setShowClientResults(true);
-                        if (!e.target.value) setSelectedClientId('');
-                      }}
-                      onFocus={() => setShowClientResults(true)}
-                      placeholder="Chercher un client..."
-                      className="w-full pl-10 pr-10 py-3 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-800 focus:border-[#A886D7] outline-none transition-all shadow-sm disabled:bg-gray-50 disabled:text-gray-400"
-                    />
-                    <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300" />
+                    <div className="relative group">
+                      <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" />
+                      <input 
+                        disabled={isLeadAutoTask || isProjectAutoTask || !!initialClientId}
+                        type="text"
+                        value={clientSearchQuery}
+                        onChange={(e) => {
+                          setClientSearchQuery(e.target.value);
+                          setShowClientResults(true);
+                          if (!e.target.value) setSelectedClientId('');
+                        }}
+                        onFocus={() => setShowClientResults(true)}
+                        placeholder="Rechercher un client..."
+                        className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-100 rounded-2xl text-sm font-medium text-gray-800 focus:outline-none focus:border-gray-400 transition-all shadow-sm disabled:bg-gray-50 disabled:text-gray-400 placeholder:text-gray-400"
+                      />
                     {selectedClientId && !isLeadAutoTask && !isProjectAutoTask && !initialClientId && (
                       <button 
                         type="button"

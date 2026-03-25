@@ -200,24 +200,32 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
     if (!userProfile?.uid) return;
     setIsSyncing(true);
     try {
-      const batch = writeBatch(db);
       const clientsQ = query(collection(db, 'clients'), where('addedBy.uid', '==', userProfile.uid));
       const clientsSnap = await getDocs(clientsQ);
-      clientsSnap.forEach(d => {
-        batch.update(doc(db, 'clients', d.id), {
-          "addedBy.name": newName,
-          "addedBy.avatar": newAvatar
-        });
-      });
       const projectsQ = query(collection(db, 'projects'), where('agenceur.uid', '==', userProfile.uid));
       const projectsSnap = await getDocs(projectsQ);
-      projectsSnap.forEach(d => {
-        batch.update(doc(db, 'projects', d.id), {
-          "agenceur.name": newName,
-          "agenceur.avatar": newAvatar
+
+      const updates: { ref: any, data: any }[] = [];
+      clientsSnap.forEach(d => {
+        updates.push({
+          ref: doc(db, 'clients', d.id),
+          data: { "addedBy.name": newName, "addedBy.avatar": newAvatar }
         });
       });
-      await batch.commit();
+      projectsSnap.forEach(d => {
+        updates.push({
+          ref: doc(db, 'projects', d.id),
+          data: { "agenceur.name": newName, "agenceur.avatar": newAvatar }
+        });
+      });
+
+      const BATCH_SIZE = 500;
+      for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        const chunk = updates.slice(i, i + BATCH_SIZE);
+        chunk.forEach(item => batch.update(item.ref, item.data));
+        await batch.commit();
+      }
     } catch (e) {
       console.error("Erreur synchro profil:", e);
     } finally {
@@ -250,6 +258,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
   const handleSave = async () => {
     if (!userProfile?.uid) return;
     
+    // Validation mandatory fields
+    const isEmailRequired = formData.isSubscriptionActive;
+    const isLastNameMissing = !formData.lastName.trim();
+    const isFirstNameMissing = !formData.firstName.trim();
+    const isCivilityMissing = !formData.civility;
+    const isContractTypeMissing = !formData.contractType;
+    const isEmailMissing = isEmailRequired && !formData.email.trim();
+
+    if (isLastNameMissing || isFirstNameMissing || isCivilityMissing || isContractTypeMissing || isEmailMissing) {
+      alert("Veuillez remplir tous les champs obligatoires (Civilité, Nom, Prénom, Type de contrat" + (isEmailRequired ? ", Email" : "") + ").");
+      return;
+    }
+
     // Validation date de sortie
     if (formData.hasLeft) {
       if (!formData.departureDate) {
@@ -743,13 +764,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                     <label className="text-[11px] font-medium text-gray-400 ml-1">Rôle</label>
                     <div className="relative">
                       <select 
-                        disabled={!isEditing}
+                        disabled={!isEditing || !formData.isSubscriptionActive}
                         value={formData.role} 
                         onChange={(e) => handleUpdate('role', e.target.value)} 
                         className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50 disabled:bg-gray-50"
                       >
                         <option value="Administrateur.rice">Administrateur.rice</option>
                         <option value="Concepteur.rice">Concepteur.rice</option>
+                        <option value="Aucun">Aucun</option>
                       </select>
                       <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
@@ -926,7 +948,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                     <button 
                       onClick={async () => {
                         const newStatus = !formData.isSubscriptionActive;
-                        handleUpdate('isSubscriptionActive', newStatus);
+                        
+                        // Update subscription status and role automatically
+                        setFormData(prev => ({
+                          ...prev,
+                          isSubscriptionActive: newStatus,
+                          role: !newStatus ? 'Aucun' : (prev.role === 'Aucun' ? 'Concepteur.rice' : prev.role)
+                        }));
+                        setHasUnsavedChanges(true);
                         
                         try {
                           if (newStatus) {

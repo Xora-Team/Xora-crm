@@ -4,7 +4,7 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, Building2, User, Chec
 import { auth, db, seedDatabase } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 // Use @firebase/firestore to fix named export resolution issues
-import { doc, setDoc, getDoc } from '@firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } from '@firebase/firestore';
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -162,6 +162,18 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       const fullName = `${cleanFirst} ${cleanLast}`;
 
       await updateProfile(user, { displayName: fullName });
+
+      // Nettoyage des documents temporaires créés lors de l'invitation
+      const usersRef = collection(db, 'users');
+      const q = query(
+        usersRef, 
+        where('email', '==', registerData.email.toLowerCase()), 
+        where('companyId', '==', companyId), 
+        where('isPending', '==', true)
+      );
+      const querySnapshot = await getDocs(q);
+      const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
 
       const userProfile = {
         uid: user.uid,

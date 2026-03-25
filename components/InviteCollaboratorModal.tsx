@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, UserPlus, Mail, User, ChevronDown, CheckCircle2, Loader2, Send, Smartphone, Car, Laptop, Palette, ShieldCheck, Phone } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from '@firebase/firestore';
@@ -15,8 +15,9 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
   const [formData, setFormData] = useState({
-    hasSubscription: true,
+    hasSubscription: false,
     civility: 'Mr',
     lastName: '',
     firstName: '',
@@ -25,9 +26,9 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
     phoneMobile: '',
     phoneFixed: '',
     address: '',
-    contractType: 'CDI',
+    contractType: '',
     metier: [] as string[],
-    role: 'Concepteur.rice',
+    role: 'Aucun',
     hasPhone: false,
     hasCar: false,
     hasLaptop: false,
@@ -36,6 +37,34 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
   });
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        hasSubscription: false,
+        civility: 'Mr',
+        lastName: '',
+        firstName: '',
+        emailPro: '',
+        emailPerso: '',
+        phoneMobile: '',
+        phoneFixed: '',
+        address: '',
+        contractType: '',
+        metier: [] as string[],
+        role: 'Aucun',
+        hasPhone: false,
+        hasCar: false,
+        hasLaptop: false,
+        agendaColor: '#A8A8A8',
+        avatar: null as string | null
+      });
+      setIsLoading(false);
+      setSuccess(false);
+      setShowConfirmation(false);
+      setShowErrors(false);
+    }
+  }, [isOpen]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -93,7 +122,20 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!formData.emailPro || !userProfile?.companyId) return;
+    if (!userProfile?.companyId) return;
+
+    // Validation logic
+    const isEmailRequired = formData.hasSubscription;
+    const isLastNameMissing = !formData.lastName.trim();
+    const isFirstNameMissing = !formData.firstName.trim();
+    const isCivilityMissing = !formData.civility;
+    const isContractTypeMissing = !formData.contractType;
+    const isEmailMissing = isEmailRequired && !formData.emailPro.trim();
+
+    if (isLastNameMissing || isFirstNameMissing || isCivilityMissing || isContractTypeMissing || isEmailMissing) {
+      setShowErrors(true);
+      return;
+    }
 
     if (formData.hasSubscription && !showConfirmation) {
       setShowConfirmation(true);
@@ -105,57 +147,59 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
       const inviteEmail = formData.emailPro.toLowerCase().trim();
       const appUrl = 'https://app.xora.fr/';
       
-      const { doc, collection, setDoc } = await import('@firebase/firestore');
-      const invitationRef = doc(collection(db, 'invitations'));
-      const invitationId = invitationRef.id;
+      const { doc, collection, setDoc, addDoc } = await import('@firebase/firestore');
       
       const firstNameTrimmed = formData.firstName.trim();
       const finalFirst = firstNameTrimmed ? firstNameTrimmed.charAt(0).toUpperCase() + firstNameTrimmed.slice(1).toLowerCase() : "";
       const finalLast = formData.lastName.trim().toUpperCase();
-      
-      const registrationLink = `${appUrl}?view=register&inviteId=${userProfile.companyId}&email=${encodeURIComponent(inviteEmail)}&firstName=${encodeURIComponent(finalFirst)}&lastName=${encodeURIComponent(finalLast)}&role=${encodeURIComponent(formData.role)}&hasSubscription=${formData.hasSubscription}&address=${encodeURIComponent(formData.address)}&avatar=${encodeURIComponent(formData.avatar || '')}`;
 
-      await setDoc(invitationRef, {
-        to: inviteEmail,
-        message: {
-          subject: `🚀 Rejoignez l'équipe de ${userProfile.companyName || 'Xora'}`,
-          html: `
-            <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #f3f4f6; border-radius: 24px; padding: 40px; color: #111827; background-color: #ffffff;">
-              <div style="text-align: center; margin-bottom: 32px;">
-                <h1 style="font-size: 24px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: -0.025em;">XORA <span style="color: #6366f1;">CRM</span></h1>
-              </div>
-              
-              <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 16px;">Bonjour ${formData.firstName},</h2>
-              
-              <p style="font-size: 16px; line-height: 1.6; color: #4b5563; margin-bottom: 24px;">
-                <strong>${userProfile.name}</strong> vous invite à rejoindre l'espace collaborateur de <strong>${userProfile.companyName || 'votre agence'}</strong> en tant que <strong>${formData.role}</strong>.
-              </p>
-              
-              <div style="text-align: center; margin: 40px 0;">
-                <a href="${registrationLink}" style="background-color: #111827; color: #ffffff; padding: 16px 32px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 15px; display: inline-block; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
-                  Accepter l'invitation
-                </a>
-              </div>
-              
-              <p style="font-size: 14px; color: #9ca3af; line-height: 1.5; margin-top: 32px; border-top: 1px solid #f3f4f6; pt: 24px;">
-                Si le bouton ne fonctionne pas, copiez ce lien : <br/>
-                <span style="word-break: break-all; color: #6366f1;">${registrationLink}</span>
-              </p>
-            </div>
-          `,
-        },
-        meta: {
-          ...formData,
-          companyId: userProfile.companyId,
-          invitedBy: userProfile.name,
-          invitedByUid: userProfile.uid,
-          status: 'pending',
-          createdAt: serverTimestamp()
-        }
-      });
-
-      // Notification à bonjour@xora.fr si abonnement actif
       if (formData.hasSubscription) {
+        // Create invitation for users with subscription
+        const invitationRef = doc(collection(db, 'invitations'));
+        const invitationId = invitationRef.id;
+        
+        const registrationLink = `${appUrl}?view=register&inviteId=${userProfile.companyId}&email=${encodeURIComponent(inviteEmail)}&firstName=${encodeURIComponent(finalFirst)}&lastName=${encodeURIComponent(finalLast)}&role=${encodeURIComponent(formData.role)}&hasSubscription=${formData.hasSubscription}&address=${encodeURIComponent(formData.address)}&avatar=${encodeURIComponent(formData.avatar || '')}`;
+
+        await setDoc(invitationRef, {
+          to: inviteEmail,
+          message: {
+            subject: `🚀 Rejoignez l'équipe de ${userProfile.companyName || 'Xora'}`,
+            html: `
+              <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #f3f4f6; border-radius: 24px; padding: 40px; color: #111827; background-color: #ffffff;">
+                <div style="text-align: center; margin-bottom: 32px;">
+                  <h1 style="font-size: 24px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: -0.025em;">XORA <span style="color: #6366f1;">CRM</span></h1>
+                </div>
+                
+                <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 16px;">Bonjour ${formData.firstName},</h2>
+                
+                <p style="font-size: 16px; line-height: 1.6; color: #4b5563; margin-bottom: 24px;">
+                  <strong>${userProfile.name}</strong> vous invite à rejoindre l'espace collaborateur de <strong>${userProfile.companyName || 'votre agence'}</strong> en tant que <strong>${formData.role}</strong>.
+                </p>
+                
+                <div style="text-align: center; margin: 40px 0;">
+                  <a href="${registrationLink}" style="background-color: #111827; color: #ffffff; padding: 16px 32px; border-radius: 14px; text-decoration: none; font-weight: 700; font-size: 15px; display: inline-block; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
+                    Accepter l'invitation
+                  </a>
+                </div>
+                
+                <p style="font-size: 14px; color: #9ca3af; line-height: 1.5; margin-top: 32px; border-top: 1px solid #f3f4f6; pt: 24px;">
+                  Si le bouton ne fonctionne pas, copiez ce lien : <br/>
+                  <span style="word-break: break-all; color: #6366f1;">${registrationLink}</span>
+                </p>
+              </div>
+            `,
+          },
+          meta: {
+            ...formData,
+            companyId: userProfile.companyId,
+            invitedBy: userProfile.name,
+            invitedByUid: userProfile.uid,
+            status: 'pending',
+            createdAt: serverTimestamp()
+          }
+        });
+
+        // Notification à bonjour@xora.fr if subscription active
         await addDoc(collection(db, 'invitations'), {
           to: 'bonjour@xora.fr',
           message: {
@@ -204,15 +248,42 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
             `
           }
         });
+      } else {
+        // Directly create user document for users without subscription
+        const userRef = doc(collection(db, 'users'));
+        await setDoc(userRef, {
+          companyId: userProfile.companyId,
+          companyName: userProfile.companyName,
+          civility: formData.civility,
+          firstName: finalFirst,
+          lastName: finalLast,
+          email: inviteEmail || "",
+          emailPerso: formData.emailPerso,
+          portable: formData.phoneMobile,
+          fixed: formData.phoneFixed,
+          address: formData.address,
+          contractType: formData.contractType,
+          metier: formData.metier,
+          role: 'Aucun',
+          isSubscriptionActive: false,
+          hasPhone: formData.hasPhone,
+          hasCar: formData.hasCar,
+          hasLaptop: formData.hasLaptop,
+          agendaColor: formData.agendaColor,
+          avatar: formData.avatar,
+          createdAt: serverTimestamp(),
+          hasLeft: false
+        });
       }
-
+      
       setSuccess(true);
       setShowConfirmation(false);
+      setShowErrors(false);
       setTimeout(() => {
         setSuccess(false);
         onClose();
         setFormData({
-          hasSubscription: true,
+          hasSubscription: false,
           civility: 'Mr',
           lastName: '',
           firstName: '',
@@ -223,7 +294,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
           address: '',
           contractType: 'CDI',
           metier: [],
-          role: 'Concepteur.rice',
+          role: 'Aucun',
           hasPhone: false,
           hasCar: false,
           hasLaptop: false,
@@ -318,25 +389,25 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
 
             <div className="p-8 space-y-6 overflow-y-auto max-h-[75vh]">
               {/* Subscription Toggle */}
-              <div className="bg-gradient-to-r from-orange-400 via-purple-500 to-blue-500 p-4 rounded-2xl flex items-center justify-between">
+              <div className={`${formData.hasSubscription ? 'bg-gradient-to-r from-orange-400 via-purple-500 to-blue-500' : 'bg-gray-100 border border-gray-200'} p-4 rounded-2xl flex items-center justify-between transition-all duration-300`}>
                 <div className="flex items-center gap-3">
-                  <span className="text-white font-bold text-sm">Abonnement Xora</span>
-                  <div className="px-2 py-0.5 bg-white/20 rounded-lg border border-white/30">
-                    <span className="text-[10px] font-black text-white tracking-widest">XORA</span>
+                  <span className={`${formData.hasSubscription ? 'text-white' : 'text-gray-500'} font-bold text-sm transition-colors`}>Abonnement Xora</span>
+                  <div className={`px-2 py-0.5 rounded-lg border transition-colors ${formData.hasSubscription ? 'bg-white/20 border-white/30' : 'bg-gray-200 border-gray-300'}`}>
+                    <span className={`text-[10px] font-black tracking-widest transition-colors ${formData.hasSubscription ? 'text-white' : 'text-gray-400'}`}>XORA</span>
                   </div>
                 </div>
-                <div className="flex bg-white/20 p-1 rounded-xl border border-white/30">
+                <div className={`flex p-1 rounded-xl border transition-colors ${formData.hasSubscription ? 'bg-white/20 border-white/30' : 'bg-white border-gray-200 shadow-sm'}`}>
                   <button 
                     type="button"
-                    onClick={() => setFormData({...formData, hasSubscription: false})}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${!formData.hasSubscription ? 'bg-white text-gray-900 shadow-sm' : 'text-white/70 hover:text-white'}`}
+                    onClick={() => setFormData({...formData, hasSubscription: false, role: 'Aucun'})}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${!formData.hasSubscription ? 'bg-gray-900 text-white shadow-sm' : formData.hasSubscription ? 'text-white/70 hover:text-white' : 'text-gray-400 hover:text-gray-600'}`}
                   >
                     Non
                   </button>
                   <button 
                     type="button"
-                    onClick={() => setFormData({...formData, hasSubscription: true})}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${formData.hasSubscription ? 'bg-gray-900 text-white shadow-sm' : 'text-white/70 hover:text-white'}`}
+                    onClick={() => setFormData({...formData, hasSubscription: true, role: formData.role === 'Aucun' ? 'Concepteur.rice' : formData.role})}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${formData.hasSubscription ? 'bg-gray-900 text-white shadow-sm' : formData.hasSubscription ? 'text-white/70 hover:text-white' : 'text-gray-400 hover:text-gray-600'}`}
                   >
                     Oui
                   </button>
@@ -387,31 +458,31 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Civilité du collaborateur</label>
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Civilité du collaborateur <span className="text-red-500">*</span></label>
                     <div className="relative">
                       <select 
                         value={formData.civility}
                         onChange={(e) => setFormData({...formData, civility: e.target.value})}
-                        className="w-full appearance-none px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
+                        className={`w-full appearance-none px-4 py-3 bg-[#F8F9FA] border ${showErrors && !formData.civility ? 'border-red-500' : 'border-gray-100'} rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
                       >
-                        <option>Mr</option>
-                        <option>Mme</option>
+                        <option value="Mr">Mr</option>
+                        <option value="Mme">Mme</option>
                       </select>
                       <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Nom du collaborateur</label>
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Nom du collaborateur <span className="text-red-500">*</span></label>
                     <input 
                       type="text" 
                       placeholder="COLOMB" 
                       value={formData.lastName}
                       onChange={(e) => setFormData({...formData, lastName: e.target.value.toUpperCase()})}
-                      className="w-full px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
+                      className={`w-full px-4 py-3 bg-[#F8F9FA] border ${showErrors && !formData.lastName.trim() ? 'border-red-500' : 'border-gray-100'} rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Prénom du collaborateur</label>
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Prénom du collaborateur <span className="text-red-500">*</span></label>
                     <input 
                       type="text" 
                       placeholder="Jérémy" 
@@ -421,21 +492,20 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                         const formatted = val ? val.charAt(0).toUpperCase() + val.slice(1).toLowerCase() : "";
                         setFormData({...formData, firstName: formatted});
                       }}
-                      className="w-full px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
+                      className={`w-full px-4 py-3 bg-[#F8F9FA] border ${showErrors && !formData.firstName.trim() ? 'border-red-500' : 'border-gray-100'} rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Email professionnel</label>
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Email professionnel {formData.hasSubscription && <span className="text-red-500">*</span>}</label>
                     <input 
-                      required
                       type="email" 
                       placeholder="jeremy.colomb@travauxconfort.com" 
                       value={formData.emailPro}
                       onChange={(e) => setFormData({...formData, emailPro: e.target.value})}
-                      className="w-full px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
+                      className={`w-full px-4 py-3 bg-[#F8F9FA] border ${showErrors && formData.hasSubscription && !formData.emailPro.trim() ? 'border-red-500' : 'border-gray-100'} rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
                     />
                   </div>
                   <div className="space-y-2">
@@ -504,13 +574,14 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Type de contrat</label>
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Type de contrat <span className="text-red-500">*</span></label>
                     <div className="relative">
                       <select 
                         value={formData.contractType}
                         onChange={(e) => setFormData({...formData, contractType: e.target.value})}
-                        className="w-full appearance-none px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
+                        className={`w-full appearance-none px-4 py-3 bg-[#F8F9FA] border ${showErrors && !formData.contractType ? 'border-red-500' : 'border-gray-100'} rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
                       >
+                        <option value="">Sélectionner</option>
                         {contractTypes.map(type => (
                           <option key={type} value={type}>{type}</option>
                         ))}
@@ -553,10 +624,12 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                       <select 
                         value={formData.role}
                         onChange={(e) => setFormData({...formData, role: e.target.value})}
-                        className="w-full appearance-none px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner disabled:opacity-50 disabled:bg-gray-100"
+                        disabled={!formData.hasSubscription}
+                        className="w-full appearance-none px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <option value="Administrateur.rice">Administrateur.rice</option>
                         <option value="Concepteur.rice">Concepteur.rice</option>
+                        <option value="Aucun">Aucun</option>
                       </select>
                       <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>

@@ -199,11 +199,11 @@ const AddProjectArticleModal: React.FC<AddProjectArticleModalProps> = ({
             {/* Search Input & Sort */}
             <div className="px-10 pt-4 pb-4 flex flex-wrap gap-3">
               <div className="relative group flex-1 min-w-[300px]">
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={20} />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
                 <input 
                   type="text" 
                   placeholder="Rechercher par famille, modèle ou descriptif..." 
-                  className="w-full bg-[#F8F9FA] border border-gray-100 rounded-[20px] pl-14 pr-6 py-4 text-[15px] font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all placeholder:text-gray-300 shadow-sm"
+                  className="w-full bg-white border border-gray-200 rounded-2xl pl-12 pr-4 py-3.5 text-sm font-medium text-gray-800 outline-none focus:border-gray-400 transition-all placeholder:text-gray-400 shadow-sm"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   autoFocus

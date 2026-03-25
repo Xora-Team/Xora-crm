@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Briefcase, Check, Loader2, ChevronDown, MapPin, CheckCircle2, ArrowRight } from 'lucide-react';
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
-import { collection, addDoc, query, where, onSnapshot, doc, updateDoc, increment, getDocs, getDoc } from '@firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, doc, updateDoc, increment, getDocs, getDoc, writeBatch } from '@firebase/firestore';
 import { formatFullNameFirstLast } from '../utils';
 
 const HIERARCHY_DATA: Record<string, Record<string, string[]>> = {
@@ -301,15 +301,23 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
           where('clientId', '==', finalClientId)
         );
         const tasksSnap = await getDocs(tasksQ);
-        const updatePromises = tasksSnap.docs
+        const tasksToUpdate = tasksSnap.docs
           .filter(tDoc => {
             const data = tDoc.data();
             return data.type === 'Tâche auto' && data.status !== 'completed';
-          })
-          .map(tDoc => 
-            updateDoc(doc(db, 'tasks', tDoc.id), { status: 'completed' })
-          );
-        await Promise.all(updatePromises);
+          });
+
+        if (tasksToUpdate.length > 0) {
+          const BATCH_SIZE = 500;
+          for (let i = 0; i < tasksToUpdate.length; i += BATCH_SIZE) {
+            const batch = writeBatch(db);
+            const chunk = tasksToUpdate.slice(i, i + BATCH_SIZE);
+            chunk.forEach(tDoc => {
+              batch.update(doc(db, 'tasks', tDoc.id), { status: 'completed' });
+            });
+            await batch.commit();
+          }
+        }
 
         setCreatedProjectId(projectRef.id);
         setShowSuccessPopup(true);
@@ -445,10 +453,17 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
                     const found = agenceurs.find(a => a.name === e.target.value);
                     setFormData({...formData, agenceurReferent: e.target.value, agenceurUid: found?.uid || '', agenceurAvatar: found?.avatar || ''});
                   }} className="w-full appearance-none bg-white border border-gray-100 rounded-xl pl-12 pr-4 py-3 text-[14px] text-gray-900 outline-none focus:border-gray-900 transition-all font-bold shadow-sm">
+                    <option value="Sans agenceur">Sans agenceur</option>
                     {agenceurs.map(a => <option key={a.uid} value={a.name}>{formatFullNameFirstLast(a.name)}</option>)}
                   </select>
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <img src={formData.agenceurAvatar || 'https://i.pravatar.cc/150?u=fallback'} className="w-6 h-6 rounded-full border border-white shadow-sm" alt="" />
+                    {formData.agenceurReferent === "Sans agenceur" ? (
+                      <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200 shadow-sm">
+                        <X size={12} className="text-gray-900" />
+                      </div>
+                    ) : (
+                      <img src={formData.agenceurAvatar || 'https://i.pravatar.cc/150?u=fallback'} className="w-6 h-6 rounded-full border border-white shadow-sm" alt="" />
+                    )}
                   </div>
                   <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
                 </div>

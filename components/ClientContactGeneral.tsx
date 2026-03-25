@@ -67,7 +67,7 @@ const HIERARCHY_DATA: Record<string, Record<string, string[]>> = {
   }
 };
 
-import { formatPhone, formatNameFirstLast, formatFullNameFirstLast } from '../utils';
+import { formatPhone, formatNameFirstLast, formatFullNameFirstLast, normalizeString } from '../utils';
 
 interface AdditionalContact {
   id: string;
@@ -417,7 +417,7 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
         const allClients = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         const filtered = allClients.filter((c: any) => {
           const isClientOrProspect = !c.directoryType || c.directoryType === 'contacts';
-          const matchesSearch = c.name?.toLowerCase().includes(sponsorSearch.toLowerCase());
+          const matchesSearch = normalizeString(c.name || '').includes(normalizeString(sponsorSearch));
           const isNotCurrentClient = c.id !== client.id;
           return isClientOrProspect && matchesSearch && isNotCurrentClient;
         }).slice(0, 5);
@@ -630,9 +630,16 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
         </div>
         {isEditingAddress ? (
           <div className="space-y-3 animate-in fade-in duration-300" ref={searchRef}>
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input autoFocus type="text" placeholder="Entrez l'adresse..." value={addressSearch} onChange={(e) => setAddressSearch(e.target.value)} className="w-full bg-[#FBFBFB] border border-gray-100 rounded-xl pl-12 pr-10 py-3 text-sm font-bold text-gray-900 outline-none focus:border-gray-400 transition-all shadow-inner" />
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
+              <input 
+                autoFocus 
+                type="text" 
+                placeholder="Entrez l'adresse..." 
+                value={addressSearch} 
+                onChange={(e) => setAddressSearch(e.target.value)} 
+                className="w-full bg-white border border-gray-100 rounded-2xl pl-12 pr-10 py-3.5 text-sm font-medium text-gray-800 focus:outline-none focus:border-gray-400 transition-all shadow-sm placeholder:text-gray-400" 
+              />
               {isSearching && <div className="absolute right-4 top-1/2 -translate-y-1/2"><Loader2 size={16} className="animate-spin text-indigo-500" /></div>}
             </div>
             {suggestions.length > 0 && (
@@ -716,9 +723,7 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
               <div className="space-y-2 animate-in slide-in-from-top-2 duration-300" ref={sponsorSearchRef}>
                 <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">NOM DU PARRAIN</label>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-300">
-                    <User size={16} />
-                  </div>
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
                   <input 
                     type="text" 
                     value={sponsorSearch} 
@@ -728,7 +733,7 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
                     }}
                     onBlur={saveSponsorName}
                     placeholder="Rechercher ou saisir un nom..."
-                    className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 transition-all shadow-sm" 
+                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-100 rounded-2xl text-sm font-medium text-gray-800 focus:outline-none focus:border-gray-400 transition-all shadow-sm placeholder:text-gray-400" 
                   />
                   {isSponsorSearching && sponsorSuggestions.length > 0 && (
                     <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl z-[100] max-h-60 overflow-y-auto border-gray-100">
@@ -782,11 +787,17 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
             <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Agenceur référent</label>
             <div className="relative group">
               <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10">
-                <img 
-                  src={teamMembers.find(m => m.name === (client.details?.referent || client.addedBy?.name))?.avatar || 'https://i.pravatar.cc/150?u=fallback'} 
-                  alt="" 
-                  className="w-7 h-7 rounded-full border border-white shadow-sm" 
-                />
+                {(client.details?.referent || client.addedBy?.name) === "Sans agenceur" ? (
+                  <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200 shadow-sm">
+                    <X size={14} className="text-gray-900" />
+                  </div>
+                ) : (
+                  <img 
+                    src={teamMembers.find(m => m.name === (client.details?.referent || client.addedBy?.name))?.avatar || 'https://i.pravatar.cc/150?u=fallback'} 
+                    alt="" 
+                    className="w-7 h-7 rounded-full border border-white shadow-sm" 
+                  />
+                )}
               </div>
               <select 
                 value={client.details?.referent || client.addedBy?.name || ''}
@@ -794,8 +805,9 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
                 className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-10 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm"
               >
                 <option value="">Sélectionner un collaborateur</option>
+                <option value="Sans agenceur">Sans agenceur</option>
                 {/* Afficher le référent actuel s'il n'est pas dans la liste des collaborateurs */}
-                {client.details?.referent && !teamMembers.find(m => m.name === client.details?.referent) && (
+                {client.details?.referent && client.details?.referent !== "Sans agenceur" && !teamMembers.find(m => m.name === client.details?.referent) && (
                   <option value={client.details.referent}>
                     {formatFullNameFirstLast(client.details.referent)}
                   </option>

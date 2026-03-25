@@ -1143,7 +1143,8 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
         
         const allRoles = [
           'Administrateur.rice',
-          'Concepteur.rice'
+          'Concepteur.rice',
+          'Aucun'
         ].sort();
 
         return (
@@ -1161,14 +1162,14 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
 
               {/* Filters Bar */}
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <div className="relative group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
                   <input 
                     type="text"
-                    placeholder="Rechercher"
+                    placeholder="Rechercher un membre..."
                     value={teamSearch}
                     onChange={(e) => setTeamSearch(e.target.value)}
-                    className="w-full bg-white border border-gray-200 rounded-xl pl-11 pr-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-gray-400 transition-all"
+                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl text-sm focus:outline-none focus:border-gray-400 text-gray-800 shadow-sm transition-all placeholder:text-gray-400 font-medium"
                   />
                 </div>
                 <div className="relative">

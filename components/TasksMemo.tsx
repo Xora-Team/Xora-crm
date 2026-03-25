@@ -153,13 +153,16 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
     if (!userProfile?.companyId) return;
 
     try {
-      const batch = writeBatch(db);
       const filtered = getFilteredTasks();
-      filtered.forEach((task, idx) => {
-        const taskRef = doc(db, 'tasks', task.id);
-        batch.update(taskRef, { orderIndex: idx });
-      });
-      await batch.commit();
+      const BATCH_SIZE = 500;
+      for (let i = 0; i < filtered.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        const chunk = filtered.slice(i, i + BATCH_SIZE);
+        chunk.forEach((task, idx) => {
+          batch.update(doc(db, 'tasks', task.id), { orderIndex: i + idx });
+        });
+        await batch.commit();
+      }
     } catch (e) {
       console.error("Erreur sauvegarde ordre tâches:", e);
     }
@@ -362,14 +365,14 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
 
       {/* BLOC 2 : Barre de Recherche et Filtres */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-        <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+        <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
             <input 
                 type="text" 
-                placeholder="Rechercher" 
+                placeholder="Rechercher une tâche..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-gray-400 text-gray-800 shadow-sm transition-all"
+                className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl text-sm focus:outline-none focus:border-gray-400 text-gray-800 shadow-sm transition-all placeholder:text-gray-400 font-medium"
             />
         </div>
 

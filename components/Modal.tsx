@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { collection, addDoc, getDocs, query, where, doc, updateDoc } from '@firebase/firestore';
 import { Client } from '../types';
 import { HIERARCHY_DATA, SUPPLIER_HIERARCHY } from '../constants';
+import { normalizeString } from '../utils';
 
 // Structure de données mise à jour selon le fichier CSV
 
@@ -263,10 +264,10 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
           where('companyId', '==', userProfile.companyId)
         );
         const snap = await getDocs(q);
-        const normalizedQuery = sponsorSearch.toLowerCase();
+        const normalizedQuery = normalizeString(sponsorSearch);
         const results = snap.docs
           .map(d => ({ id: d.id, ...d.data() } as any))
-          .filter(c => c.name.toLowerCase().includes(normalizedQuery))
+          .filter(c => normalizeString(c.name || '').includes(normalizedQuery))
           .slice(0, 5);
         setSponsorSuggestions(results);
       } catch (e) {
@@ -562,7 +563,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                         {isSupplier ? "Adresse du fournisseur" : "Adresse du bien"}
                       </label>
                       <div className="relative group">
-                        <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearching ? 'text-indigo-500' : 'text-gray-300 group-focus-within:text-gray-900'}`} size={18} />
+                        <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isSearching ? 'text-indigo-500' : 'text-gray-400 group-focus-within:text-gray-900'}`} size={18} />
                         <input 
                           value={addressSearch}
                           onChange={(e) => {
@@ -572,7 +573,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                           onFocus={() => setShowSuggestions(true)}
                           type="text" 
                           placeholder="Ex: 7 rue de Provence..." 
-                          className="w-full pl-12 pr-10 py-3.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-800 focus:outline-none focus:border-gray-900 transition-all placeholder:text-gray-300" 
+                          className="w-full pl-12 pr-10 py-3.5 bg-white border border-gray-100 rounded-2xl text-sm font-medium text-gray-800 focus:outline-none focus:border-gray-400 transition-all placeholder:text-gray-400 shadow-sm" 
                         />
                         {isSearching && (
                           <div className="absolute right-4 top-1/2 -translate-y-1/2">
@@ -790,7 +791,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                               ) : (
                                   <>
                                       <div className="relative group">
-                                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-300 group-focus-within:text-indigo-600 transition-colors" size={18} />
+                                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
                                           <input 
                                               value={sponsorSearch}
                                               onChange={(e) => {
@@ -800,7 +801,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                                               onFocus={() => setShowSponsorResults(true)}
                                               type="text" 
                                               placeholder="Rechercher le parrain dans l'annuaire (ex: DUBOIS)..." 
-                                              className="w-full pl-12 pr-10 py-3.5 bg-white border border-indigo-100 rounded-xl text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all placeholder:text-indigo-200" 
+                                              className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-100 rounded-2xl text-sm font-medium text-gray-800 focus:outline-none focus:border-gray-400 transition-all placeholder:text-gray-400 shadow-sm"
                                           />
                                       </div>
 
@@ -869,7 +870,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                       </label>
                       <div className="relative group">
                           <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10">
-                              {formData.referent ? (
+                              {formData.referent === "Sans agenceur" ? (
+                                <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200 shadow-sm">
+                                  <X size={14} className="text-gray-900" />
+                                </div>
+                              ) : formData.referent ? (
                                 <img 
                                   src={teamMembers.find(m => m.name === formData.referent)?.avatar || userProfile?.avatar} 
                                   alt="" 
@@ -886,9 +891,9 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                             onChange={(e) => setFormData({...formData, referent: e.target.value})}
                             className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-10 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm"
                           >
-                              <option value="">Sans agenceur</option>
+                              <option value="Sans agenceur">Sans agenceur</option>
                               {/* Afficher le référent actuel s'il n'est pas dans la liste des collaborateurs */}
-                              {formData.referent && !teamMembers.find(m => m.name === formData.referent) && (
+                              {formData.referent && formData.referent !== "Sans agenceur" && !teamMembers.find(m => m.name === formData.referent) && (
                                 <option value={formData.referent}>
                                   {formData.referent}
                                 </option>

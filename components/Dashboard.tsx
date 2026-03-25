@@ -20,17 +20,9 @@ import {
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, limit, doc, deleteDoc, updateDoc, writeBatch } from '@firebase/firestore';
 import { FinancialKPI, Task, Client, Page, Appointment } from '../types';
-import { formatNameFirstLast, formatFullNameFirstLast } from '../utils';
+import { formatNameFirstLast, formatFullNameFirstLast, normalizeString } from '../utils';
 import AddTaskModal from './AddTaskModal';
 import AddAppointmentModal from './AddAppointmentModal';
-
-const normalizeString = (str: string) => {
-  return str
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[-'.\s]/g, '');
-};
 
 interface DashboardProps {
   userProfile?: any;
@@ -122,9 +114,16 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, onClientClick, onAdd
   const onDragEnd = async () => {
     setDraggedItemIndex(null);
     if (!userProfile?.companyId) return;
-    const batch = writeBatch(db);
-    tasks.forEach((t, i) => batch.update(doc(db, 'tasks', t.id), { orderIndex: i }));
-    await batch.commit();
+    
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
+      const batch = writeBatch(db);
+      const chunk = tasks.slice(i, i + BATCH_SIZE);
+      chunk.forEach((t, idx) => {
+        batch.update(doc(db, 'tasks', t.id), { orderIndex: i + idx });
+      });
+      await batch.commit();
+    }
   };
 
   const updateTaskStatus = async (id: string, status: string) => {

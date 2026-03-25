@@ -81,6 +81,25 @@ const ProjectTasks: React.FC<ProjectTasksProps> = ({ projectId, clientId, projec
     }
   };
 
+  const getTaskDelayInfo = (task: Task) => {
+    if (!task.date || task.status === 'completed') return { isLate: false, text: task.date || '-' };
+    try {
+      const [d, m, y] = task.date.split('/').map(Number);
+      const dueDate = new Date(y, m - 1, d);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (dueDate < today) {
+        const diffTime = Math.abs(today.getTime() - dueDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return { isLate: true, text: `${diffDays} jour${diffDays > 1 ? 's' : ''} de retard` };
+      }
+      return { isLate: false, text: task.date };
+    } catch (e) {
+      return { isLate: false, text: task.date || '-' };
+    }
+  };
+
   const filteredTasks = tasks.filter(task => {
     const matchesTab = filter === 'en-cours' ? task.status !== 'completed' : task.status === 'completed';
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -127,14 +146,14 @@ const ProjectTasks: React.FC<ProjectTasksProps> = ({ projectId, clientId, projec
 
       {/* Barre de Recherche et Filtres secondaires */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+        <div className="relative group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
           <input 
             type="text" 
             placeholder="Rechercher une tâche..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-100 rounded-xl text-[13px] font-medium focus:outline-none focus:border-purple-300 text-gray-800 shadow-sm"
+            className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl text-sm focus:outline-none focus:border-gray-400 text-gray-800 shadow-sm transition-all placeholder:text-gray-400 font-medium"
           />
         </div>
       </div>
@@ -217,9 +236,14 @@ const ProjectTasks: React.FC<ProjectTasksProps> = ({ projectId, clientId, projec
                     </td>
 
                     <td className="px-6 py-5 border-y border-gray-50 text-center">
-                      <span className={`text-[12px] font-bold ${task.isLate ? 'text-red-500' : 'text-gray-800'}`}>
-                        {task.date || '-'}
-                      </span>
+                      {(() => {
+                        const delayInfo = getTaskDelayInfo(task);
+                        return (
+                          <span className={`text-[12px] font-bold ${delayInfo.isLate ? 'text-red-500' : 'text-gray-800'}`}>
+                            {delayInfo.text}
+                          </span>
+                        );
+                      })()}
                     </td>
 
                     <td className="px-6 py-5 border-y border-gray-50">
