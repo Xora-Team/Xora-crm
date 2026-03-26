@@ -154,42 +154,44 @@ const Articles: React.FC<ArticlesProps> = ({ userProfile }) => {
     setIsImporting(true);
     
     const BATCH_SIZE = 500;
-    const batches = [];
     let currentBatch = writeBatch(db);
     let operationCount = 0;
 
-    for (const item of importedData) {
-        const articleRef = doc(collection(db, 'articles'));
-        currentBatch.set(articleRef, {
-          ...item,
-          companyId: userProfile.companyId,
-          createdBy: userProfile.name,
-          createdAt: serverTimestamp()
-        });
-
-        operationCount++;
-
-        // Firestore batch limit is 500
-        if (operationCount >= BATCH_SIZE) {
-          batches.push(currentBatch.commit());
-          currentBatch = writeBatch(db);
-          operationCount = 0;
-        }
-    }
-
-    // Commit remaining operations
-    if (operationCount > 0) {
-      batches.push(currentBatch.commit());
-    }
-
     try {
-      await Promise.all(batches);
+      for (const item of importedData) {
+          const articleRef = doc(collection(db, 'articles'));
+          currentBatch.set(articleRef, {
+            ...item,
+            companyId: userProfile.companyId,
+            createdBy: userProfile.name,
+            createdAt: serverTimestamp()
+          });
+
+          operationCount++;
+
+          // Firestore batch limit is 500
+          if (operationCount >= BATCH_SIZE) {
+            await currentBatch.commit();
+            currentBatch = writeBatch(db);
+            operationCount = 0;
+          }
+      }
+
+      // Commit remaining operations
+      if (operationCount > 0) {
+        await currentBatch.commit();
+      }
+
       setImportSuccess(true);
       setTimeout(() => setImportSuccess(false), 3000);
       setIsImportModalOpen(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erreur d'importation :", err);
-      alert("Une erreur est survenue lors de l'importation des données.");
+      if (err.code === 'resource-exhausted' || err.message?.includes('exhausted')) {
+        alert("⚠️ Quota Firebase atteint lors de l'importation. Veuillez réessayer dans quelques minutes.");
+      } else {
+        alert("Une erreur est survenue lors de l'importation des données.");
+      }
     } finally {
       setIsImporting(false);
     }

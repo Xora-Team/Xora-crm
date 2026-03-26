@@ -33,7 +33,7 @@ import {
   Search
 } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, updateDoc, onSnapshot, collection, query, where } from '@firebase/firestore';
+import { doc, updateDoc, onSnapshot, collection, query, where, deleteDoc } from '@firebase/firestore';
 import { formatPhone } from '../utils';
 import InviteCollaboratorModal from './InviteCollaboratorModal';
 import AddGiftModal from './AddGiftModal';
@@ -56,6 +56,8 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
   const [isDocViewerOpen, setIsDocViewerOpen] = useState(false);
   const [isDocTypeDropdownOpen, setIsDocTypeDropdownOpen] = useState(false);
   const [selectedMemberForEdit, setSelectedMemberForEdit] = useState<any>(null);
+  const [memberToDelete, setMemberToDelete] = useState<any>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [newDocIsPublic, setNewDocIsPublic] = useState(false);
   const [newDocType, setNewDocType] = useState('');
@@ -268,17 +270,31 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
     }
   };
 
-  const handleDeleteMember = async (memberId: string) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir retirer ce collaborateur de l'équipe ?")) return;
+  const handleDeleteMember = (member: any) => {
+    setMemberToDelete(member);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteMember = async () => {
+    if (!memberToDelete) return;
     
     setIsSaving(true);
-    try {
-      await updateDoc(doc(db, 'users', memberId), { companyId: null });
-    } catch (e) {
+    // PRIORITÉ À LA FERMETURE : On ferme la modale immédiatement
+    setIsDeleteModalOpen(false);
+    const memberId = memberToDelete.uid;
+    setMemberToDelete(null);
+
+    // On lance la suppression sans await pour ne pas bloquer l'UI
+    deleteDoc(doc(db, 'users', memberId)).catch((e: any) => {
       console.error(e);
-    } finally {
-      setIsSaving(false);
-    }
+      if (e.code === 'resource-exhausted' || e.message?.includes('exhausted')) {
+        alert("⚠️ Quota Firebase atteint. Veuillez patienter quelques minutes.");
+      } else {
+        alert("Une erreur est survenue lors de la suppression.");
+      }
+    });
+    
+    setIsSaving(false);
   };
 
   const handleUpdateDocumentName = async (id: string, name: string) => {
@@ -313,33 +329,38 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
   // Charger les infos de la société
   useEffect(() => {
     if (!userProfile?.companyId) return;
-    const unsub = onSnapshot(doc(db, 'companies', userProfile.companyId), async (docSnap) => {
+    const unsub = onSnapshot(doc(db, 'companies', userProfile.companyId), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setCompanyInfo(data);
-
-        // Migration logic for banks
-        if (!data.banks && (data.bankName || data.iban || data.bic)) {
-          const initialBank = {
-            id: Math.random().toString(36).substr(2, 9),
-            bankName: data.bankName || '',
-            iban: data.iban || '',
-            bic: data.bic || ''
-          };
-          try {
-            await updateDoc(doc(db, 'companies', userProfile.companyId), { 
-              banks: [initialBank],
-              // Optionally clear old fields to avoid re-migration, 
-              // but keeping them for safety for now is also fine if we check !data.banks
-            });
-          } catch (e) {
-            console.error('Migration error:', e);
-          }
-        }
       }
     });
     return () => unsub();
   }, [userProfile?.companyId]);
+
+  // Migration logic for banks (Run only once when companyInfo is loaded)
+  useEffect(() => {
+    const runMigration = async () => {
+      if (!companyInfo || companyInfo.banks) return;
+      if (companyInfo.bankName || companyInfo.iban || companyInfo.bic) {
+        const initialBank = {
+          id: 'default-bank', // Use a stable ID to avoid loops
+          bankName: companyInfo.bankName || '',
+          iban: companyInfo.iban || '',
+          bic: companyInfo.bic || ''
+        };
+        try {
+          await updateDoc(doc(db, 'companies', userProfile.companyId), { 
+            banks: [initialBank],
+            // We don't delete old fields yet for safety, but having 'banks' will stop this effect
+          });
+        } catch (e) {
+          console.error('Migration error:', e);
+        }
+      }
+    };
+    runMigration();
+  }, [companyInfo?.id, !!companyInfo?.banks]);
 
   // Charger les collaborateurs de l'équipe
   useEffect(() => {
@@ -356,8 +377,13 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
     setIsSaving(true);
     try {
       await updateDoc(doc(db, 'companies', userProfile.companyId), { [field]: value });
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      if (e.code === 'resource-exhausted' || e.message?.includes('exhausted')) {
+        alert("⚠️ Quota Firebase atteint. Veuillez patienter quelques minutes.");
+      } else {
+        alert("Une erreur est survenue lors de la mise à jour.");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -1281,6 +1307,10 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                                   Sorti le {member.departureDate ? new Date(member.departureDate).toLocaleDateString('fr-FR') : '??/??/????'}
                                 </span>
                               </div>
+                            ) : member.isPending ? (
+                              <div className="px-3 py-1 bg-amber-50 border border-amber-100 rounded-full">
+                                <span className="text-[10px] font-bold text-amber-600 uppercase">En attente</span>
+                              </div>
                             ) : (
                               <div className="px-3 py-1 bg-green-50 border border-green-100 rounded-full">
                                 <span className="text-[10px] font-bold text-green-600 uppercase">En poste</span>
@@ -1297,7 +1327,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                               <Eye size={18} />
                             </button>
                             <button 
-                              onClick={() => handleDeleteMember(member.uid)}
+                              onClick={() => handleDeleteMember(member)}
                               className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all border border-transparent hover:border-red-100 shadow-sm"
                             >
                               <Trash2 size={18} className="text-red-500" />
@@ -1356,6 +1386,45 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
           })}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && memberToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200] p-4">
+          <div className="bg-white rounded-[32px] w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden">
+            <div className="p-8 text-center space-y-6">
+              <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center text-red-500 mx-auto">
+                <Trash2 size={40} />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-gray-900">Confirmation de suppression</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Vous êtes sur le point de supprimer <span className="font-bold text-gray-900">{memberToDelete.name}</span>, êtes-vous sûr ?
+                  <br />
+                  <span className="text-red-500 font-medium mt-2 block">Cette action est définitive.</span>
+                </p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => {
+                    setIsDeleteModalOpen(false);
+                    setMemberToDelete(null);
+                  }}
+                  className="flex-1 py-4 bg-gray-50 text-gray-600 rounded-2xl font-bold text-sm hover:bg-gray-100 transition-all"
+                >
+                  Annuler
+                </button>
+                <button 
+                  onClick={confirmDeleteMember}
+                  disabled={isSaving}
+                  className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-bold text-sm hover:bg-red-700 transition-all shadow-lg shadow-red-200 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="animate-spin" size={18} /> : "Supprimer"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Document Modal */}
       {isAddDocModalOpen && (

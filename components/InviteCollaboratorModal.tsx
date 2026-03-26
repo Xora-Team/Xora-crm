@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, UserPlus, Mail, User, ChevronDown, CheckCircle2, Loader2, Send, Smartphone, Car, Laptop, Palette, ShieldCheck, Phone } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp } from '@firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, writeBatch } from 'firebase/firestore';
 import { formatPhone } from '../utils';
+import { AlertCircle } from 'lucide-react';
 
 interface InviteCollaboratorModalProps {
   isOpen: boolean;
@@ -14,11 +15,12 @@ interface InviteCollaboratorModalProps {
 const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpen, onClose, userProfile }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [formData, setFormData] = useState({
     hasSubscription: false,
-    civility: 'Mr',
+    civility: '',
     lastName: '',
     firstName: '',
     emailPro: '',
@@ -33,8 +35,16 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
     hasCar: false,
     hasLaptop: false,
     agendaColor: '#A8A8A8',
-    avatar: null as string | null
+    avatar: null as string | null,
+    birthDate: ''
   });
+
+  const isFormValid = 
+    formData.civility && 
+    formData.lastName.trim() && 
+    formData.firstName.trim() && 
+    formData.contractType && 
+    (!formData.hasSubscription || formData.emailPro.trim());
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   
@@ -42,7 +52,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
     if (isOpen) {
       setFormData({
         hasSubscription: false,
-        civility: 'Mr',
+        civility: '',
         lastName: '',
         firstName: '',
         emailPro: '',
@@ -57,7 +67,8 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
         hasCar: false,
         hasLaptop: false,
         agendaColor: '#A8A8A8',
-        avatar: null as string | null
+        avatar: null as string | null,
+        birthDate: ''
       });
       setIsLoading(false);
       setSuccess(false);
@@ -143,24 +154,63 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
     }
 
     setIsLoading(true);
+    setErrorMessage(null);
+    
     try {
       const inviteEmail = formData.emailPro.toLowerCase().trim();
-      const appUrl = 'https://app.xora.fr/';
-      
-      const { doc, collection, setDoc, addDoc } = await import('@firebase/firestore');
+      const appUrl = window.location.origin;
       
       const firstNameTrimmed = formData.firstName.trim();
       const finalFirst = firstNameTrimmed ? firstNameTrimmed.charAt(0).toUpperCase() + firstNameTrimmed.slice(1).toLowerCase() : "";
       const finalLast = formData.lastName.trim().toUpperCase();
 
-      if (formData.hasSubscription) {
-        // Create invitation for users with subscription
+      // 1. Création du document utilisateur (NON-BLOQUANT)
+      const userRef = doc(collection(db, 'users'));
+      const userData = {
+        companyId: userProfile.companyId,
+        companyName: userProfile.companyName,
+        civility: formData.civility,
+        firstName: finalFirst,
+        lastName: finalLast,
+        name: `${finalFirst} ${finalLast}`,
+        email: inviteEmail || "",
+        emailPerso: formData.emailPerso,
+        portable: formData.phoneMobile,
+        fixed: formData.phoneFixed,
+        address: formData.address,
+        contractType: formData.contractType,
+        metier: formData.metier,
+        hasPhone: formData.hasPhone,
+        hasCar: formData.hasCar,
+        hasLaptop: formData.hasLaptop,
+        agendaColor: formData.agendaColor,
+        avatar: formData.avatar,
+        birthDate: formData.birthDate,
+        createdAt: serverTimestamp(),
+        hasLeft: false,
+        role: formData.hasSubscription ? formData.role : 'Aucun',
+        isSubscriptionActive: formData.hasSubscription,
+        isPending: formData.hasSubscription
+      };
+
+      // On lance la création sans await pour ne pas bloquer l'UI
+      setDoc(userRef, userData).catch(err => console.error("Erreur création collaborateur (non-bloquant):", err));
+      
+      // PRIORITÉ À LA FERMETURE : On ferme la modale immédiatement
+      onClose();
+      setIsLoading(false);
+      
+      const isAdmin = userProfile?.role?.toLowerCase().includes('administrateur');
+      const hasSubscription = (formData.hasSubscription as any) === true || (formData.hasSubscription as any) === 'Oui';
+
+      console.log('Tentative d\'envoi mail...', isAdmin, hasSubscription);
+
+      if (hasSubscription && isAdmin) {
+        // 2. Création de l'invitation pour le collaborateur (NON-BLOQUANT)
         const invitationRef = doc(collection(db, 'invitations'));
-        const invitationId = invitationRef.id;
-        
         const registrationLink = `${appUrl}?view=register&inviteId=${userProfile.companyId}&email=${encodeURIComponent(inviteEmail)}&firstName=${encodeURIComponent(finalFirst)}&lastName=${encodeURIComponent(finalLast)}&role=${encodeURIComponent(formData.role)}&hasSubscription=${formData.hasSubscription}&address=${encodeURIComponent(formData.address)}&avatar=${encodeURIComponent(formData.avatar || '')}`;
 
-        await setDoc(invitationRef, {
+        setDoc(invitationRef, {
           to: inviteEmail,
           message: {
             subject: `🚀 Rejoignez l'équipe de ${userProfile.companyName || 'Xora'}`,
@@ -197,10 +247,10 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
             status: 'pending',
             createdAt: serverTimestamp()
           }
-        });
+        }).catch(err => console.error("Erreur envoi invitation (non-bloquant):", err));
 
-        // Notification à bonjour@xora.fr if subscription active
-        await addDoc(collection(db, 'invitations'), {
+        // 3. Notification à bonjour@xora.fr (NON-BLOQUANT)
+        addDoc(collection(db, 'invitations'), {
           to: 'bonjour@xora.fr',
           message: {
             subject: `🔔 Nouvelle adhésion Xora : ${formData.firstName} ${formData.lastName}`,
@@ -213,7 +263,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                 <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 16px; color: #111827;">Nouvelle adhésion détectée</h2>
                 
                 <p style="font-size: 16px; line-height: 1.6; color: #4b5563; margin-bottom: 24px;">
-                  Un nouveau collaborateur a été invité avec une <strong>licence Xora active</strong>.
+                  Un nouveau collaborateur a été créé avec une <strong>licence Xora active</strong>.
                 </p>
                 
                 <div style="background-color: #f9fafb; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
@@ -224,91 +274,43 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                     </tr>
                     <tr>
                       <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Email</td>
-                      <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${formData.emailPro}</td>
+                      <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${inviteEmail}</td>
                     </tr>
                     <tr>
                       <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Société</td>
                       <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${userProfile.companyName || 'Non renseignée'}</td>
                     </tr>
                     <tr>
-                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Invité par</td>
+                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Créé par</td>
                       <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${userProfile.name}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Rôle</td>
-                      <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${formData.role}</td>
                     </tr>
                   </table>
                 </div>
-                
-                <p style="font-size: 12px; color: #9ca3af; text-align: center; margin-top: 32px;">
-                  Ceci est une notification automatique de Xora CRM.
-                </p>
               </div>
             `
           }
-        });
-      } else {
-        // Directly create user document for users without subscription
-        const userRef = doc(collection(db, 'users'));
-        await setDoc(userRef, {
-          companyId: userProfile.companyId,
-          companyName: userProfile.companyName,
-          civility: formData.civility,
-          firstName: finalFirst,
-          lastName: finalLast,
-          email: inviteEmail || "",
-          emailPerso: formData.emailPerso,
-          portable: formData.phoneMobile,
-          fixed: formData.phoneFixed,
-          address: formData.address,
-          contractType: formData.contractType,
-          metier: formData.metier,
-          role: 'Aucun',
-          isSubscriptionActive: false,
-          hasPhone: formData.hasPhone,
-          hasCar: formData.hasCar,
-          hasLaptop: formData.hasLaptop,
-          agendaColor: formData.agendaColor,
-          avatar: formData.avatar,
-          createdAt: serverTimestamp(),
-          hasLeft: false
-        });
+        }).catch(err => console.error("Erreur notification interne (non-bloquant):", err));
+      }
+
+      console.log('ÉTAPE FINALE ATTEINTE');
+    } catch (error: any) {
+      console.error("Erreur création collaborateur:", error);
+      
+      let message = "Une erreur est survenue lors de la création du collaborateur.";
+      
+      if (error.code === 'resource-exhausted' || error.message?.includes('exhausted')) {
+        message = "⚠️ Quota Firebase atteint. Veuillez patienter quelques minutes.";
+      } else if (error.code === 'permission-denied') {
+        message = "Vous n'avez pas les permissions nécessaires.";
       }
       
-      setSuccess(true);
-      setShowConfirmation(false);
-      setShowErrors(false);
-      setTimeout(() => {
-        setSuccess(false);
-        onClose();
-        setFormData({
-          hasSubscription: false,
-          civility: 'Mr',
-          lastName: '',
-          firstName: '',
-          emailPro: '',
-          emailPerso: '',
-          phoneMobile: '',
-          phoneFixed: '',
-          address: '',
-          contractType: 'CDI',
-          metier: [],
-          role: 'Aucun',
-          hasPhone: false,
-          hasCar: false,
-          hasLaptop: false,
-          agendaColor: '#A8A8A8',
-          avatar: null
-        });
-      }, 2500);
-    } catch (error) {
-      console.error("Erreur invitation:", error);
-      alert("Une erreur est survenue lors de l'envoi de l'invitation.");
+      setErrorMessage(message);
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -388,6 +390,14 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
             </div>
 
             <div className="p-8 space-y-6 overflow-y-auto max-h-[75vh]">
+              {/* Error Message */}
+              {errorMessage && (
+                <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={18} />
+                  <p className="text-sm text-red-600 font-medium">{errorMessage}</p>
+                </div>
+              )}
+
               {/* Subscription Toggle */}
               <div className={`${formData.hasSubscription ? 'bg-gradient-to-r from-orange-400 via-purple-500 to-blue-500' : 'bg-gray-100 border border-gray-200'} p-4 rounded-2xl flex items-center justify-between transition-all duration-300`}>
                 <div className="flex items-center gap-3">
@@ -463,8 +473,9 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                       <select 
                         value={formData.civility}
                         onChange={(e) => setFormData({...formData, civility: e.target.value})}
-                        className={`w-full appearance-none px-4 py-3 bg-[#F8F9FA] border ${showErrors && !formData.civility ? 'border-red-500' : 'border-gray-100'} rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
+                        className={`w-full appearance-none px-4 py-3 bg-[#F8F9FA] border ${showErrors && !formData.civility ? 'border-red-500' : 'border-gray-100'} rounded-xl text-sm ${!formData.civility ? 'text-gray-400 font-normal' : 'text-gray-900 font-bold'} outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
                       >
+                        <option value="" disabled>Choisir la civilité</option>
                         <option value="Mr">Mr</option>
                         <option value="Mme">Mme</option>
                       </select>
@@ -478,7 +489,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                       placeholder="COLOMB" 
                       value={formData.lastName}
                       onChange={(e) => setFormData({...formData, lastName: e.target.value.toUpperCase()})}
-                      className={`w-full px-4 py-3 bg-[#F8F9FA] border ${showErrors && !formData.lastName.trim() ? 'border-red-500' : 'border-gray-100'} rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
+                      className={`w-full px-4 py-3 bg-[#F8F9FA] border ${showErrors && !formData.lastName.trim() ? 'border-red-500' : 'border-gray-100'} rounded-xl text-sm ${!formData.lastName.trim() ? 'text-gray-400 font-normal' : 'text-gray-900 font-bold'} outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
                     />
                   </div>
                   <div className="space-y-2">
@@ -492,37 +503,28 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                         const formatted = val ? val.charAt(0).toUpperCase() + val.slice(1).toLowerCase() : "";
                         setFormData({...formData, firstName: formatted});
                       }}
-                      className={`w-full px-4 py-3 bg-[#F8F9FA] border ${showErrors && !formData.firstName.trim() ? 'border-red-500' : 'border-gray-100'} rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
+                      className={`w-full px-4 py-3 bg-[#F8F9FA] border ${showErrors && !formData.firstName.trim() ? 'border-red-500' : 'border-gray-100'} rounded-xl text-sm ${!formData.firstName.trim() ? 'text-gray-400 font-normal' : 'text-gray-900 font-bold'} outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Email professionnel {formData.hasSubscription && <span className="text-red-500">*</span>}</label>
-                    <input 
-                      type="email" 
-                      placeholder="jeremy.colomb@travauxconfort.com" 
-                      value={formData.emailPro}
-                      onChange={(e) => setFormData({...formData, emailPro: e.target.value})}
-                      className={`w-full px-4 py-3 bg-[#F8F9FA] border ${showErrors && formData.hasSubscription && !formData.emailPro.trim() ? 'border-red-500' : 'border-gray-100'} rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
-                    />
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Date de naissance</label>
+                      <input 
+                        type={formData.birthDate ? "date" : "text"}
+                        placeholder="jj/mm/aaaa"
+                        onFocus={(e) => (e.target.type = "date")}
+                        onBlur={(e) => {
+                          if (!e.target.value) e.target.type = "text";
+                        }}
+                        value={formData.birthDate}
+                        onChange={(e) => setFormData({...formData, birthDate: e.target.value})}
+                        className={`w-full px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm ${!formData.birthDate ? 'text-gray-400 font-normal' : 'text-gray-900 font-bold'} outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
+                      />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Email perso</label>
-                    <input 
-                      type="email" 
-                      placeholder="jeremy.colomb@gmail.com" 
-                      value={formData.emailPerso}
-                      onChange={(e) => setFormData({...formData, emailPerso: e.target.value})}
-                      className="w-full px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Téléphone portable</label>
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Téléphone portable pro</label>
                     <div className="relative">
                       <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
                         <img src="https://flagcdn.com/w20/fr.png" className="w-5 h-3 object-cover rounded-sm" alt="FR" />
@@ -536,12 +538,12 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                           const formatted = formatPhone(e.target.value);
                           setFormData({...formData, phoneMobile: formatted});
                         }}
-                        className="w-full pl-16 pr-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
+                        className={`w-full pl-16 pr-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm ${!formData.phoneMobile ? 'text-gray-400 font-normal' : 'text-gray-900 font-bold'} outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Téléphone fixe</label>
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Téléphone portable perso</label>
                     <div className="relative">
                       <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
                         <img src="https://flagcdn.com/w20/fr.png" className="w-5 h-3 object-cover rounded-sm" alt="FR" />
@@ -549,16 +551,40 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                       </div>
                       <input 
                         type="text" 
-                        placeholder="01 00 00 00 00" 
+                        placeholder="06 00 00 00 00" 
                         value={formData.phoneFixed}
                         onChange={(e) => {
                           const formatted = formatPhone(e.target.value);
                           setFormData({...formData, phoneFixed: formatted});
                         }}
-                        className="w-full pl-16 pr-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
+                        className={`w-full pl-16 pr-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm ${!formData.phoneFixed ? 'text-gray-400 font-normal' : 'text-gray-900 font-bold'} outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
                       />
                     </div>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Email professionnel {formData.hasSubscription && <span className="text-red-500">*</span>}</label>
+                    <input 
+                      type="email" 
+                      placeholder="jeremy.colomb@travauxconfort.com" 
+                      value={formData.emailPro}
+                      onChange={(e) => setFormData({...formData, emailPro: e.target.value})}
+                      className={`w-full px-4 py-3 bg-[#F8F9FA] border ${showErrors && formData.hasSubscription && !formData.emailPro.trim() ? 'border-red-500' : 'border-gray-100'} rounded-xl text-sm ${!formData.emailPro.trim() ? 'text-gray-400 font-normal' : 'text-gray-900 font-bold'} outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Email perso</label>
+                    <input 
+                      type="email" 
+                      placeholder="jeremy.colomb@gmail.com" 
+                      value={formData.emailPerso}
+                      onChange={(e) => setFormData({...formData, emailPerso: e.target.value})}
+                      className={`w-full px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm ${!formData.emailPerso.trim() ? 'text-gray-400 font-normal' : 'text-gray-900 font-bold'} outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
+                    />
+                  </div>
+                  <div className="hidden md:block"></div>
                 </div>
 
                 <div className="space-y-2">
@@ -568,7 +594,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                     placeholder="12 rue des Mimosas, 11100 Narbonne" 
                     value={formData.address}
                     onChange={(e) => setFormData({...formData, address: e.target.value})}
-                    className="w-full px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner"
+                    className={`w-full px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm ${!formData.address.trim() ? 'text-gray-400 font-normal' : 'text-gray-900 font-bold'} outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
                   />
                 </div>
 
@@ -579,9 +605,9 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                       <select 
                         value={formData.contractType}
                         onChange={(e) => setFormData({...formData, contractType: e.target.value})}
-                        className={`w-full appearance-none px-4 py-3 bg-[#F8F9FA] border ${showErrors && !formData.contractType ? 'border-red-500' : 'border-gray-100'} rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
+                        className={`w-full appearance-none px-4 py-3 bg-[#F8F9FA] border ${showErrors && !formData.contractType ? 'border-red-500' : 'border-gray-100'} rounded-xl text-sm ${!formData.contractType ? 'text-gray-400 font-normal' : 'text-gray-900 font-bold'} outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner`}
                       >
-                        <option value="">Sélectionner</option>
+                        <option value="" disabled>Sélectionner</option>
                         {contractTypes.map(type => (
                           <option key={type} value={type}>{type}</option>
                         ))}
@@ -601,7 +627,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                             </span>
                           ))
                         ) : (
-                          <span className="text-gray-400 font-normal italic">Sélectionner un ou plusieurs métiers</span>
+                          <span className="text-gray-400 font-normal">Sélectionner un ou plusieurs métiers</span>
                         )}
                       </div>
                       <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-100 rounded-xl shadow-xl max-h-48 overflow-y-auto hidden group-hover:block hover:block">
@@ -625,7 +651,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                         value={formData.role}
                         onChange={(e) => setFormData({...formData, role: e.target.value})}
                         disabled={!formData.hasSubscription}
-                        className="w-full appearance-none px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={`w-full appearance-none px-4 py-3 bg-[#F8F9FA] border border-gray-100 rounded-xl text-sm ${formData.role === 'Aucun' ? 'text-gray-400 font-normal' : 'text-gray-900 font-bold'} outline-none focus:bg-white focus:border-gray-900 transition-all shadow-inner disabled:opacity-50 disabled:cursor-not-allowed`}
                       >
                         <option value="Administrateur.rice">Administrateur.rice</option>
                         <option value="Concepteur.rice">Concepteur.rice</option>
@@ -633,10 +659,6 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                       </select>
                       <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
-                    {/* Le message de restriction est supprimé */}
-                    {false && formData.metier.includes("Chef.fe d'entreprise") && (
-                      <p className="text-[10px] text-indigo-500 font-bold ml-1">Le rôle Administrateur.rice est requis pour ce métier.</p>
-                    )}
                   </div>
                 </div>
 
@@ -701,7 +723,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
                       value={formData.agendaColor}
                       onChange={(e) => setFormData({...formData, agendaColor: e.target.value})}
                     />
-                    <div className="w-full flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 pointer-events-none">
+                    <div className={`w-full flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm ${formData.agendaColor === '#A8A8A8' ? 'text-gray-400 font-normal' : 'text-gray-900 font-bold'} pointer-events-none`}>
                       <span className="uppercase">{formData.agendaColor.replace('#', '')}</span>
                       <ChevronDown size={18} className="text-gray-400" />
                     </div>
@@ -713,15 +735,19 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
             <div className="p-8 border-t border-gray-100 bg-[#FBFBFB] flex justify-center">
               <button 
                 type="submit"
-                disabled={isLoading || !formData.emailPro}
-                className="w-full flex items-center justify-center gap-3 px-10 py-5 bg-white border border-gray-200 text-gray-900 rounded-2xl text-[15px] font-bold shadow-sm hover:bg-gray-50 transition-all active:scale-[0.98] disabled:opacity-50"
+                disabled={isLoading || !isFormValid}
+                className={`w-full flex items-center justify-center gap-3 px-10 py-5 rounded-2xl text-[15px] font-bold shadow-sm transition-all active:scale-[0.98] disabled:opacity-50 ${
+                  isFormValid 
+                    ? 'bg-gray-900 text-white hover:bg-gray-800' 
+                    : 'bg-white border border-gray-200 text-gray-400'
+                }`}
               >
                 {isLoading ? (
                   <Loader2 className="animate-spin" size={20} />
                 ) : (
                   <CheckCircle2 size={20} />
                 )}
-                Ajouter le collaborateur
+                Ajouter un collaborateur
               </button>
             </div>
           </form>

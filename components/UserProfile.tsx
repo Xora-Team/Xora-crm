@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
-import { doc, updateDoc, onSnapshot, writeBatch, collection, query, where, getDocs, addDoc, serverTimestamp } from '@firebase/firestore';
+import { doc, updateDoc, onSnapshot, writeBatch, collection, query, where, getDocs, addDoc, setDoc, serverTimestamp } from '@firebase/firestore';
 import UserDocuments from './UserDocuments';
 import { formatPhone, formatNameFirstLast } from '../utils';
 
@@ -79,7 +79,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
     isSubscriptionActive: userProfile?.isSubscriptionActive ?? true,
     hasLeft: userProfile?.hasLeft ?? false,
     departureDate: userProfile?.departureDate || '',
-    avatar: userProfile?.avatar || null
+    avatar: userProfile?.avatar || null,
+    birthDate: userProfile?.birthDate || ''
   });
 
   const contractTypes = [
@@ -123,7 +124,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
         departureDate: userProfile.departureDate || prev.departureDate,
         address: userProfile.address || prev.address,
         lat: userProfile.lat || prev.lat,
-        lng: userProfile.lng || prev.lng
+        lng: userProfile.lng || prev.lng,
+        birthDate: userProfile.birthDate || prev.birthDate
       }));
     }
   }, [userProfile, isEditing]);
@@ -538,7 +540,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
 
               {/* Form Grid */}
               <div className="bg-[#F8F9FA] border border-gray-100 rounded-[32px] p-10 shadow-sm">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-x-8 gap-y-8">
                   {/* Civilité */}
                   <div className="space-y-2">
                     <label className="text-[11px] font-medium text-gray-400 ml-1">Civilité du collaborateur</label>
@@ -631,7 +633,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                   </div>
 
                   {/* Adresse */}
-                  <div className="md:col-span-3 space-y-4">
+                  <div className="md:col-span-4 space-y-4">
                     <div className="flex justify-between items-center">
                       <label className="text-[11px] font-medium text-gray-400 ml-1">Adresse du collaborateur</label>
                       {isEditingAddress && isEditing && (
@@ -775,6 +777,23 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                       </select>
                       <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
+                  </div>
+
+                  {/* Date de naissance */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-gray-400 ml-1">Date de naissance</label>
+                    <input 
+                      type={formData.birthDate ? "date" : "text"}
+                      placeholder="jj/mm/aaaa"
+                      onFocus={(e) => (e.target.type = "date")}
+                      onBlur={(e) => {
+                        if (!e.target.value) e.target.type = "text";
+                      }}
+                      readOnly={!isEditing}
+                      value={formData.birthDate} 
+                      onChange={(e) => handleUpdate('birthDate', e.target.value)} 
+                      className={`w-full bg-white border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium ${!formData.birthDate ? 'text-gray-400' : 'text-gray-900'} outline-none focus:border-gray-300 transition-all disabled:opacity-50`} 
+                    />
                   </div>
 
                   {/* Toggles Row */}
@@ -961,18 +980,23 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                           if (newStatus) {
                             // Activation
                             const inviteEmail = formData.email.toLowerCase().trim();
-                            const appUrl = 'https://app.xora.fr/';
-                            const registrationLink = `${appUrl}?view=register&inviteId=${adminProfile?.companyId || userProfile?.companyId}&email=${encodeURIComponent(inviteEmail)}&firstName=${encodeURIComponent(formData.firstName)}&lastName=${encodeURIComponent(formData.lastName)}&role=${encodeURIComponent(formData.metier[0] || 'Agenceur')}&hasSubscription=true`;
+                            const appUrl = window.location.origin + '/';
+                            const invitationRef = doc(collection(db, 'invitations'));
+                            const registrationLink = `${appUrl}?view=register&invitationId=${invitationRef.id}&inviteId=${adminProfile?.companyId || userProfile?.companyId}&email=${encodeURIComponent(inviteEmail)}&firstName=${encodeURIComponent(formData.firstName)}&lastName=${encodeURIComponent(formData.lastName)}&role=${encodeURIComponent(formData.metier[0] || 'Agenceur')}&hasSubscription=true`;
 
                             // Email to collaborator
-                            await addDoc(collection(db, 'invitations'), {
+                            await setDoc(invitationRef, {
                               to: inviteEmail,
+                              from: 'Xora <bonjour@xora.fr>',
                               message: {
-                                subject: `🚀 Rejoignez l'équipe de ${adminProfile?.companyName || 'Xora'}`,
+                                subject: `🚀 Rejoignez l'équipe de ${adminProfile?.companyName || 'Xora'} 🚀`,
                                 html: `
                                   <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #f3f4f6; border-radius: 24px; padding: 40px; color: #111827; background-color: #ffffff;">
                                     <div style="text-align: center; margin-bottom: 32px;">
-                                      <h1 style="font-size: 24px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: -0.025em;">XORA <span style="color: #6366f1;">CRM</span></h1>
+                                      <div style="display: inline-block; background-color: #FACC15; padding: 4px 12px; border-radius: 8px; margin-right: 4px;">
+                                        <span style="font-size: 20px; font-weight: 900; color: #000000; letter-spacing: -0.025em;">XORA</span>
+                                      </div>
+                                      <span style="font-size: 20px; font-weight: 900; color: #6366f1; letter-spacing: -0.025em;">CRM</span>
                                     </div>
                                     
                                     <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 16px;">Bonjour ${formData.firstName},</h2>
@@ -987,7 +1011,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                                       </a>
                                     </div>
                                     
-                                    <p style="font-size: 14px; color: #9ca3af; line-height: 1.5; margin-top: 32px; border-top: 1px solid #f3f4f6; pt: 24px;">
+                                    <p style="font-size: 14px; color: #9ca3af; line-height: 1.5; margin-top: 32px; border-top: 1px solid #f3f4f6; padding-top: 24px;">
                                       Si le bouton ne fonctionne pas, copiez ce lien : <br/>
                                       <span style="word-break: break-all; color: #6366f1;">${registrationLink}</span>
                                     </p>
@@ -1007,12 +1031,16 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                             // Notification à bonjour@xora.fr
                             await addDoc(collection(db, 'invitations'), {
                               to: 'bonjour@xora.fr',
+                              from: 'Xora <bonjour@xora.fr>',
                               message: {
                                 subject: `🔔 Nouvelle adhésion Xora : ${formData.firstName} ${formData.lastName}`,
                                 html: `
                                   <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #f3f4f6; border-radius: 24px; padding: 40px; color: #111827; background-color: #ffffff;">
                                     <div style="text-align: center; margin-bottom: 32px;">
-                                      <h1 style="font-size: 24px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: -0.025em;">XORA <span style="color: #6366f1;">CRM</span></h1>
+                                      <div style="display: inline-block; background-color: #FACC15; padding: 4px 12px; border-radius: 8px; margin-right: 4px;">
+                                        <span style="font-size: 20px; font-weight: 900; color: #000000; letter-spacing: -0.025em;">XORA</span>
+                                      </div>
+                                      <span style="font-size: 20px; font-weight: 900; color: #6366f1; letter-spacing: -0.025em;">CRM</span>
                                     </div>
                                     
                                     <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 16px; color: #111827;">Nouvelle adhésion détectée</h2>
