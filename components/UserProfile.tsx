@@ -27,10 +27,10 @@ import {
   Map as MapIcon
 } from 'lucide-react';
 import { db } from '../firebase';
-// Use @firebase/firestore to fix named export resolution issues
-import { doc, updateDoc, onSnapshot, writeBatch, collection, query, where, getDocs, addDoc, setDoc, serverTimestamp } from '@firebase/firestore';
+import { doc, updateDoc, onSnapshot, writeBatch, collection, query, where, getDocs, addDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import UserDocuments from './UserDocuments';
 import { formatPhone, formatNameFirstLast } from '../utils';
+import { toast } from 'sonner';
 
 interface UserProfileProps {
   userProfile: any;
@@ -58,7 +58,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<any>({
     civility: userProfile?.civility || 'Mr',
     lastName: userProfile?.lastName || '',
     firstName: userProfile?.firstName || '',
@@ -269,26 +269,33 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
     const isEmailMissing = isEmailRequired && !formData.email.trim();
 
     if (isLastNameMissing || isFirstNameMissing || isCivilityMissing || isContractTypeMissing || isEmailMissing) {
-      alert("Veuillez remplir tous les champs obligatoires (Civilité, Nom, Prénom, Type de contrat" + (isEmailRequired ? ", Email" : "") + ").");
+      toast.error("Veuillez remplir tous les champs obligatoires (Civilité, Nom, Prénom, Type de contrat" + (isEmailRequired ? ", Email" : "") + ").");
       return;
     }
 
     // Validation date de sortie
     if (formData.hasLeft) {
       if (!formData.departureDate) {
-        alert("La date de sortie est obligatoire si le salarié a quitté l'entreprise.");
+        toast.error("La date de sortie est obligatoire si le salarié a quitté l'entreprise.");
         return;
       }
       const selectedDate = new Date(formData.departureDate);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       if (selectedDate > today) {
-        alert("La date de sortie ne peut pas être dans le futur.");
+        toast.error("La date de sortie ne peut pas être dans le futur.");
         return;
       }
     }
 
     setIsSyncing(true);
+
+    // Timeout de secours
+    const timeoutId = setTimeout(() => {
+      setIsSyncing(false);
+      toast.error("Le serveur met trop de temps à répondre, veuillez vérifier votre connexion.");
+    }, 10000);
+
     try {
       const userRef = doc(db, 'users', userProfile.uid);
       const firstNameTrimmed = formData.firstName.trim();
@@ -330,10 +337,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
       setUserProfile({ ...userProfile, ...updatedFormData, name: fullName, lastName: finalLast });
       setHasUnsavedChanges(false);
       setIsEditing(false);
+      toast.success("Profil mis à jour avec succès.");
     } catch (error) {
       console.error("Erreur sauvegarde:", error);
-      alert("Une erreur est survenue lors de l'enregistrement.");
+      toast.error("Une erreur est survenue lors de l'enregistrement.");
     } finally {
+      clearTimeout(timeoutId);
       setIsSyncing(false);
     }
   };
@@ -353,7 +362,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 1024 * 1024) { alert("L'image est trop lourde (max 1Mo)."); return; }
+    if (file.size > 1024 * 1024) { toast.error("L'image est trop lourde (max 1Mo)."); return; }
     
     setIsUploading(true);
     const reader = new FileReader();
@@ -375,10 +384,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
           
           // Update parent state to keep everything in sync
           setUserProfile({ ...userProfile, avatar: base64String });
+          toast.success("Photo de profil mise à jour.");
         }
       } catch (error) {
         console.error("Erreur lors de la mise à jour de l'avatar:", error);
-        alert("Une erreur est survenue lors de la mise à jour de la photo.");
+        toast.error("Une erreur est survenue lors de la mise à jour de la photo.");
       } finally {
         setIsUploading(false);
       }
@@ -449,7 +459,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
           <div className="flex items-center gap-6 ml-4">
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl border border-gray-100">
               <Phone size={14} className="text-gray-400" />
-              <span className="text-xs font-bold text-gray-700">{formatPhone(formData.portable) || '01 23 45 67 89'}</span>
+              <span className="text-xs font-bold text-gray-700">{formatPhone(formData.portable) || '00 00 00 00 00'}</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl border border-gray-100">
               <Mail size={14} className="text-gray-400" />
@@ -607,8 +617,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                         readOnly={!isEditing}
                         value={formatPhone(formData.portable)} 
                         onChange={(e) => handleUpdate('portable', e.target.value)} 
-                        placeholder="Entrer un numéro"
-                        className="w-full bg-white border border-gray-100 rounded-xl pl-16 pr-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50" 
+                        placeholder="00 00 00 00 00"
+                        className="w-full bg-white border border-gray-100 rounded-xl pl-16 pr-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all placeholder:text-gray-300 focus:placeholder-transparent disabled:opacity-50" 
                       />
                     </div>
                   </div>
@@ -626,8 +636,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ userProfile, adminProfile, se
                         readOnly={!isEditing}
                         value={formatPhone(formData.fixed)} 
                         onChange={(e) => handleUpdate('fixed', e.target.value)} 
-                        placeholder="Entrer un numéro"
-                        className="w-full bg-white border border-gray-100 rounded-xl pl-16 pr-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all disabled:opacity-50" 
+                        placeholder="00 00 00 00 00"
+                        className="w-full bg-white border border-gray-100 rounded-xl pl-16 pr-4 py-3.5 text-sm font-medium text-gray-900 outline-none focus:border-gray-300 transition-all placeholder:text-gray-300 focus:placeholder-transparent disabled:opacity-50" 
                       />
                     </div>
                   </div>

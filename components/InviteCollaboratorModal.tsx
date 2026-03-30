@@ -4,6 +4,7 @@ import { X, UserPlus, Mail, User, ChevronDown, CheckCircle2, Loader2, Send, Smar
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp, doc, setDoc, writeBatch } from 'firebase/firestore';
 import { formatPhone } from '../utils';
+import { toast } from 'sonner';
 import { AlertCircle } from 'lucide-react';
 
 interface InviteCollaboratorModalProps {
@@ -18,7 +19,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<any>({
     hasSubscription: false,
     civility: '',
     lastName: '',
@@ -156,6 +157,12 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
     setIsLoading(true);
     setErrorMessage(null);
     
+    // Timeout de secours
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false);
+      toast.error("Le serveur met trop de temps à répondre, veuillez vérifier votre connexion.");
+    }, 10000);
+
     try {
       const inviteEmail = formData.emailPro.toLowerCase().trim();
       const appUrl = window.location.origin;
@@ -193,12 +200,8 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
         isPending: formData.hasSubscription
       };
 
-      // On lance la création sans await pour ne pas bloquer l'UI
-      setDoc(userRef, userData).catch(err => console.error("Erreur création collaborateur (non-bloquant):", err));
-      
-      // PRIORITÉ À LA FERMETURE : On ferme la modale immédiatement
-      onClose();
-      setIsLoading(false);
+      // On lance la création
+      await setDoc(userRef, userData);
       
       const isAdmin = userProfile?.role?.toLowerCase().includes('administrateur');
       const hasSubscription = (formData.hasSubscription as any) === true || (formData.hasSubscription as any) === 'Oui';
@@ -206,11 +209,11 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
       console.log('Tentative d\'envoi mail...', isAdmin, hasSubscription);
 
       if (hasSubscription && isAdmin) {
-        // 2. Création de l'invitation pour le collaborateur (NON-BLOQUANT)
+        // 2. Création de l'invitation pour le collaborateur
         const invitationRef = doc(collection(db, 'invitations'));
         const registrationLink = `${appUrl}?view=register&inviteId=${userProfile.companyId}&email=${encodeURIComponent(inviteEmail)}&firstName=${encodeURIComponent(finalFirst)}&lastName=${encodeURIComponent(finalLast)}&role=${encodeURIComponent(formData.role)}&hasSubscription=${formData.hasSubscription}&address=${encodeURIComponent(formData.address)}&avatar=${encodeURIComponent(formData.avatar || '')}`;
 
-        setDoc(invitationRef, {
+        await setDoc(invitationRef, {
           to: inviteEmail,
           message: {
             subject: `🚀 Rejoignez l'équipe de ${userProfile.companyName || 'Xora'}`,
@@ -247,10 +250,10 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
             status: 'pending',
             createdAt: serverTimestamp()
           }
-        }).catch(err => console.error("Erreur envoi invitation (non-bloquant):", err));
+        });
 
-        // 3. Notification à bonjour@xora.fr (NON-BLOQUANT)
-        addDoc(collection(db, 'invitations'), {
+        // 3. Notification à bonjour@xora.fr
+        await addDoc(collection(db, 'invitations'), {
           to: 'bonjour@xora.fr',
           message: {
             subject: `🔔 Nouvelle adhésion Xora : ${formData.firstName} ${formData.lastName}`,
@@ -289,7 +292,7 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
               </div>
             `
           }
-        }).catch(err => console.error("Erreur notification interne (non-bloquant):", err));
+        });
       }
 
       console.log('ÉTAPE FINALE ATTEINTE');
@@ -306,7 +309,9 @@ const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ isOpe
       
       setErrorMessage(message);
     } finally {
+      clearTimeout(timeoutId);
       setIsLoading(false);
+      onClose();
     }
   };
 

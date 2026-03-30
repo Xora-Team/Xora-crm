@@ -119,6 +119,11 @@ export interface Appointment {
   collaboratorUids?: string[];
   companyId: string;
   createdAt: string;
+  isRecurring?: boolean;
+  recurrenceType?: string;
+  recurrenceEndDate?: string;
+  parentId?: string | null;
+  isRecurringInstance?: boolean;
 }
 
 export interface FinancialKPI {

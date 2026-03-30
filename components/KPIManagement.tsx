@@ -16,8 +16,9 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, doc, setDoc, addDoc, deleteDoc } from 'firebase/firestore';
 import { FinancialKPI } from '../types';
+import { toast } from 'sonner';
 
 const ICON_OPTIONS = [
   { id: 'euro', icon: Euro, label: 'Monnaie' },
@@ -86,7 +87,7 @@ const KPICard: React.FC<KPICardProps> = ({ kpi }) => {
       await deleteDoc(kpiRef);
     } catch (e) {
       console.error("Erreur lors de la suppression réelle:", e);
-      alert("Erreur technique lors de la suppression.");
+      toast.error("Erreur technique lors de la suppression.");
     }
   };
 

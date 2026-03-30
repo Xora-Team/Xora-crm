@@ -12,7 +12,7 @@ import {
   PenSquare
 } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, onSnapshot, collection, query, where } from '@firebase/firestore';
+import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import UserProfile from './UserProfile';
 import { formatPhone } from '../utils';
 

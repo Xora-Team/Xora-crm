@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs, query, where } from '@firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { Download, ShieldCheck, Loader2, FileText, Search, AlertTriangle, CheckCircle2, UserX, User, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface BackupPageProps {
   userProfile: any;
@@ -107,7 +108,7 @@ const BackupPage: React.FC<BackupPageProps> = ({ userProfile }) => {
 
   const exportToCSV = async (collectionName: string) => {
     if (!userProfile?.companyId) {
-      alert("Erreur : ID de société non trouvé.");
+      toast.error("Erreur : ID de société non trouvé.");
       return;
     }
 
@@ -123,7 +124,7 @@ const BackupPage: React.FC<BackupPageProps> = ({ userProfile }) => {
       const allData = querySnapshot.docs.map(doc => ({ id: doc.id, ...flattenObject(doc.data()) }));
 
       if (allData.length === 0) {
-        alert(`La collection ${collectionName} est vide pour cette société.`);
+        toast.error(`La collection ${collectionName} est vide pour cette société.`);
         setStatus(`Aucun document trouvé pour ${collectionName}.`);
         return;
       }

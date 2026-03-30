@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Gift, Plus, Trash2, Loader2, Check, Users, Heart, ShieldCheck, ChevronDown, MessageSquare, Eye } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs, orderBy } from '@firebase/firestore';
+import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { Client } from '../types';
 import { formatNameFirstLast, formatFullNameFirstLast } from '../utils';
 
@@ -111,7 +111,7 @@ const ClientFidelisation: React.FC<ClientFidelisationProps> = ({ client, userPro
       pets: client.details?.pets || '',
       petNames: client.details?.petNames || '',
       miscNotes: client.details?.miscNotes || '',
-      rgpdConsent: client.details?.rgpdConsent || false
+      rgpdConsent: client.details?.rgpdConsent || client.details?.rgpd || false
     });
   }, [client.details]);
 
@@ -534,15 +534,20 @@ const ClientFidelisation: React.FC<ClientFidelisationProps> = ({ client, userPro
                 <p className="text-sm font-bold text-gray-900">Consentement marketing</p>
                 <p className="text-xs text-gray-400">Le client accepte de recevoir des communications marketing.</p>
               </div>
-              <div className="flex items-center gap-3">
-                <span className={`text-xs font-bold uppercase ${!formData.rgpdConsent ? 'text-gray-900' : 'text-gray-300'}`}>Non</span>
-                <button
-                  onClick={() => handleUpdateField('rgpdConsent', !formData.rgpdConsent)}
-                  className={`w-12 h-6 rounded-full relative transition-all duration-300 ${formData.rgpdConsent ? 'bg-indigo-600' : 'bg-gray-300'}`}
-                >
-                  <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-sm ${formData.rgpdConsent ? 'right-1' : 'left-1'}`}></div>
-                </button>
-                <span className={`text-xs font-bold uppercase ${formData.rgpdConsent ? 'text-gray-900' : 'text-gray-300'}`}>Oui</span>
+              <div className="flex items-center gap-6">
+                <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all duration-300 ${formData.rgpdConsent ? 'bg-green-50 text-green-600 border-green-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                  {formData.rgpdConsent ? 'Accepté' : 'Refusé'}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs font-bold uppercase ${!formData.rgpdConsent ? 'text-gray-900' : 'text-gray-300'}`}>Non</span>
+                  <button
+                    onClick={() => handleUpdateField('rgpdConsent', !formData.rgpdConsent)}
+                    className={`w-12 h-6 rounded-full relative transition-all duration-300 ${formData.rgpdConsent ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                  >
+                    <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-sm ${formData.rgpdConsent ? 'right-1' : 'left-1'}`}></div>
+                  </button>
+                  <span className={`text-xs font-bold uppercase ${formData.rgpdConsent ? 'text-gray-900' : 'text-gray-300'}`}>Oui</span>
+                </div>
               </div>
             </div>
           </div>

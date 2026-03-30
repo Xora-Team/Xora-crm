@@ -18,7 +18,7 @@ import {
   UserPlus
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, limit, doc, deleteDoc, updateDoc, writeBatch } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, limit, doc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { FinancialKPI, Task, Client, Page, Appointment } from '../types';
 import { formatNameFirstLast, formatFullNameFirstLast, normalizeString } from '../utils';
 import AddTaskModal from './AddTaskModal';

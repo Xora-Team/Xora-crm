@@ -20,8 +20,9 @@ import {
   Filter
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, increment } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, increment } from 'firebase/firestore';
 import { formatFullName, formatFullNameFirstLast } from '../utils';
+import { toast } from 'sonner';
 import AddProjectModal from './AddProjectModal';
 
 interface Project {
@@ -202,7 +203,7 @@ const ProjectTracking: React.FC<ProjectTrackingProps> = ({ userProfile, onProjec
       setActiveMenuId(null);
     } catch (err) {
       console.error("Erreur suppression projet:", err);
-      alert("Une erreur est survenue lors de la suppression.");
+      toast.error("Une erreur est survenue lors de la suppression.");
     } finally {
       setIsDeleting(false);
     }

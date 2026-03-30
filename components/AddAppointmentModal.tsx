@@ -1,10 +1,12 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Calendar, Clock, MapPin, Loader2, Check, ChevronDown, ChevronLeft, ChevronRight, Save, Plus, Search, Trash2, AlertTriangle } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, addDoc, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, doc, updateDoc, deleteDoc, writeBatch, setDoc } from 'firebase/firestore';
 import { Appointment, User } from '../types';
 import { formatPhone, formatFullNameFirstLast, normalizeString } from '../utils';
+import { toast } from 'sonner';
+import { addDays, addWeeks, addMonths, addYears, isBefore, parse, format, parseISO } from 'date-fns';
 
 interface AddAppointmentModalProps {
   isOpen: boolean;
@@ -27,6 +29,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
 }) => {
   const isEdit = !!appointmentToEdit;
   const [isLoading, setIsLoading] = useState(false);
+  const lastSubmitTime = useRef<number>(0);
   const [projects, setProjects] = useState<any[]>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [currentCalendarMonth, setCurrentCalendarMonth] = useState(new Date());
@@ -39,7 +42,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
   const [isClientLinked, setIsClientLinked] = useState(true);
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<any>({
     title: '',
     type: 'R1' as any,
     date: '',
@@ -52,6 +55,8 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
     selectedCollaboratorUids: [] as string[],
     selectedClientId: clientId || '',
     isRecurring: false,
+    recurrenceType: 'Toutes les semaines' as 'Tous les jours' | 'Toutes les semaines' | 'Tous les mois' | 'Tous les ans',
+    recurrenceEndDate: '',
     isPrivate: false,
     createVisio: false,
     comment: '',
@@ -61,7 +66,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
   const typeOptions = ['R1', 'R2', 'Métré', 'Pose', 'SAV', 'Autre'];
   const locationOptions = ['Magasin', 'Chez le client', 'Sur chantier', 'Adresse différente', 'Téléphonique', 'Visio'];
 
-  const [clients, setClients] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -89,6 +94,8 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
           selectedCollaboratorUids: appointmentToEdit.collaborators?.map(c => c.uid).filter(Boolean) as string[] || [],
           selectedClientId: currentClientId,
           isRecurring: (appointmentToEdit as any).isRecurring || false,
+          recurrenceType: (appointmentToEdit as any).recurrenceType || 'Toutes les semaines',
+          recurrenceEndDate: (appointmentToEdit as any).recurrenceEndDate || '',
           isPrivate: (appointmentToEdit as any).isPrivate || false,
           createVisio: (appointmentToEdit as any).createVisio || false,
           comment: (appointmentToEdit as any).comment || '',
@@ -124,6 +131,8 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
           selectedCollaboratorUids: userProfile?.uid ? [userProfile.uid] : [],
           selectedClientId: clientId || '',
           isRecurring: false,
+          recurrenceType: 'Toutes les semaines',
+          recurrenceEndDate: '',
           isPrivate: false,
           createVisio: false,
           comment: '',
@@ -139,20 +148,38 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
 
   useEffect(() => {
     if (!isOpen || !userProfile?.companyId) return;
-    const fetchClientsAndCollaborators = async () => {
-      const clientsQ = query(collection(db, 'clients'), where('companyId', '==', userProfile.companyId));
-      const clientsSnap = await getDocs(clientsQ);
-      setClients(clientsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    const fetchContactsAndCollaborators = async () => {
+      try {
+        const companyId = userProfile.companyId;
+        
+        // Fetch all contacts from the 'clients' collection (which contains all 4 directories)
+        const q = query(collection(db, 'clients'), where('companyId', '==', companyId));
+        const snap = await getDocs(q);
 
-      const collabsQ = query(collection(db, 'users'), where('companyId', '==', userProfile.companyId));
-      const collabsSnap = await getDocs(collabsQ);
-      setCollaborators(collabsSnap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User)));
+        const allContacts = snap.docs.map(doc => {
+          const data = doc.data();
+          let contactType = 'Client';
+          if (data.directoryType === 'suppliers') contactType = 'Fournisseur';
+          else if (data.directoryType === 'artisans') contactType = 'Artisan';
+          else if (data.directoryType === 'prescribers') contactType = 'Prescripteur';
+          
+          return { id: doc.id, ...data, contactType };
+        });
+        
+        setContacts(allContacts);
 
-      const appointmentsQ = query(collection(db, 'appointments'), where('companyId', '==', userProfile.companyId));
-      const appointmentsSnap = await getDocs(appointmentsQ);
-      setAllAppointments(appointmentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment)));
+        const collabsQ = query(collection(db, 'users'), where('companyId', '==', companyId));
+        const collabsSnap = await getDocs(collabsQ);
+        setCollaborators(collabsSnap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User)));
+
+        const appointmentsQ = query(collection(db, 'appointments'), where('companyId', '==', companyId));
+        const appointmentsSnap = await getDocs(appointmentsQ);
+        setAllAppointments(appointmentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment)));
+      } catch (error) {
+        console.error("Error fetching contacts/collaborators:", error);
+      }
     };
-    fetchClientsAndCollaborators();
+    fetchContactsAndCollaborators();
   }, [isOpen, userProfile?.companyId]);
 
   useEffect(() => {
@@ -214,15 +241,16 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
     return `${d}/${m}/${y}`;
   };
 
-  const filteredClients = useMemo(() => {
-    if (!clientSearch) return clients;
-    return clients.filter(c => normalizeString(c.name || '').includes(normalizeString(clientSearch)));
-  }, [clients, clientSearch]);
+  const filteredContacts = useMemo(() => {
+    if (!clientSearch) return contacts;
+    const search = normalizeString(clientSearch);
+    return contacts.filter(c => normalizeString(c.name || '').includes(search));
+  }, [contacts, clientSearch]);
 
-  const selectedClient = useMemo(() => {
+  const selectedContact = useMemo(() => {
     const cid = clientId || formData.selectedClientId;
-    return clients.find(c => c.id === cid);
-  }, [clients, clientId, formData.selectedClientId]);
+    return contacts.find(c => c.id === cid);
+  }, [contacts, clientId, formData.selectedClientId]);
 
   const conflicts = useMemo(() => {
     if (!formData.date || !formData.startTime || !formData.endTime || formData.selectedCollaboratorUids.length === 0) return [];
@@ -274,114 +302,270 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
   [conflicts, userProfile?.uid]);
 
   useEffect(() => {
-    if (!selectedClient) return;
+    if (!selectedContact) return;
 
     if (formData.location === 'Chez le client') {
-      setFormData(prev => ({ ...prev, address: selectedClient.details?.address || '' }));
+      setFormData(prev => ({ ...prev, address: selectedContact.details?.address || '' }));
     } else if (formData.location === 'Téléphonique') {
-      setFormData(prev => ({ ...prev, address: selectedClient.details?.phone || '' }));
+      setFormData(prev => ({ ...prev, address: selectedContact.details?.phone || '' }));
     } else if (formData.location === 'Sur chantier') {
-      const chantierProp = selectedClient.details?.properties?.find((p: any) => !p.isMain) || selectedClient.details?.properties?.[0];
-      setFormData(prev => ({ ...prev, address: chantierProp?.address || selectedClient.details?.address || '' }));
+      const chantierProp = selectedContact.details?.properties?.find((p: any) => !p.isMain) || selectedContact.details?.properties?.[0];
+      setFormData(prev => ({ ...prev, address: chantierProp?.address || selectedContact.details?.address || '' }));
     }
-  }, [selectedClient, formData.location]);
+  }, [selectedContact, formData.location]);
+
+  const generateRecurrences = async (baseAppointment: any, recurrenceType: string, startDateStr: string, recurrenceEndDateStr?: string) => {
+    const appointmentsRef = collection(db, 'appointments');
+    const startDate = parseISO(startDateStr);
+    
+    let endDate: Date;
+    if (recurrenceEndDateStr) {
+      endDate = parseISO(recurrenceEndDateStr);
+    } else {
+      // Par défaut 3 mois
+      endDate = addMonths(startDate, 3);
+    }
+
+    let currentDate = startDate;
+    let batch = writeBatch(db);
+    let countInBatch = 0;
+    let totalCount = 0;
+
+    console.log(`Génération des récurrences pour ${baseAppointment.title} à partir du ${startDateStr} jusqu'au ${recurrenceEndDateStr || '3 mois'}`);
+
+    while (true) {
+      if (recurrenceType === 'Tous les jours') currentDate = addDays(currentDate, 1);
+      else if (recurrenceType === 'Toutes les semaines') currentDate = addWeeks(currentDate, 1);
+      else if (recurrenceType === 'Tous les mois') currentDate = addMonths(currentDate, 1);
+      else if (recurrenceType === 'Tous les ans') currentDate = addYears(currentDate, 1);
+      else break;
+
+      if (isBefore(endDate, currentDate)) break;
+
+      const newDateStr = format(currentDate, 'dd/MM/yyyy');
+      const newAppRef = doc(appointmentsRef);
+      
+      const { id, ...dataWithoutId } = baseAppointment;
+      
+      batch.set(newAppRef, {
+        ...dataWithoutId,
+        date: newDateStr,
+        createdAt: new Date().toISOString(),
+        parentId: id || null,
+        isRecurringInstance: true
+      });
+      
+      countInBatch++;
+      totalCount++;
+      if (countInBatch >= 450) {
+         await batch.commit();
+         batch = writeBatch(db);
+         countInBatch = 0;
+      }
+    }
+
+    if (countInBatch > 0) {
+      await batch.commit();
+    }
+    console.log(`Génération de ${totalCount} occurrences terminée.`);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Submitting appointment form...', formData);
     
-    if (!formData.title) {
-      alert("Veuillez saisir un titre pour le rendez-vous.");
+    const now = Date.now();
+    if (isLoading || (now - lastSubmitTime.current < 2000)) {
+      console.warn("Submit blocked: already loading or too soon since last click.");
       return;
     }
-    if (!formData.date) {
-      alert("Veuillez sélectionner une date.");
-      return;
-    }
-    if (isClientLinked && !clientId && !formData.selectedClientId) {
-      alert("Veuillez sélectionner un client.");
-      return;
-    }
-    if (formData.selectedCollaboratorUids.length === 0) {
-      alert("Veuillez sélectionner au moins un collaborateur.");
-      return;
-    }
-    if (!userProfile?.companyId) {
-      alert("Erreur: ID de l'entreprise manquant.");
-      return;
-    }
-
+    lastSubmitTime.current = now;
+    
+    console.log('DEBUG: Submitting appointment form...', formData);
+    
     setIsLoading(true);
+
+    // Timeout de secours
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false);
+      toast.error("Le serveur met trop de temps à répondre, veuillez vérifier votre connexion.");
+    }, 10000);
+
     try {
+      // Basic validations
+      if (!formData.title) {
+        toast.error("Veuillez saisir un titre pour le rendez-vous.");
+        setIsLoading(false);
+        return;
+      }
+      if (!formData.date) {
+        toast.error("Veuillez sélectionner une date.");
+        setIsLoading(false);
+        return;
+      }
+      if (isClientLinked && !clientId && !formData.selectedClientId) {
+        toast.error("Veuillez sélectionner un contact.");
+        setIsLoading(false);
+        return;
+      }
+      if (formData.selectedCollaboratorUids.length === 0) {
+        toast.error("Veuillez sélectionner au moins un collaborateur.");
+        setIsLoading(false);
+        return;
+      }
+      if (!userProfile?.companyId) {
+        toast.error("Erreur: ID de l'entreprise manquant.");
+        setIsLoading(false);
+        return;
+      }
+
       const selectedCollaborators = collaborators.filter(c => formData.selectedCollaboratorUids.includes(c.uid || ''));
       const selectedProject = projects.find(p => p.id === formData.projectId);
+      
+      // Format date to DD/MM/YYYY for the 'date' field
       const [y, m, d] = formData.date.split('-');
       const rdvDate = `${d}/${m}/${y}`;
 
       const finalClientId = isClientLinked ? (clientId || formData.selectedClientId) : null;
-      const finalClientName = isClientLinked ? formatFullNameFirstLast(clientSearch || clientName || 'Client divers') : 'Client divers';
+      const finalClientName = isClientLinked ? formatFullNameFirstLast(clientSearch || clientName || 'Contact divers') : 'Contact divers';
 
-      const appointmentData = {
+      // Sanitize data for Firestore (no undefined values)
+      const appointmentData: any = {
         clientId: finalClientId || null,
-        clientName: finalClientName,
+        clientName: finalClientName || 'Contact divers',
+        contactType: selectedContact?.contactType || null,
         projectId: formData.projectId || null,
         projectName: selectedProject?.projectName || null,
-        title: formData.title,
-        type: formData.type,
+        title: formData.title || '',
+        type: formData.type || 'Autre',
         date: rdvDate,
-        endDate: formData.endDate,
-        startTime: formData.startTime,
-        endTime: formData.endTime,
-        location: formData.location,
-        address: formData.address,
-        isRecurring: formData.isRecurring,
-        isPrivate: formData.isPrivate,
-        createVisio: formData.createVisio,
-        comment: formData.comment,
-        streetViewLink: formData.streetViewLink,
+        endDate: formData.endDate || formData.date,
+        startTime: formData.startTime || '09:00',
+        endTime: formData.endTime || '10:00',
+        location: formData.location || 'Autre',
+        address: formData.address || '',
+        isRecurring: formData.isRecurring || false,
+        recurrenceType: formData.isRecurring ? formData.recurrenceType : null,
+        recurrenceEndDate: formData.isRecurring ? formData.recurrenceEndDate : null,
+        isPrivate: formData.isPrivate || false,
+        createVisio: formData.createVisio || false,
+        comment: formData.comment || '',
+        streetViewLink: formData.streetViewLink || '',
         status: isEdit ? (appointmentToEdit?.status || 'confirmé') : 'confirmé',
         collaborators: selectedCollaborators.map(c => ({
-          uid: c.uid,
-          name: c.name,
-          avatar: c.avatar,
+          uid: c.uid || '',
+          name: c.name || '',
+          avatar: c.avatar || '',
           agendaColor: (c as any).agendaColor || '#6366f1'
         })),
-        collaboratorUids: formData.selectedCollaboratorUids,
+        collaboratorUids: formData.selectedCollaboratorUids.filter(Boolean),
         companyId: userProfile.companyId,
       };
 
+      console.log('DEBUG: Final appointment data to save:', JSON.stringify(appointmentData, null, 2));
+      
+      let docId = '';
       if (isEdit && appointmentToEdit) {
-        await updateDoc(doc(db, 'appointments', appointmentToEdit.id), appointmentData);
+        docId = appointmentToEdit.id;
+        const appRef = doc(db, 'appointments', docId);
+        await updateDoc(appRef, appointmentData);
+        toast.success('Rendez-vous mis à jour avec succès');
       } else {
-        await addDoc(collection(db, 'appointments'), {
+        const appointmentsRef = collection(db, 'appointments');
+        const newDocRef = doc(appointmentsRef);
+        docId = newDocRef.id;
+        
+        await setDoc(newDocRef, {
           ...appointmentData,
           createdAt: new Date().toISOString()
         });
+        toast.success('Rendez-vous créé avec succès');
       }
 
-      onClose();
-    } catch (error) {
-      console.error('Error saving appointment:', error);
-      alert("Une erreur est survenue lors de l'enregistrement du rendez-vous.");
+      // Logique de récurrence en arrière-plan
+      if (formData.isRecurring && formData.recurrenceType) {
+        const recType = formData.recurrenceType;
+        const recEndDate = formData.recurrenceEndDate;
+        const startDate = formData.date;
+        
+        console.log("Lancement de la génération des récurrences...");
+        setTimeout(() => {
+          generateRecurrences({ ...appointmentData, id: docId }, recType, startDate, recEndDate)
+            .catch(err => console.error("Erreur génération récurrences:", err));
+        }, 500);
+      }
+    } catch (error: any) {
+      console.error('CRITICAL ERROR in handleSubmit:', error);
+      // Detailed error logging for debugging
+      if (error.code) console.error('Error Code:', error.code);
+      if (error.message) console.error('Error Message:', error.message);
+      
+      toast.error(`Erreur d'enregistrement : ${error.message || 'Erreur inconnue'}`);
+      
+      // Even on error, we might want to close if the user requested it, 
+      // but usually we keep it open so they can fix. 
+      // However, if it's a blocking bug, closing it might be better than hanging.
+      // For now, we just stop loading.
     } finally {
+      clearTimeout(timeoutId);
+      setIsLoading(false);
+      onClose();
+    }
+  };
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showRecurringDeleteOptions, setShowRecurringDeleteOptions] = useState(false);
+
+  const handleDeleteOccurrence = async () => {
+    if (!appointmentToEdit) return;
+    
+    setIsLoading(true);
+    try {
+      // Fermeture immédiate
+      onClose();
+      setShowDeleteConfirm(false);
+      setShowRecurringDeleteOptions(false);
+      setIsLoading(false);
+
+      await deleteDoc(doc(db, 'appointments', appointmentToEdit.id));
+      toast.success('Rendez-vous supprimé avec succès');
+    } catch (error) {
+      console.error('Error deleting appointment:', error);
+      toast.error("Une erreur est survenue lors de la suppression.");
       setIsLoading(false);
     }
   };
 
-  const handleDelete = async () => {
+  const handleDeleteSeries = async () => {
     if (!appointmentToEdit) return;
+    const seriesId = appointmentToEdit.parentId || appointmentToEdit.id;
     
-    if (confirm("Êtes-vous sûr de vouloir supprimer ce rendez-vous ?")) {
-      setIsLoading(true);
-      try {
-        await deleteDoc(doc(db, 'appointments', appointmentToEdit.id));
-        onClose();
-      } catch (error) {
-        console.error('Error deleting appointment:', error);
-        alert("Une erreur est survenue lors de la suppression du rendez-vous.");
-      } finally {
-        setIsLoading(false);
-      }
+    setIsLoading(true);
+    try {
+      // Fermeture immédiate
+      onClose();
+      setShowRecurringDeleteOptions(false);
+      setIsLoading(false);
+
+      // On récupère tous les documents qui ont ce parentId
+      const q = query(collection(db, 'appointments'), where('parentId', '==', seriesId));
+      const snapshot = await getDocs(q);
+      
+      const batch = writeBatch(db);
+      
+      // On supprime le document parent lui-même
+      batch.delete(doc(db, 'appointments', seriesId));
+      
+      // On supprime toutes les occurrences liées
+      snapshot.docs.forEach(docSnap => {
+        batch.delete(docSnap.ref);
+      });
+      
+      await batch.commit();
+      toast.success('Toute la série a été supprimée');
+    } catch (error) {
+      console.error('Error deleting series:', error);
+      toast.error("Erreur lors de la suppression de la série");
+      setIsLoading(false);
     }
   };
 
@@ -420,11 +604,11 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
           </div>
 
           <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
-            {/* Sélection du Client */}
+            {/* Sélection du Contact */}
             <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                  Client lié ?*
+                  Contact lié ?*
                 </label>
                 <Toggle 
                   value={isClientLinked} 
@@ -442,7 +626,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
               {isClientLinked && (
                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                   <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                    Rechercher le client* {isEdit && !formData.selectedClientId && <span className="text-red-500">(Non lié)</span>}
+                    Rechercher le contact* {isEdit && !formData.selectedClientId && <span className="text-red-500">(Non lié)</span>}
                     {(clientId || isEdit) && <span className="ml-1 text-[9px] text-gray-300 italic">(Verrouillé)</span>}
                   </label>
                   <div className="relative group">
@@ -451,7 +635,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
                       <input 
                         type="text"
                         disabled={!!clientId || isEdit}
-                        placeholder="Rechercher un client..."
+                        placeholder="Rechercher un contact (Client, Artisan...)"
                         className="w-full bg-white border border-gray-100 rounded-2xl pl-12 pr-4 py-3.5 text-sm font-medium text-gray-800 outline-none focus:border-gray-400 transition-all disabled:bg-gray-50 disabled:text-gray-400 shadow-sm placeholder:text-gray-400"
                         value={clientSearch}
                         onChange={(e) => {
@@ -463,9 +647,9 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
                       />
                     </div>
                     
-                    {showClientDropdown && !clientId && !isEdit && filteredClients.length > 0 && (
+                    {showClientDropdown && !clientId && !isEdit && filteredContacts.length > 0 && (
                       <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-100 rounded-xl shadow-xl z-[60] max-h-48 overflow-y-auto p-1 animate-in fade-in slide-in-from-top-1">
-                        {filteredClients.map(c => (
+                        {filteredContacts.map(c => (
                           <button
                             key={c.id}
                             type="button"
@@ -476,7 +660,14 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
                             }}
                             className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${formData.selectedClientId === c.id ? 'bg-indigo-50 text-indigo-600' : 'hover:bg-gray-50 text-gray-700'}`}
                           >
-                            {c.name}
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-2">
+                                {c.name}
+                                <span className="text-[10px] font-bold text-gray-400 lowercase italic">
+                                  ({c.contactType})
+                                </span>
+                              </span>
+                            </div>
                           </button>
                         ))}
                       </div>
@@ -500,9 +691,42 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
             </div>
 
             {/* Récurrence */}
-            <div className="bg-white border border-gray-100 rounded-xl p-4 flex flex-col gap-2">
-              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Rendez-vous récurrent</label>
-              <Toggle value={formData.isRecurring} onChange={v => setFormData({...formData, isRecurring: v})} />
+            <div className="bg-white border border-gray-100 rounded-xl p-4 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Rendez-vous récurrent</label>
+                <Toggle value={formData.isRecurring} onChange={v => setFormData({...formData, isRecurring: v})} />
+              </div>
+              
+              {formData.isRecurring && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex flex-wrap gap-2">
+                    {['Tous les jours', 'Toutes les semaines', 'Tous les mois', 'Tous les ans'].map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, recurrenceType: type as any })}
+                        className={`px-4 py-2 rounded-full text-[12px] font-bold transition-all border ${
+                          formData.recurrenceType === type 
+                            ? 'bg-gray-900 text-white border-gray-900 shadow-md' 
+                            : 'bg-white text-gray-500 border-gray-100 hover:border-gray-300'
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Date de fin de récurrence (Optionnel)</label>
+                    <input 
+                      type="date"
+                      className="w-full bg-white border border-gray-100 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-900 outline-none focus:border-indigo-400 transition-all"
+                      value={formData.recurrenceEndDate}
+                      onChange={e => setFormData({...formData, recurrenceEndDate: e.target.value})}
+                    />
+                    <p className="text-[10px] text-gray-400 italic">Par défaut, les occurrences sont générées sur les 3 prochains mois.</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Date & Heure */}
@@ -668,17 +892,17 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
                         const newLoc = e.target.value as any;
                         let newAddress = formData.address;
                         
-                        if (newLoc === 'Chez le client' && selectedClient) {
-                          newAddress = selectedClient.details?.address || '';
+                        if (newLoc === 'Chez le client' && selectedContact) {
+                          newAddress = selectedContact.details?.address || '';
                         } else if (newLoc === 'Magasin') {
                           newAddress = '';
                         } else if (newLoc === 'Visio') {
                           newAddress = '';
-                        } else if (newLoc === 'Téléphonique' && selectedClient) {
-                          newAddress = selectedClient.details?.phone || '';
-                        } else if (newLoc === 'Sur chantier' && selectedClient) {
-                          const chantierProp = selectedClient.details?.properties?.find((p: any) => !p.isMain) || selectedClient.details?.properties?.[0];
-                          newAddress = chantierProp?.address || selectedClient.details?.address || '';
+                        } else if (newLoc === 'Téléphonique' && selectedContact) {
+                          newAddress = selectedContact.details?.phone || '';
+                        } else if (newLoc === 'Sur chantier' && selectedContact) {
+                          const chantierProp = selectedContact.details?.properties?.find((p: any) => !p.isMain) || selectedContact.details?.properties?.[0];
+                          newAddress = chantierProp?.address || selectedContact.details?.address || '';
                         }
 
                         setFormData({
@@ -717,12 +941,12 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
                         value={formData.address}
                         onChange={e => setFormData({...formData, address: e.target.value})}
                       >
-                        <option value={selectedClient?.details?.phone || ''}>
-                          Contact principal: {formatPhone(selectedClient?.details?.phone || '') || 'Non renseigné'}
+                        <option value={selectedContact?.details?.phone || ''}>
+                          Contact principal: {formatPhone(selectedContact?.details?.phone || '') || 'Non renseigné'}
                         </option>
-                        {selectedClient?.details?.additionalContacts?.[0]?.phone && (
-                          <option value={selectedClient.details.additionalContacts[0].phone}>
-                            Contact secondaire: {formatPhone(selectedClient.details.additionalContacts[0].phone)}
+                        {selectedContact?.details?.additionalContacts?.[0]?.phone && (
+                          <option value={selectedContact.details.additionalContacts[0].phone}>
+                            Contact secondaire: {formatPhone(selectedContact.details.additionalContacts[0].phone)}
                           </option>
                         )}
                       </select>
@@ -738,7 +962,7 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
                       type="text" 
                       readOnly
                       className="w-full bg-gray-50 border border-gray-100 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-500 outline-none cursor-not-allowed"
-                      value={selectedClient?.details?.address || 'Aucune adresse renseignée'}
+                      value={selectedContact?.details?.address || 'Aucune adresse renseignée'}
                     />
                   </div>
                 )}
@@ -752,12 +976,12 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
                         value={formData.address}
                         onChange={e => setFormData({...formData, address: e.target.value})}
                       >
-                        {selectedClient?.details?.properties && selectedClient.details.properties.length > 0 ? (
-                          selectedClient.details.properties.map((p: any) => (
+                        {selectedContact?.details?.properties && selectedContact.details.properties.length > 0 ? (
+                          selectedContact.details.properties.map((p: any) => (
                             <option key={p.id} value={p.address}>{p.address} ({p.usage || 'Bien'})</option>
                           ))
                         ) : (
-                          <option value={selectedClient?.details?.address || ''}>{selectedClient?.details?.address || 'Aucune adresse renseignée'}</option>
+                          <option value={selectedContact?.details?.address || ''}>{selectedContact?.details?.address || 'Aucune adresse renseignée'}</option>
                         )}
                       </select>
                       <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -803,7 +1027,13 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
             {isEdit && (
               <button 
                 type="button"
-                onClick={handleDelete}
+                onClick={() => {
+                  if (appointmentToEdit?.isRecurring || appointmentToEdit?.isRecurringInstance) {
+                    setShowRecurringDeleteOptions(true);
+                  } else {
+                    setShowDeleteConfirm(true);
+                  }
+                }}
                 disabled={isLoading}
                 className="flex items-center gap-2 px-8 py-3 bg-red-50 text-red-600 rounded-lg text-sm font-bold hover:bg-red-100 transition-all disabled:opacity-50"
               >
@@ -821,6 +1051,79 @@ const AddAppointmentModal: React.FC<AddAppointmentModalProps> = ({
             </button>
           </div>
         </form>
+
+        {/* Modal de confirmation de suppression */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-300">
+              <div className="p-8 text-center">
+                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-500 mx-auto mb-6">
+                  <AlertTriangle size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Supprimer le rendez-vous ?</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">
+                  Voulez-vous vraiment supprimer ce rendez-vous ? Cette action est irréversible.
+                </p>
+              </div>
+              <div className="p-6 bg-gray-50 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 px-6 py-3 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition-all"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteOccurrence}
+                  className="flex-1 px-6 py-3 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 shadow-lg shadow-red-200 transition-all"
+                >
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de choix pour suppression récurrente */}
+        {showRecurringDeleteOptions && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-300">
+              <div className="p-8 text-center">
+                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-500 mx-auto mb-6">
+                  <AlertTriangle size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Supprimer la récurrence ?</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">
+                  Ce rendez-vous fait partie d'une série récurrente. Que souhaitez-vous supprimer ?
+                </p>
+              </div>
+              <div className="p-6 bg-gray-50 flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={handleDeleteOccurrence}
+                  className="w-full px-6 py-4 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
+                >
+                  Supprimer uniquement ce rendez-vous
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteSeries}
+                  className="w-full px-6 py-4 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 shadow-lg shadow-red-200 transition-all flex items-center justify-center gap-2"
+                >
+                  Supprimer toute la série
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRecurringDeleteOptions(false)}
+                  className="w-full px-6 py-3 text-sm font-bold text-gray-400 hover:text-gray-600 transition-all"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

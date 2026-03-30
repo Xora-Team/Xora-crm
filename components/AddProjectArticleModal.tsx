@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Search, Plus, Check, Loader2, Package, Layers, Edit3, Euro, Tag, ArrowUpDown } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc, arrayUnion } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 interface AddProjectArticleModalProps {
   isOpen: boolean;

@@ -4,7 +4,7 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, Building2, User, Chec
 import { auth, db, seedDatabase } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 // Use @firebase/firestore to fix named export resolution issues
-import { doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } from '@firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 
 interface LoginPageProps {
   onLogin: () => void;

@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
-import { doc, onSnapshot, getDoc, collection, query, where, updateDoc } from '@firebase/firestore';
+import { doc, onSnapshot, getDoc, collection, query, where, updateDoc } from 'firebase/firestore';
 import { formatPhone, formatFullNameFirstLast } from '../utils';
 import ProjectGeneralDiscovery from './ProjectGeneralDiscovery';
 import ProjectKitchenDiscovery from './ProjectKitchenDiscovery';
@@ -306,11 +306,23 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({ project: initialProject
 
                 <div className="flex items-center gap-8 py-1">
                   <span className="text-[15px] font-bold text-gray-900 tracking-tight">{formatFullNameFirstLast(project.clientName)}</span>
-                  <div className="flex items-center gap-2 text-[13px] font-bold text-gray-700">
-                    <Phone size={14} className="text-gray-300" /> {formatPhone(clientData?.details?.phone || '') || 'Non renseigné'}
+                  <div className="flex items-center gap-2 text-[13px] font-bold">
+                    <Phone size={14} className="text-gray-300" /> 
+                    {(() => {
+                      const formatted = formatPhone(clientData?.details?.phone || '');
+                      const isDefault = !formatted || formatted === '00 00 00 00 00';
+                      return (
+                        <span className={isDefault ? "text-gray-300 italic" : "text-gray-700"}>
+                          {formatted || 'Non renseigné'}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center gap-2 text-[13px] font-bold text-gray-700">
-                    <Mail size={14} className="text-gray-300" /> {clientData?.details?.email || 'Non renseigné'}
+                    <Mail size={14} className="text-gray-300" /> 
+                    <span className={clientData?.details?.email ? "text-gray-700" : "text-gray-300 italic"}>
+                      {clientData?.details?.email || 'Non renseigné'}
+                    </span>
                   </div>
                 </div>
 

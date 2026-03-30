@@ -6,7 +6,7 @@ import AddDirectoryContactModal from './AddDirectoryContactModal';
 import { Client } from '../types';
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
-import { doc, onSnapshot, updateDoc, arrayRemove } from '@firebase/firestore';
+import { doc, onSnapshot, updateDoc, arrayRemove } from 'firebase/firestore';
 
 import { formatPhone, formatNameFirstLast } from '../utils';
 

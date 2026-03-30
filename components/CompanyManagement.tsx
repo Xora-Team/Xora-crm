@@ -33,7 +33,8 @@ import {
   Search
 } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, updateDoc, onSnapshot, collection, query, where, deleteDoc } from '@firebase/firestore';
+import { doc, updateDoc, onSnapshot, collection, query, where, deleteDoc } from 'firebase/firestore';
+import { toast } from 'sonner';
 import { formatPhone } from '../utils';
 import InviteCollaboratorModal from './InviteCollaboratorModal';
 import AddGiftModal from './AddGiftModal';
@@ -288,9 +289,9 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
     deleteDoc(doc(db, 'users', memberId)).catch((e: any) => {
       console.error(e);
       if (e.code === 'resource-exhausted' || e.message?.includes('exhausted')) {
-        alert("⚠️ Quota Firebase atteint. Veuillez patienter quelques minutes.");
+        toast.error("⚠️ Quota Firebase atteint. Veuillez patienter quelques minutes.");
       } else {
-        alert("Une erreur est survenue lors de la suppression.");
+        toast.error("Une erreur est survenue lors de la suppression.");
       }
     });
     
@@ -322,7 +323,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
       setViewingDocument(document);
       setIsDocViewerOpen(true);
     } else {
-      alert("Accès refusé : Ce document est privé. Seul un administrateur peut le consulter.");
+      toast.error("Accès refusé : Ce document est privé. Seul un administrateur peut le consulter.");
     }
   };
 
@@ -380,9 +381,9 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
     } catch (e: any) {
       console.error(e);
       if (e.code === 'resource-exhausted' || e.message?.includes('exhausted')) {
-        alert("⚠️ Quota Firebase atteint. Veuillez patienter quelques minutes.");
+        toast.error("⚠️ Quota Firebase atteint. Veuillez patienter quelques minutes.");
       } else {
-        alert("Une erreur est survenue lors de la mise à jour.");
+        toast.error("Une erreur est survenue lors de la mise à jour.");
       }
     } finally {
       setIsSaving(false);
@@ -396,7 +397,7 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
     // Check file type
     const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
     if (!validTypes.includes(file.type)) {
-      alert("Format de fichier non supporté. Veuillez utiliser PNG, JPG ou SVG.");
+      toast.error("Format de fichier non supporté. Veuillez utiliser PNG, JPG ou SVG.");
       return;
     }
 
@@ -549,8 +550,8 @@ const CompanyManagement: React.FC<CompanyManagementProps> = ({ userProfile }) =>
                           <label className="text-[11px] font-medium text-gray-400">Téléphone</label>
                           <input 
                             type="text" 
-                            placeholder="01 23 45 67 89"
-                            className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all ${
+                            placeholder="00 00 00 00 00"
+                            className={`w-full bg-white border rounded-lg px-4 py-2.5 text-sm outline-none focus:border-gray-400 transition-all placeholder:text-gray-300 focus:placeholder-transparent ${
                               isFilled(companyInfo?.phone) ? 'border-gray-300 text-gray-900 font-bold' : 'border-gray-200'
                             }`}
                             value={companyInfo?.phone || ''}

@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, Box, Plus, Loader2, Euro, BookOpen, Layers, Tag, Save } from 'lucide-react';
 import { db } from '../firebase';
-// Use @firebase/firestore to fix named export resolution issues
-import { collection, addDoc, serverTimestamp, doc, updateDoc } from '@firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { Article } from '../types';
+import { toast } from 'sonner';
 
 interface AddArticleModalProps {
   isOpen: boolean;
@@ -60,6 +60,13 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({ isOpen, onClose, user
     if (!userProfile?.companyId) return;
 
     setIsLoading(true);
+
+    // Timeout de secours
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false);
+      toast.error("Le serveur met trop de temps à répondre, veuillez vérifier votre connexion.");
+    }, 10000);
+
     try {
       const articleData = {
         metier: formData.metier,
@@ -74,6 +81,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({ isOpen, onClose, user
       if (isEdit && articleToEdit) {
         const articleRef = doc(db, 'articles', articleToEdit.id);
         await updateDoc(articleRef, articleData);
+        toast.success("Article modifié avec succès.");
       } else {
         await addDoc(collection(db, 'articles'), {
           ...articleData,
@@ -81,14 +89,15 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({ isOpen, onClose, user
           createdBy: userProfile.name,
           createdAt: serverTimestamp(),
         });
+        toast.success("Article ajouté au catalogue.");
       }
-      
-      onClose();
     } catch (error) {
       console.error(error);
-      alert("Erreur lors de l'enregistrement de l'article.");
+      toast.error("Erreur lors de l'enregistrement de l'article.");
     } finally {
+      clearTimeout(timeoutId);
       setIsLoading(false);
+      onClose();
     }
   };
 

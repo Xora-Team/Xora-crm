@@ -3,7 +3,7 @@ import { Plus, Trash2, ChevronDown, ChevronUp, Loader2, Save, MapPin, Search, St
 import { Client } from '../types';
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
-import { doc, updateDoc, onSnapshot } from '@firebase/firestore';
+import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 
 interface Property {
   id: string;

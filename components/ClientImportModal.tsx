@@ -2,8 +2,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Upload, FileSpreadsheet, ArrowLeft, Check, Loader2, AlertTriangle, User, ShieldCheck, Mail } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, getDocs, query, where } from '@firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { HIERARCHY_DATA } from '../constants';
+import { toast } from 'sonner';
 
 interface ClientImportModalProps {
   isOpen: boolean;
@@ -128,7 +129,7 @@ const ClientImportModal: React.FC<ClientImportModalProps> = ({ isOpen, onClose, 
     if (parsedItems.length > 0) {
       runAudit(parsedItems);
     } else {
-      alert(`Aucune donnée valide trouvée. Vérifiez le format du fichier.`);
+      toast.error(`Aucune donnée valide trouvée. Vérifiez le format du fichier.`);
     }
   };
 

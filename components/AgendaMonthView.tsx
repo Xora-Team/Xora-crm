@@ -1,5 +1,6 @@
 
 import React, { useMemo } from 'react';
+import { format } from 'date-fns';
 import { CheckSquare, Calendar, Video, MapPin } from 'lucide-react';
 import { Appointment } from '../types';
 
@@ -58,9 +59,9 @@ const AgendaMonthView: React.FC<AgendaMonthViewProps> = ({ currentDate, appointm
       
       <div className="flex-1 grid grid-cols-7 grid-rows-6 min-h-[600px]">
         {monthDays.map((dayData, idx) => {
-          const fullDateStr = dayData.date.toLocaleDateString('fr-FR');
+          const fullDateStr = format(dayData.date, 'dd/MM/yyyy');
           const dayAppointments = appointments.filter(rdv => rdv.date === fullDateStr);
-          const isToday = fullDateStr === new Date().toLocaleDateString('fr-FR');
+          const isToday = fullDateStr === format(new Date(), 'dd/MM/yyyy');
 
           return (
             <div key={idx} className={`p-2 border-b border-l border-gray-50 flex flex-col gap-1 min-h-[120px] transition-colors hover:bg-gray-50/30 ${dayData.currentMonth ? 'bg-white' : 'bg-[#FBFBFB] opacity-50'}`}>

@@ -12,8 +12,9 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { db, storage } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { toast } from 'sonner';
 
 interface ClientDocumentsProps {
   clientId: string;
@@ -101,7 +102,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, userProfile
       }
     } catch (e: any) {
       console.error("Échec du transfert:", e);
-      alert(`Erreur lors du transfert : ${e.message}`);
+      toast.error(`Erreur lors du transfert : ${e.message}`);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -139,7 +140,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ clientId, userProfile
       
     } catch (e: any) {
       console.error("Erreur Firestore:", e);
-      alert(`Erreur : ${e.message}`);
+      toast.error(`Erreur : ${e.message}`);
     } finally {
       setDeletingIds(prev => {
         const next = new Set(prev);

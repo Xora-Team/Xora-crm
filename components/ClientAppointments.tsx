@@ -13,7 +13,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { Appointment } from '../types';
 import AddAppointmentModal from './AddAppointmentModal';
 import { formatFullNameFirstLast } from '../utils';

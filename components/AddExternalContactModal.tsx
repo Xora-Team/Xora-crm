@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { X, ChevronDown, Check, SquarePen, Loader2 } from 'lucide-react';
 import { db } from '../firebase';
-// Use @firebase/firestore to fix named export resolution issues
-import { doc, updateDoc, arrayUnion } from '@firebase/firestore';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { formatPhone } from '../utils';
+import { toast } from 'sonner';
 
 interface AddExternalContactModalProps {
   isOpen: boolean;
@@ -46,6 +46,13 @@ const AddExternalContactModal: React.FC<AddExternalContactModalProps> = ({ isOpe
     if (!formData.lastName || !formData.firstName) return;
 
     setIsLoading(true);
+
+    // Timeout de secours
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false);
+      toast.error("Le serveur met trop de temps à répondre, veuillez vérifier votre connexion.");
+    }, 10000);
+
     try {
       const clientRef = doc(db, 'clients', clientId);
       await updateDoc(clientRef, {
@@ -56,7 +63,6 @@ const AddExternalContactModal: React.FC<AddExternalContactModalProps> = ({ isOpe
           id: Date.now().toString()
         })
       });
-      onClose();
       setFormData({
         civility: 'Mme',
         lastName: '',
@@ -68,8 +74,11 @@ const AddExternalContactModal: React.FC<AddExternalContactModalProps> = ({ isOpe
       });
     } catch (e) {
       console.error(e);
+      toast.error("Une erreur est survenue lors de l'enregistrement.");
     } finally {
+      clearTimeout(timeoutId);
       setIsLoading(false);
+      onClose();
     }
   };
 
@@ -164,20 +173,20 @@ const AddExternalContactModal: React.FC<AddExternalContactModalProps> = ({ isOpe
                 <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Téléphone mobile</label>
                 <input 
                   type="text" 
-                  placeholder="06 12 34 56 78"
+                  placeholder="00 00 00 00 00"
                   value={formData.phone}
                   onChange={(e) => setFormData({...formData, phone: formatPhone(e.target.value)})}
-                  className="w-full bg-[#F8F9FA] border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-indigo-400 transition-all shadow-sm"
+                  className="w-full bg-[#F8F9FA] border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-indigo-400 transition-all placeholder:text-gray-300 focus:placeholder-transparent shadow-sm"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Téléphone fixe</label>
                 <input 
                   type="text" 
-                  placeholder="04 67 00 00 00"
+                  placeholder="00 00 00 00 00"
                   value={formData.fixed}
                   onChange={(e) => setFormData({...formData, fixed: formatPhone(e.target.value)})}
-                  className="w-full bg-[#F8F9FA] border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-indigo-400 transition-all shadow-sm"
+                  className="w-full bg-[#F8F9FA] border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-gray-900 outline-none focus:bg-white focus:border-indigo-400 transition-all placeholder:text-gray-300 focus:placeholder-transparent shadow-sm"
                 />
               </div>
             </div>

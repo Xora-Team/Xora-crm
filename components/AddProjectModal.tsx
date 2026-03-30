@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Briefcase, Check, Loader2, ChevronDown, MapPin, CheckCircle2, ArrowRight } from 'lucide-react';
+import { X, Briefcase, Check, Loader2, ChevronDown, MapPin, CheckCircle2, ArrowRight, User, Search, Plus, Link } from 'lucide-react';
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
-import { collection, addDoc, query, where, onSnapshot, doc, updateDoc, increment, getDocs, getDoc, writeBatch } from '@firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, doc, updateDoc, increment, getDocs, getDoc, writeBatch } from 'firebase/firestore';
+import { toast } from 'sonner';
 import { formatFullNameFirstLast } from '../utils';
 
 const HIERARCHY_DATA: Record<string, Record<string, string[]>> = {
@@ -107,6 +108,7 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
 }) => {
   const isEdit = !!projectToEdit;
   const [isLoading, setIsLoading] = useState(false);
+  const lastSubmitTime = useRef<number>(0);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
   
@@ -124,8 +126,21 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
     agenceurUid: userProfile?.uid || '',
     adresseChantier: '',
     metier: 'Cuisine',
-    selectedClientId: clientId || ''
+    selectedClientId: clientId || '',
+    sponsorLink: ''
   });
+
+  const [sponsorSearch, setSponsorSearch] = useState('');
+  const [sponsorSuggestions, setSponsorSuggestions] = useState<any[]>([]);
+  const [showSponsorResults, setShowSponsorResults] = useState(false);
+  const [selectedSponsor, setSelectedSponsor] = useState<{id: string, name: string} | null>(null);
+  const sponsorSearchRef = useRef<HTMLDivElement>(null);
+
+  const [prescriberSearch, setPrescriberSearch] = useState('');
+  const [prescriberSuggestions, setPrescriberSuggestions] = useState<any[]>([]);
+  const [showPrescriberResults, setShowPrescriberResults] = useState(false);
+  const [selectedPrescriber, setSelectedPrescriber] = useState<{id: string, name: string} | null>(null);
+  const prescriberSearchRef = useRef<HTMLDivElement>(null);
 
   // Fetch client origin data when selectedClientId changes
   useEffect(() => {
@@ -139,8 +154,15 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
             ...prev,
             categorie: data.details?.category || '',
             origine: data.origin || '',
-            sousOrigine: data.details?.subOrigin || ''
+            sousOrigine: data.details?.subOrigin || '',
+            sponsorLink: data.details?.sponsorLink || ''
           }));
+          if (data.details?.sponsorId && data.details?.sponsorName) {
+            setSelectedSponsor({ id: data.details.sponsorId, name: data.details.sponsorName });
+          }
+          if (data.details?.prescriberId && data.details?.prescriberName) {
+            setSelectedPrescriber({ id: data.details.prescriberId, name: data.details.prescriberName });
+          }
         }
       };
       fetchOriginInfo();
@@ -162,8 +184,15 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
           agenceurUid: projectToEdit.agenceur?.uid || '',
           adresseChantier: projectToEdit.details?.adresseChantier || '',
           metier: projectToEdit.metier || 'Cuisine',
-          selectedClientId: projectToEdit.clientId || ''
+          selectedClientId: projectToEdit.clientId || '',
+          sponsorLink: projectToEdit.details?.sponsorLink || ''
         });
+        if (projectToEdit.details?.sponsorId && projectToEdit.details?.sponsorName) {
+          setSelectedSponsor({ id: projectToEdit.details.sponsorId, name: projectToEdit.details.sponsorName });
+        }
+        if (projectToEdit.details?.prescriberId && projectToEdit.details?.prescriberName) {
+          setSelectedPrescriber({ id: projectToEdit.details.prescriberId, name: projectToEdit.details.prescriberName });
+        }
       } else if (initialData) {
         setFormData(prev => ({
           ...prev,
@@ -241,12 +270,81 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
     return () => unsubscribeClients();
   }, [isOpen, userProfile?.companyId]);
 
+  // Sponsor search logic
+  useEffect(() => {
+    if (!sponsorSearch || sponsorSearch.length < 2) {
+      setSponsorSuggestions([]);
+      return;
+    }
+
+    const q = query(
+      collection(db, 'clients'),
+      where('companyId', '==', userProfile?.companyId),
+      where('directoryType', '==', 'clients')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const results = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter((c: any) => c.name.toLowerCase().includes(sponsorSearch.toLowerCase()))
+        .slice(0, 5);
+      setSponsorSuggestions(results);
+    });
+
+    return () => unsubscribe();
+  }, [sponsorSearch, userProfile?.companyId]);
+
+  // Prescriber search logic
+  useEffect(() => {
+    if (!prescriberSearch || prescriberSearch.length < 2) {
+      setPrescriberSuggestions([]);
+      return;
+    }
+
+    const q = query(
+      collection(db, 'clients'),
+      where('companyId', '==', userProfile?.companyId),
+      where('directoryType', '==', 'prescribers')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const results = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter((c: any) => c.name.toLowerCase().includes(prescriberSearch.toLowerCase()))
+        .slice(0, 5);
+      setPrescriberSuggestions(results);
+    });
+
+    return () => unsubscribe();
+  }, [prescriberSearch, userProfile?.companyId]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sponsorSearchRef.current && !sponsorSearchRef.current.contains(event.target as Node)) {
+        setShowSponsorResults(false);
+      }
+      if (prescriberSearchRef.current && !prescriberSearchRef.current.contains(event.target as Node)) {
+        setShowPrescriberResults(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const categories = useMemo(() => Object.keys(HIERARCHY_DATA), []);
   const origines = useMemo(() => formData.categorie ? Object.keys(HIERARCHY_DATA[formData.categorie] || {}) : [], [formData.categorie]);
   const sousOrigines = useMemo(() => (formData.categorie && formData.origine) ? (HIERARCHY_DATA[formData.categorie]?.[formData.origine] || []) : [], [formData.categorie, formData.origine]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const now = Date.now();
+    if (isLoading || (now - lastSubmitTime.current < 2000)) {
+      console.warn("Submit blocked: already loading or too soon since last click.");
+      return;
+    }
+    lastSubmitTime.current = now;
+    
     if (!userProfile?.companyId || !formData.categorie || !formData.origine || !formData.projectName) return;
     setIsLoading(true);
     try {
@@ -266,17 +364,28 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
           uid: formData.agenceurUid,
           name: formData.agenceurReferent,
           avatar: formData.agenceurAvatar
-        },
-        "details.adresseChantier": formData.adresseChantier
+        }
+      };
+
+      const details = {
+        adresseChantier: formData.adresseChantier,
+        sponsorId: selectedSponsor?.id || null,
+        sponsorName: selectedSponsor?.name || null,
+        sponsorLink: formData.sponsorLink || '',
+        prescriberId: selectedPrescriber?.id || null,
+        prescriberName: selectedPrescriber?.name || null,
       };
 
       if (isEdit && projectToEdit) {
-        await updateDoc(doc(db, 'projects', projectToEdit.id), payload);
+        await updateDoc(doc(db, 'projects', projectToEdit.id), {
+          ...payload,
+          details: details
+        });
         onClose();
       } else {
         const projectRef = await addDoc(collection(db, 'projects'), {
           ...payload,
-          details: { adresseChantier: formData.adresseChantier },
+          details: details,
           addedDate: new Date().toLocaleDateString('fr-FR'),
           progress: 2,
           status: 'Étude client',
@@ -322,9 +431,9 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
         setCreatedProjectId(projectRef.id);
         setShowSuccessPopup(true);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert("Une erreur est survenue.");
+      toast.error("Une erreur est survenue lors de la création du projet.");
     } finally {
       setIsLoading(false);
     }
@@ -408,7 +517,17 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Origine</label>
                   <div className="relative">
-                    <select value={formData.categorie} onChange={(e) => setFormData({...formData, categorie: e.target.value, origine: '', sousOrigine: ''})} className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3 text-[13px] text-gray-900 outline-none focus:border-gray-900 transition-all font-bold shadow-sm">
+                    <select value={formData.categorie} onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData({...formData, categorie: val, origine: '', sousOrigine: ''});
+                      if (val !== 'Parrainage') {
+                        setSelectedSponsor(null);
+                        setFormData(prev => ({ ...prev, sponsorLink: '' }));
+                      }
+                      if (val !== 'Prescripteur') {
+                        setSelectedPrescriber(null);
+                      }
+                    }} className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3 text-[13px] text-gray-900 outline-none focus:border-gray-900 transition-all font-bold shadow-sm">
                       <option value="">Sélectionner</option>
                       {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                     </select>
@@ -419,7 +538,17 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
                   <div className="space-y-1.5 animate-in fade-in slide-in-from-left-2 duration-300">
                     <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Sous-origine</label>
                     <div className="relative">
-                      <select value={formData.origine} onChange={(e) => setFormData({...formData, origine: e.target.value, sousOrigine: ''})} className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3 text-[13px] text-gray-900 outline-none focus:border-gray-900 transition-all font-bold shadow-sm">
+                      <select value={formData.origine} onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData({...formData, origine: val, sousOrigine: ''});
+                        if (val !== 'Parrainage' && formData.categorie !== 'Parrainage') {
+                          setSelectedSponsor(null);
+                          setFormData(prev => ({ ...prev, sponsorLink: '' }));
+                        }
+                        if (val !== 'Prescripteur' && formData.categorie !== 'Prescripteur') {
+                          setSelectedPrescriber(null);
+                        }
+                      }} className="w-full appearance-none bg-white border border-gray-100 rounded-xl px-4 py-3 text-[13px] text-gray-900 outline-none focus:border-gray-900 transition-all font-bold shadow-sm">
                         <option value="">Sélectionner</option>
                         {origines.map(orig => <option key={orig} value={orig}>{orig}</option>)}
                       </select>
@@ -440,6 +569,185 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Bloc Parrainage */}
+              {(formData.categorie === 'Parrainage' || formData.origine === 'Parrainage') && (
+                <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 animate-in slide-in-from-top-2 duration-300 space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Plus size={14} className="text-indigo-600" />
+                        <h4 className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">Identification du Parrain</h4>
+                    </div>
+                    
+                    <div className="relative" ref={sponsorSearchRef}>
+                        {selectedSponsor ? (
+                            <div className="flex items-center justify-between bg-white border border-indigo-200 rounded-xl px-5 py-4 shadow-sm animate-in zoom-in-95">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                                        <User size={16} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Parrain sélectionné</p>
+                                        <p className="text-sm font-black text-gray-900 uppercase">{selectedSponsor.name}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Check size={18} className="text-green-500" />
+                                    <button 
+                                        type="button"
+                                        onClick={() => { setSelectedSponsor(null); setSponsorSearch(''); }}
+                                        className="p-2 hover:bg-red-50 text-gray-300 hover:text-red-500 rounded-lg transition-all"
+                                    >
+                                        <X size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="relative group">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
+                                    <input 
+                                        value={sponsorSearch}
+                                        onChange={(e) => {
+                                            setSponsorSearch(e.target.value);
+                                            setShowSponsorResults(true);
+                                        }}
+                                        onFocus={() => setShowSponsorResults(true)}
+                                        type="text" 
+                                        placeholder="Rechercher le parrain dans l'annuaire (ex: DUBOIS)..." 
+                                        className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-100 rounded-2xl text-sm font-medium text-gray-800 focus:outline-none focus:border-gray-400 transition-all placeholder:text-gray-400 shadow-sm"
+                                    />
+                                </div>
+
+                                {showSponsorResults && sponsorSuggestions.length > 0 && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in zoom-in-95">
+                                        {sponsorSuggestions.map((sponsor) => (
+                                            <button
+                                                key={sponsor.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedSponsor({ id: sponsor.id, name: sponsor.name });
+                                                    setShowSponsorResults(false);
+                                                }}
+                                                className="w-full px-5 py-4 text-left hover:bg-indigo-50 flex items-center gap-4 border-b border-gray-50 last:border-0 group transition-all"
+                                            >
+                                                <div className="p-1.5 bg-gray-50 rounded-lg text-gray-300 group-hover:text-indigo-600 transition-all">
+                                                    <User size={16} />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[13px] font-bold text-gray-900 uppercase">{sponsor.name}</span>
+                                                    <span className="text-[11px] text-gray-400 font-medium">{sponsor.location || 'Localisation non définie'}</span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                {showSponsorResults && sponsorSearch.length >= 2 && sponsorSuggestions.length === 0 && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl p-6 text-center z-50">
+                                        <p className="text-xs font-bold text-gray-400 italic">Aucun client trouvé pour cette recherche.</p>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+
+                    {/* Champ Lien Parrain */}
+                    <div className="space-y-2 animate-in slide-in-from-top-1 duration-300">
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Lien parrain</label>
+                      <div className="relative group">
+                        <Link className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-300 group-focus-within:text-indigo-600 transition-colors" size={16} />
+                        <input 
+                          type="text" 
+                          value={formData.sponsorLink}
+                          onChange={(e) => setFormData({...formData, sponsorLink: e.target.value})}
+                          placeholder="Ex: Cousin, Ami, Voisin, Collègue..." 
+                          className="w-full pl-11 pr-4 py-2.5 bg-white border border-indigo-100 rounded-xl text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm placeholder:text-indigo-200" 
+                        />
+                      </div>
+                    </div>
+                </div>
+              )}
+
+              {/* Bloc Prescripteur */}
+              {(formData.categorie === 'Prescripteur' || formData.origine === 'Prescripteur') && (
+                <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 animate-in slide-in-from-top-2 duration-300 space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Plus size={14} className="text-indigo-600" />
+                        <h4 className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">Identification du Prescripteur</h4>
+                    </div>
+                    
+                    <div className="relative" ref={prescriberSearchRef}>
+                        {selectedPrescriber ? (
+                            <div className="flex items-center justify-between bg-white border border-indigo-200 rounded-xl px-5 py-4 shadow-sm animate-in zoom-in-95">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                                        <User size={16} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Prescripteur sélectionné</p>
+                                        <p className="text-sm font-black text-gray-900 uppercase">{selectedPrescriber.name}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Check size={18} className="text-green-500" />
+                                    <button 
+                                        type="button"
+                                        onClick={() => { setSelectedPrescriber(null); setPrescriberSearch(''); }}
+                                        className="p-2 hover:bg-red-50 text-gray-300 hover:text-red-500 rounded-lg transition-all"
+                                    >
+                                        <X size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="relative group">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
+                                    <input 
+                                        value={prescriberSearch}
+                                        onChange={(e) => {
+                                            setPrescriberSearch(e.target.value);
+                                            setShowPrescriberResults(true);
+                                        }}
+                                        onFocus={() => setShowPrescriberResults(true)}
+                                        type="text" 
+                                        placeholder="Rechercher le prescripteur dans l'annuaire..." 
+                                        className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-100 rounded-2xl text-sm font-medium text-gray-800 focus:outline-none focus:border-gray-400 transition-all placeholder:text-gray-400 shadow-sm"
+                                    />
+                                </div>
+
+                                {showPrescriberResults && prescriberSuggestions.length > 0 && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in zoom-in-95">
+                                        {prescriberSuggestions.map((prescriber) => (
+                                            <button
+                                                key={prescriber.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedPrescriber({ id: prescriber.id, name: prescriber.name });
+                                                    setShowPrescriberResults(false);
+                                                }}
+                                                className="w-full px-5 py-4 text-left hover:bg-indigo-50 flex items-center gap-4 border-b border-gray-50 last:border-0 group transition-all"
+                                            >
+                                                <div className="p-1.5 bg-gray-50 rounded-lg text-gray-300 group-hover:text-indigo-600 transition-all">
+                                                    <User size={16} />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[13px] font-bold text-gray-900 uppercase">{prescriber.name}</span>
+                                                    <span className="text-[11px] text-gray-400 font-medium">{prescriber.location || 'Localisation non définie'}</span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                {showPrescriberResults && prescriberSearch.length >= 2 && prescriberSuggestions.length === 0 && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl p-6 text-center z-50">
+                                        <p className="text-xs font-bold text-gray-400 italic">Aucun prescripteur trouvé pour cette recherche.</p>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
+              )}
             </div>
             <div className="bg-[#FBFBFB] border border-gray-100 rounded-2xl p-6 grid grid-cols-12 gap-6">
               <div className="col-span-4 space-y-1.5">

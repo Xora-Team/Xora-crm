@@ -19,7 +19,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, updateDoc, onSnapshot, deleteField } from '@firebase/firestore';
+import { doc, updateDoc, onSnapshot, deleteField } from 'firebase/firestore';
 import AddProjectArticleModal from './AddProjectArticleModal';
 
 // --- CONFIGURATION DES DIAGNOSTICS (ISSU DU CSV) ---

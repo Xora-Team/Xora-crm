@@ -32,7 +32,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, updateDoc, getDoc } from '@firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { formatFullNameFirstLast } from '../utils';
 
 // Structure de données hiérarchique unifiée (Source de vérité)

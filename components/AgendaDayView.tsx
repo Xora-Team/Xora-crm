@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { format } from 'date-fns';
 import { Clock, CheckSquare, Calendar, Video, MapPin } from 'lucide-react';
 import { Appointment } from '../types';
 import { formatFullName } from '../utils';
@@ -12,7 +13,7 @@ interface AgendaDayViewProps {
 
 const AgendaDayView: React.FC<AgendaDayViewProps> = ({ currentDate, appointments, onAppointmentClick }) => {
   const hours = Array.from({ length: 11 }, (_, i) => i + 8); // 08:00 à 18:00
-  const dateStr = currentDate.toLocaleDateString('fr-FR');
+  const dateStr = format(currentDate, 'dd/MM/yyyy');
 
   const getPositionStyles = (startTime: string, endTime: string) => {
     const [startH, startM] = startTime.split(':').map(Number);

@@ -14,7 +14,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { Task } from '../types';
 import AddTaskModal from './AddTaskModal';
 import { formatFullNameFirstLast } from '../utils';

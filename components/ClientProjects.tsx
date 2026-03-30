@@ -5,8 +5,8 @@ import { Search, ChevronDown, Plus, Eye, MoreHorizontal, Home, PenSquare, Trash2
 import AddProjectModal from './AddProjectModal';
 import AddTaskModal from './AddTaskModal';
 import { db } from '../firebase';
-// Use @firebase/firestore to fix named export resolution issues
-import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, increment } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, increment } from 'firebase/firestore';
+import { toast } from 'sonner';
 
 interface ClientProjectsProps {
   client: any;
@@ -75,7 +75,7 @@ const ClientProjects: React.FC<ClientProjectsProps> = ({ client, userProfile, on
       setActiveMenuId(null);
     } catch (err) {
       console.error("Erreur suppression projet:", err);
-      alert("Une erreur est survenue lors de la suppression.");
+      toast.error("Une erreur est survenue lors de la suppression.");
     } finally {
       setIsDeleting(false);
     }

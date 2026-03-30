@@ -14,8 +14,9 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { db, storage } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { toast } from 'sonner';
 
 interface ProjectDocumentsProps {
   projectId: string;
@@ -110,7 +111,7 @@ const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({ projectId, clientId
       }
     } catch (e: any) {
       console.error("Échec du transfert:", e);
-      alert(`Erreur lors du transfert : ${e.message}`);
+      toast.error(`Erreur lors du transfert : ${e.message}`);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

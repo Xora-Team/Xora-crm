@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { X, ChevronDown, Plus, Loader2, MapPin, Search, Check, User, Info, ShieldCheck, Link, Save, Truck } from 'lucide-react';
 import { db } from '../firebase';
-// Use @firebase/firestore to fix named export resolution issues
-import { collection, addDoc, getDocs, query, where, doc, updateDoc } from '@firebase/firestore';
+import { collection, addDoc, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
+import { toast } from 'sonner';
 import { Client } from '../types';
 import { HIERARCHY_DATA, SUPPLIER_HIERARCHY } from '../constants';
 import { normalizeString } from '../utils';
@@ -98,6 +98,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
   const [addressSearch, setAddressSearch] = useState('');
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const lastSubmitTime = useRef<number>(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -111,11 +112,18 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
   const sponsorSearchRef = useRef<HTMLDivElement>(null);
   const [selectedSponsor, setSelectedSponsor] = useState<{id: string, name: string} | null>(null);
 
+  // États pour le prescripteur
+  const [prescriberSearch, setPrescriberSearch] = useState('');
+  const [prescriberSuggestions, setPrescriberSuggestions] = useState<any[]>([]);
+  const [showPrescriberResults, setShowPrescriberResults] = useState(false);
+  const prescriberSearchRef = useRef<HTMLDivElement>(null);
+  const [selectedPrescriber, setSelectedPrescriber] = useState<{id: string, name: string} | null>(null);
+
   // État pour la popup info RGPD
   const [showRgpdInfo, setShowRgpdInfo] = useState(false);
 
-  const [formData, setFormData] = useState({
-    civility: isSupplier ? 'SAS' : 'Mme',
+  const [formData, setFormData] = useState<any>({
+    civility: isSupplier ? 'SAS' : '',
     lastName: '',
     firstName: '',
     email: '',
@@ -131,7 +139,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
     subOrigin: '', 
     referent: userProfile?.name || '',
     sponsorLink: '', 
-    rgpd: false,
+    rgpdConsent: false,
     website: '',
     selectionStatus: 'En cours de sélection',
     supplierType: '',
@@ -145,7 +153,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
       if (clientToEdit) {
         const details = clientToEdit.details || {};
         setFormData({
-          civility: details.civility ?? (isSupplier ? 'SAS' : 'Mme'),
+          civility: details.civility ?? (isSupplier ? 'SAS' : ''),
           lastName: details.lastName || '',
           firstName: details.firstName || '',
           email: details.email || '',
@@ -161,7 +169,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
           subOrigin: details.subOrigin || '',
           referent: details.referent || clientToEdit.addedBy?.name || '',
           sponsorLink: details.sponsorLink || '',
-          rgpd: details.rgpd || false,
+          rgpdConsent: details.rgpdConsent || details.rgpd || false,
           website: details.website || '',
           selectionStatus: details.selectionStatus || 'En cours de sélection',
           supplierType: details.supplierType || '',
@@ -176,7 +184,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
         }
       } else {
         setFormData({
-          civility: isSupplier ? 'SAS' : 'Mme',
+          civility: isSupplier ? 'SAS' : '',
           lastName: '',
           firstName: '',
           email: '',
@@ -192,7 +200,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
           subOrigin: '',
           referent: userProfile?.name || '',
           sponsorLink: '',
-          rgpd: false,
+          rgpdConsent: false,
           website: '',
           selectionStatus: 'En cours de sélection',
           supplierType: '',
@@ -279,6 +287,35 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
     return () => clearTimeout(timer);
   }, [sponsorSearch, userProfile?.companyId]);
 
+  // Recherche prescripteur dans l'annuaire
+  useEffect(() => {
+    const searchPrescriber = async () => {
+      if (prescriberSearch.length < 2 || !userProfile?.companyId) {
+        setPrescriberSuggestions([]);
+        return;
+      }
+      try {
+        const q = query(
+          collection(db, 'clients'), 
+          where('companyId', '==', userProfile.companyId),
+          where('directoryType', '==', 'prescribers')
+        );
+        const snap = await getDocs(q);
+        const normalizedQuery = normalizeString(prescriberSearch);
+        const results = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as any))
+          .filter(c => normalizeString(c.name || '').includes(normalizedQuery))
+          .slice(0, 5);
+        setPrescriberSuggestions(results);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    const timer = setTimeout(searchPrescriber, 300);
+    return () => clearTimeout(timer);
+  }, [prescriberSearch, userProfile?.companyId]);
+
   // Logic pour la cascade d'origines
   const categories = useMemo(() => Object.keys(HIERARCHY_DATA), []);
   const origins = useMemo(() => formData.category ? Object.keys(HIERARCHY_DATA[formData.category] || {}) : [], [formData.category]);
@@ -311,20 +348,66 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
   };
 
   const handleAcceptRgpd = () => {
-    setFormData(prev => ({ ...prev, rgpd: true }));
+    setFormData(prev => ({ ...prev, rgpdConsent: true }));
     setShowRgpdInfo(false);
+  };
+
+  const sanitizeData = (obj: any) => {
+    const newObj: any = {};
+    Object.keys(obj).forEach(key => {
+      const val = obj[key];
+      // On garde false et 0, mais on supprime null, undefined et les chaînes vides
+      if (val === null || val === undefined || val === '') return;
+      
+      if (typeof val === 'object' && !Array.isArray(val) && !(val instanceof Date)) {
+        const sanitized = sanitizeData(val);
+        if (Object.keys(sanitized).length > 0) {
+          newObj[key] = sanitized;
+        }
+      } else {
+        newObj[key] = val;
+      }
+    });
+    return newObj;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    const now = Date.now();
+    if (isLoading || (now - lastSubmitTime.current < 2000)) {
+      console.warn("Submit blocked: already loading or too soon since last click.");
+      return;
+    }
+    lastSubmitTime.current = now;
+    
     const companyId = userProfile?.companyId;
-    if (!companyId) {
-      alert("Erreur : Impossible de lier ce client à votre société.");
+    const userUid = userProfile?.uid;
+    
+    if (!companyId || !userUid) {
+      toast.error("Erreur : Votre session utilisateur est incomplète ou invalide. Veuillez vous reconnecter.");
+      return;
+    }
+
+    // Vérifications manuelles avant envoi
+    const errors = [];
+    if (!isSupplier && !formData.civility) errors.push("- Civilité");
+    if (!formData.lastName.trim()) errors.push("- Nom");
+    if (!isSupplier && !formData.firstName.trim()) errors.push("- Prénom");
+    
+    if (errors.length > 0) {
+      toast.error(`Les champs suivants sont obligatoires :\n${errors.join('\n')}`);
       return;
     }
     
     setIsLoading(true);
+
+    // Timeout de secours
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false);
+      toast.error("Le serveur met trop de temps à répondre. L'enregistrement est peut-être en cours ou a échoué silencieusement.");
+    }, 10000);
+
     try {
       // Formatage du nom : Nom (MAJUSCULES) Prénom (Casse mixte)
       let finalName = "";
@@ -337,7 +420,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
         finalName = `${lastNameUpper} ${capitalizedFirstName}`.trim() || "SANS NOM";
       }
       
-      const clientData: any = {
+      const rawData: any = {
         name: finalName,
         origin: isSupplier ? formData.supplierType : formData.origin,
         category: isSupplier ? formData.supplierType : formData.category,
@@ -349,43 +432,87 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
           lastName: formData.lastName.trim().toUpperCase(),
           sponsorId: selectedSponsor?.id || null,
           sponsorName: selectedSponsor?.name || null,
+          prescriberId: selectedPrescriber?.id || null,
+          prescriberName: selectedPrescriber?.name || null,
         }
       };
+
+      // Nettoyage des données avant envoi
+      const clientData = sanitizeData(rawData);
 
       if (isEdit && clientToEdit) {
         // Mode Mise à jour
         const clientRef = doc(db, 'clients', clientToEdit.id);
         await updateDoc(clientRef, clientData);
-        onClose();
       } else {
         // Mode Création
-        const newClient = {
+        const newClient: any = {
           ...clientData,
           addedBy: {
-            uid: userProfile.uid,
-            name: userProfile.name,
-            avatar: userProfile.avatar
+            uid: userUid,
+            name: userProfile.name || "Utilisateur inconnu",
+            avatar: userProfile.avatar || ""
           },
           status: isSupplier ? 'Client' : 'Leads', 
           dateAdded: new Date().toLocaleDateString('fr-FR'),
           companyId: companyId,
           projectCount: 0
         };
+        
+        if (!newClient.details) newClient.details = {};
         newClient.details.createdAt = new Date().toISOString();
+
+        // Vérification anti-doublon (30 secondes)
+        try {
+          const qDup = query(
+            collection(db, 'clients'),
+            where('companyId', '==', companyId),
+            where('name', '==', finalName)
+          );
+          const dupSnap = await getDocs(qDup);
+          const recentDup = dupSnap.docs.find(doc => {
+            const data = doc.data();
+            const createdAt = data.details?.createdAt;
+            if (!createdAt) return false;
+            const createdTime = new Date(createdAt).getTime();
+            return (now - createdTime) < 30000; // 30 secondes
+          });
+
+          if (recentDup) {
+            console.warn("Doublon détecté, annulation de l'envoi.");
+            toast.error("Un contact identique a été créé il y a moins de 30 secondes.");
+            setIsLoading(false);
+            clearTimeout(timeoutId);
+            return;
+          }
+        } catch (dupError) {
+          console.error("Erreur lors de la vérification des doublons:", dupError);
+          // On continue quand même si la vérification échoue pour ne pas bloquer l'utilisateur
+        }
 
         const docRef = await addDoc(collection(db, 'clients'), newClient);
         
         if (onClientCreated) {
           onClientCreated(docRef.id, finalName);
-        } else {
-          onClose();
         }
       }
-    } catch (error) {
-      console.error("Erreur creation/edition:", error);
-      alert("Erreur lors de l'enregistrement.");
+    } catch (error: any) {
+      console.error("Erreur détaillée creation/edition:", error);
+      
+      let errorMsg = "Erreur lors de l'enregistrement.";
+      if (error.code) {
+        errorMsg += `\nCode : ${error.code}`;
+      }
+      if (error.message) {
+        errorMsg += `\nMessage : ${error.message}`;
+      }
+      
+      // Affichage précis de l'erreur technique
+      toast.error(`DÉTAIL TECHNIQUE DE L'ERREUR :\n\n${errorMsg}\n\nVeuillez vérifier que tous les champs obligatoires sont remplis correctement.`);
     } finally {
+      clearTimeout(timeoutId);
       setIsLoading(false);
+      onClose();
     }
   };
 
@@ -396,6 +523,9 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
       }
       if (sponsorSearchRef.current && !sponsorSearchRef.current.contains(event.target as Node)) {
         setShowSponsorResults(false);
+      }
+      if (prescriberSearchRef.current && !prescriberSearchRef.current.contains(event.target as Node)) {
+        setShowPrescriberResults(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -549,8 +679,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                             value={formData.phone}
                             onChange={handlePhoneChange}
                             type="text" 
-                            placeholder={isSupplier ? "04 67 00 00 00" : "06 12 34 56 78"} 
-                            className="flex-1 bg-white border border-gray-200 rounded-r-xl py-3 px-4 text-sm font-semibold text-gray-800 focus:outline-none focus:border-gray-900 transition-all placeholder:text-gray-300" 
+                            placeholder="00 00 00 00 00" 
+                            className="flex-1 bg-white border border-gray-200 rounded-r-xl py-3 px-4 text-sm font-semibold text-gray-800 focus:outline-none focus:border-gray-900 transition-all placeholder:text-gray-300 focus:placeholder-transparent" 
                           />
                        </div>
                   </div>
@@ -704,6 +834,9 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                                         setSelectedSponsor(null);
                                         setFormData(prev => ({ ...prev, sponsorLink: '' }));
                                       }
+                                      if(val !== 'Prescripteur') {
+                                        setSelectedPrescriber(null);
+                                      }
                                   }}
                                   className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm"
                                 >
@@ -726,6 +859,9 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                                         if(val !== 'Parrainage' && formData.category !== 'Parrainage') {
                                           setSelectedSponsor(null);
                                           setFormData(prev => ({ ...prev, sponsorLink: '' }));
+                                        }
+                                        if(val !== 'Prescripteur' && formData.category !== 'Prescripteur') {
+                                          setSelectedPrescriber(null);
                                         }
                                     }}
                                     className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-2.5 px-4 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm disabled:opacity-50 disabled:bg-gray-100"
@@ -859,6 +995,88 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                           </div>
                       </div>
                     )}
+
+                    {/* Bloc Prescripteur (Conditionnel - Apparaît si l'Origine OU la Sous-origine est Prescripteur) */}
+                    {(formData.category === 'Prescripteur' || formData.origin === 'Prescripteur') && (
+                      <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 animate-in slide-in-from-top-2 duration-300 space-y-4">
+                          <div className="flex items-center gap-2 mb-2">
+                              <Plus size={14} className="text-indigo-600" />
+                              <h4 className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">Identification du Prescripteur</h4>
+                          </div>
+                          
+                          <div className="relative" ref={prescriberSearchRef}>
+                              {selectedPrescriber ? (
+                                  <div className="flex items-center justify-between bg-white border border-indigo-200 rounded-xl px-5 py-4 shadow-sm animate-in zoom-in-95">
+                                      <div className="flex items-center gap-3">
+                                          <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                                              <User size={16} />
+                                          </div>
+                                          <div>
+                                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Prescripteur sélectionné</p>
+                                              <p className="text-sm font-black text-gray-900 uppercase">{selectedPrescriber.name}</p>
+                                          </div>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                          <Check size={18} className="text-green-500" />
+                                          <button 
+                                              type="button"
+                                              onClick={() => { setSelectedPrescriber(null); setPrescriberSearch(''); }}
+                                              className="p-2 hover:bg-red-50 text-gray-300 hover:text-red-500 rounded-lg transition-all"
+                                          >
+                                              <X size={18} />
+                                          </button>
+                                      </div>
+                                  </div>
+                              ) : (
+                                  <>
+                                      <div className="relative group">
+                                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
+                                          <input 
+                                              value={prescriberSearch}
+                                              onChange={(e) => {
+                                                  setPrescriberSearch(e.target.value);
+                                                  setShowPrescriberResults(true);
+                                              }}
+                                              onFocus={() => setShowPrescriberResults(true)}
+                                              type="text" 
+                                              placeholder="Rechercher le prescripteur dans l'annuaire..." 
+                                              className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-100 rounded-2xl text-sm font-medium text-gray-800 focus:outline-none focus:border-gray-400 transition-all placeholder:text-gray-400 shadow-sm"
+                                          />
+                                      </div>
+
+                                      {showPrescriberResults && prescriberSuggestions.length > 0 && (
+                                          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in zoom-in-95">
+                                              {prescriberSuggestions.map((prescriber) => (
+                                                  <button
+                                                      key={prescriber.id}
+                                                      type="button"
+                                                      onClick={() => {
+                                                          setSelectedPrescriber({ id: prescriber.id, name: prescriber.name });
+                                                          setShowPrescriberResults(false);
+                                                      }}
+                                                      className="w-full px-5 py-4 text-left hover:bg-indigo-50 flex items-center gap-4 border-b border-gray-50 last:border-0 group transition-all"
+                                                  >
+                                                      <div className="p-1.5 bg-gray-50 rounded-lg text-gray-300 group-hover:text-indigo-600 transition-all">
+                                                          <User size={16} />
+                                                      </div>
+                                                      <div className="flex flex-col">
+                                                          <span className="text-[13px] font-bold text-gray-900 uppercase">{prescriber.name}</span>
+                                                          <span className="text-[11px] text-gray-400 font-medium">{prescriber.location || 'Localisation non définie'}</span>
+                                                      </div>
+                                                  </button>
+                                              ))}
+                                          </div>
+                                      )}
+                                      {showPrescriberResults && prescriberSearch.length >= 2 && prescriberSuggestions.length === 0 && (
+                                          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl p-6 text-center z-50">
+                                              <p className="text-xs font-bold text-gray-400 italic">Aucun prescripteur trouvé pour cette recherche.</p>
+                                          </div>
+                                      )}
+                                  </>
+                              )}
+                          </div>
+                      </div>
+                    )}
                 </div>
               )}
 
@@ -939,15 +1157,15 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, userProfile, onClientCre
                         <p className="text-[10px] text-gray-400 font-medium italic mt-0.5">Obligatoire pour les communications marketing</p>
                       </div>
                       <div className="flex items-center space-x-4">
-                          <span className={`text-sm font-bold transition-colors ${!formData.rgpd ? 'text-gray-900' : 'text-gray-300'}`}>Non</span>
+                          <span className={`text-sm font-bold transition-colors ${!formData.rgpdConsent ? 'text-gray-900' : 'text-gray-300'}`}>Non</span>
                           <button 
                               type="button"
-                              onClick={() => setFormData({...formData, rgpd: !formData.rgpd})}
-                              className={`w-14 h-7 rounded-full relative transition-all duration-300 shadow-sm ${formData.rgpd ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                              onClick={() => setFormData({...formData, rgpdConsent: !formData.rgpdConsent})}
+                              className={`w-14 h-7 rounded-full relative transition-all duration-300 shadow-sm ${formData.rgpdConsent ? 'bg-indigo-600' : 'bg-gray-300'}`}
                           >
-                              <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-md ${formData.rgpd ? 'right-1' : 'left-1'}`}></div>
+                              <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-md ${formData.rgpdConsent ? 'right-1' : 'left-1'}`}></div>
                           </button>
-                          <span className={`text-sm font-bold transition-colors ${formData.rgpd ? 'text-gray-900' : 'text-gray-300'}`}>Oui</span>
+                          <span className={`text-sm font-bold transition-colors ${formData.rgpdConsent ? 'text-gray-900' : 'text-gray-300'}`}>Oui</span>
                       </div>
                     </div>
                     <p className="text-[10px] text-gray-400 leading-relaxed font-medium">

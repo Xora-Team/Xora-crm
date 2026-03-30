@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Search, Check, SquarePen, Plus, Loader2, MapPin } from 'lucide-react';
 import { db } from '../firebase';
-// Use @firebase/firestore to fix named export resolution issues
-import { collection, query, where, onSnapshot, doc, updateDoc, arrayUnion } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { formatFullNameFirstLast, normalizeString } from '../utils';
+import { toast } from 'sonner';
 
 interface AddDirectoryContactModalProps {
   isOpen: boolean;
@@ -50,6 +50,13 @@ const AddDirectoryContactModal: React.FC<AddDirectoryContactModalProps> = ({ isO
 
   const handleLinkClient = async (targetClient: any) => {
     setIsLinking(true);
+
+    // Timeout de secours
+    const timeoutId = setTimeout(() => {
+      setIsLinking(false);
+      toast.error("Le serveur met trop de temps à répondre, veuillez vérifier votre connexion.");
+    }, 10000);
+
     try {
       const clientRef = doc(db, 'clients', clientId);
       await updateDoc(clientRef, {
@@ -60,12 +67,14 @@ const AddDirectoryContactModal: React.FC<AddDirectoryContactModalProps> = ({ isO
           location: targetClient.location || 'Inconnue'
         })
       });
-      onClose();
       setSearch('');
     } catch (e) {
       console.error(e);
+      toast.error("Une erreur est survenue lors de l'enregistrement.");
     } finally {
+      clearTimeout(timeoutId);
       setIsLinking(false);
+      onClose();
     }
   };
 

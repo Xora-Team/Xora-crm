@@ -9,8 +9,9 @@ import {
   Loader2,
   CheckSquare
 } from 'lucide-react';
+import { format } from 'date-fns';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, getDoc } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { Appointment, Task } from '../types';
 import AddAppointmentModal from './AddAppointmentModal';
 import AddTaskModal from './AddTaskModal';
@@ -147,8 +148,8 @@ const Agenda: React.FC<AgendaProps> = ({ userProfile }) => {
         label: d.toLocaleDateString('fr-FR', { weekday: 'long' }),
         dayNum: d.getDate(),
         month: d.toLocaleDateString('fr-FR', { month: 'long' }),
-        fullDate: d.toLocaleDateString('fr-FR'),
-        isToday: d.toLocaleDateString('fr-FR') === new Date().toLocaleDateString('fr-FR')
+        fullDate: format(d, 'dd/MM/yyyy'),
+        isToday: format(d, 'dd/MM/yyyy') === format(new Date(), 'dd/MM/yyyy')
       };
     });
   }, [currentDate]);

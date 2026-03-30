@@ -21,9 +21,10 @@ import {
   Check
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, writeBatch } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { Task } from '../types';
 import AddTaskModal from './AddTaskModal';
+import { toast } from 'sonner';
 
 interface TasksMemoProps {
   userProfile?: any;
@@ -177,7 +178,7 @@ const TasksMemo: React.FC<TasksMemoProps> = ({ userProfile, initialFilter }) => 
       setActiveMenuId(null);
     } catch (e) {
       console.error("Erreur lors de la suppression:", e);
-      alert("Une erreur est survenue lors de la suppression.");
+      toast.error("Une erreur est survenue lors de la suppression.");
     } finally {
       setIsDeleting(false);
     }

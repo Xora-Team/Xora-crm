@@ -15,10 +15,11 @@ import {
   Check
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { Appointment } from '../types';
 import AddAppointmentModal from './AddAppointmentModal';
 import { formatFullNameFirstLast } from '../utils';
+import { toast } from 'sonner';
 
 interface ProjectAppointmentsProps {
   projectId: string;
@@ -76,7 +77,7 @@ const ProjectAppointments: React.FC<ProjectAppointmentsProps> = ({
       setActiveMenuId(null);
     } catch (e) {
       console.error(e);
-      alert("Erreur lors de la suppression.");
+      toast.error("Erreur lors de la suppression.");
     } finally {
       setIsDeleting(false);
     }

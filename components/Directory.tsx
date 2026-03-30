@@ -26,10 +26,12 @@ import {
   Upload,
   CheckSquare,
   Square,
-  UserPlus
+  UserPlus,
+  AlertCircle
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp, writeBatch } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { toast } from 'sonner';
 import { formatPhone, formatName, formatFullName, formatFullNameFirstLast, formatNameFirstLast, normalizeString } from '../utils';
 import { Client } from '../types';
 import DirectoryMap from './DirectoryMap';
@@ -164,10 +166,17 @@ const Directory: React.FC<DirectoryProps> = ({
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'createdAt', direction: 'desc' });
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectAllAcrossPages, setSelectAllAcrossPages] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
+  const [isBulkStatusModalOpen, setIsBulkStatusModalOpen] = useState(false);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [bulkNewAgenceur, setBulkNewAgenceur] = useState<any>(null);
+  const [bulkNewStatus, setBulkNewStatus] = useState<string>('');
+  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   
   const toolbarRef = useRef<HTMLDivElement>(null);
 
@@ -314,7 +323,7 @@ const Directory: React.FC<DirectoryProps> = ({
       const matchesSearch = !searchQuery || matchesPrimary || matchesSecondary;
       const referentName = c.details?.referent || c.addedBy?.name;
       const matchesAgenceur = !filterAgenceur || 
-        (filterAgenceur === 'Sans agenceur' ? !referentName : referentName === filterAgenceur);
+        (filterAgenceur === 'Sans agenceur' ? (!referentName || referentName === 'Sans agenceur') : referentName === filterAgenceur);
       const matchesOrigine = !filterOrigine || (c.category || c.details?.category || c.origin) === filterOrigine;
       
       const clientCity = c.details?.city || '';
@@ -337,11 +346,19 @@ const Directory: React.FC<DirectoryProps> = ({
           valA = a.createdAt?.seconds || 0;
           valB = b.createdAt?.seconds || 0;
         } else if (sortConfig.key === 'agenceur') {
-          valA = formatFullName(a.details?.referent || a.addedBy?.name || '').toLowerCase();
-          valB = formatFullName(b.details?.referent || b.addedBy?.name || '').toLowerCase();
+          valA = (a.details?.referent || a.addedBy?.name || 'Sans agenceur').toLowerCase();
+          valB = (b.details?.referent || b.addedBy?.name || 'Sans agenceur').toLowerCase();
         } else if (sortConfig.key === 'name') {
-          valA = formatFullName(a.name).toLowerCase();
-          valB = formatFullName(b.name).toLowerCase();
+          // Extraire le nom de famille pour le tri (souvent en majuscules ou le dernier mot)
+          const getLastName = (fullName: string) => {
+            const parts = fullName.trim().split(/\s+/);
+            if (parts.length <= 1) return fullName.toLowerCase();
+            const allCapsIndex = [...parts].reverse().findIndex(p => p.length > 1 && p === p.toUpperCase() && !p.match(/^\d+$/));
+            if (allCapsIndex !== -1) return parts[parts.length - 1 - allCapsIndex].toLowerCase();
+            return parts[parts.length - 1].toLowerCase();
+          };
+          valA = getLastName(a.name || '');
+          valB = getLastName(b.name || '');
         } else if (sortConfig.key === 'origin') {
           valA = (a.category || a.details?.category || a.origin || '').toLowerCase();
           valB = (b.category || b.details?.category || b.origin || '').toLowerCase();
@@ -362,6 +379,11 @@ const Directory: React.FC<DirectoryProps> = ({
     return result;
   }, [clients, activeTab, searchQuery, filterAgenceur, filterOrigine, filterLocation, filterProject, mode, sortConfig]);
 
+  const paginatedClients = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredClients.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredClients, currentPage, itemsPerPage]);
+
   const canModifyClient = (client: Client) => {
     return !!userProfile;
   };
@@ -373,17 +395,35 @@ const Directory: React.FC<DirectoryProps> = ({
     setFilterLocation('');
     setFilterProject('');
     setSelectedIds([]);
+    setSelectAllAcrossPages(false);
+    setCurrentPage(1);
   };
 
   const toggleSelectAll = () => {
-    const modifiableClients = filteredClients.filter(canModifyClient);
-    if (selectedIds.length === modifiableClients.length && modifiableClients.length > 0) {
-      setSelectedIds([]);
-      setLastSelectedIndex(null);
+    const modifiableOnPage = paginatedClients.filter(canModifyClient);
+    const modifiableOnPageIds = modifiableOnPage.map(c => c.id);
+    
+    const allSelectedOnPage = modifiableOnPageIds.length > 0 && modifiableOnPageIds.every(id => selectedIds.includes(id));
+
+    if (allSelectedOnPage) {
+      setSelectedIds(prev => prev.filter(id => !modifiableOnPageIds.includes(id)));
+      setSelectAllAcrossPages(false);
     } else {
-      setSelectedIds(modifiableClients.map(c => c.id));
-      setLastSelectedIndex(null);
+      setSelectedIds(prev => {
+        const newIds = [...prev];
+        modifiableOnPageIds.forEach(id => {
+          if (!newIds.includes(id)) newIds.push(id);
+        });
+        return newIds;
+      });
     }
+    setLastSelectedIndex(null);
+  };
+
+  const handleSelectAllAcrossPages = () => {
+    const allModifiableIds = filteredClients.filter(canModifyClient).map(c => c.id);
+    setSelectedIds(allModifiableIds);
+    setSelectAllAcrossPages(true);
   };
 
   const toggleSelect = (client: Client, index?: number, isShift?: boolean) => {
@@ -393,7 +433,7 @@ const Directory: React.FC<DirectoryProps> = ({
     if (isShift && lastSelectedIndex !== null && index !== undefined) {
       const start = Math.min(lastSelectedIndex, index);
       const end = Math.max(lastSelectedIndex, index);
-      const rangeIds = filteredClients
+      const rangeIds = paginatedClients
         .slice(start, end + 1)
         .filter(canModifyClient)
         .map(c => c.id);
@@ -412,6 +452,56 @@ const Directory: React.FC<DirectoryProps> = ({
     }
     
     if (index !== undefined) setLastSelectedIndex(index);
+    setSelectAllAcrossPages(false);
+  };
+
+  const handleBulkUpdateStatus = async () => {
+    if (!bulkNewStatus || selectedIds.length === 0) return;
+    
+    setIsBulkUpdating(true);
+    try {
+      const batch = writeBatch(db);
+      selectedIds.forEach(id => {
+        const clientRef = doc(db, 'clients', id);
+        batch.update(clientRef, { status: bulkNewStatus });
+      });
+      
+      await batch.commit();
+      setSelectedIds([]);
+      setSelectAllAcrossPages(false);
+      setIsBulkStatusModalOpen(false);
+      setBulkNewStatus('');
+      toast.success(`Le statut a bien été mis à jour pour ${selectedIds.length} fiches`);
+    } catch (error) {
+      console.error("Error bulk updating status:", error);
+      toast.error("Erreur lors de la mise à jour groupée");
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    
+    setIsBulkUpdating(true);
+    try {
+      const batch = writeBatch(db);
+      selectedIds.forEach(id => {
+        const clientRef = doc(db, 'clients', id);
+        batch.delete(clientRef);
+      });
+      
+      await batch.commit();
+      setSelectedIds([]);
+      setSelectAllAcrossPages(false);
+      setIsBulkDeleteModalOpen(false);
+      toast.success(`${selectedIds.length} fiches ont été supprimées`);
+    } catch (error) {
+      console.error("Error bulk deleting:", error);
+      toast.error("Erreur lors de la suppression groupée");
+    } finally {
+      setIsBulkUpdating(false);
+    }
   };
 
   const handleBulkUpdateAgenceur = async () => {
@@ -424,10 +514,10 @@ const Directory: React.FC<DirectoryProps> = ({
         const clientRef = doc(db, 'clients', id);
         if (bulkNewAgenceur.id === 'none') {
           batch.update(clientRef, {
-            'addedBy.name': '',
+            'addedBy.name': 'Sans agenceur',
             'addedBy.avatar': '',
-            'addedBy.uid': '',
-            'details.referent': ''
+            'addedBy.uid': 'none',
+            'details.referent': 'Sans agenceur'
           });
         } else {
           batch.update(clientRef, {
@@ -441,15 +531,38 @@ const Directory: React.FC<DirectoryProps> = ({
       
       await batch.commit();
       setSelectedIds([]);
+      setSelectAllAcrossPages(false);
       setIsBulkUpdateModalOpen(false);
       setBulkNewAgenceur(null);
-      // Success message could be added here if there's a toast system
-      alert(`L'agenceur a bien été mis à jour pour ${selectedIds.length} fiches`);
+      toast.success(`L'agenceur a bien été mis à jour pour ${selectedIds.length} fiches`);
     } catch (error) {
       console.error("Error bulk updating agenceur:", error);
-      alert("Erreur lors de la mise à jour groupée");
+      toast.error("Erreur lors de la mise à jour groupée");
     } finally {
       setIsBulkUpdating(false);
+    }
+  };
+
+  const handleFindDuplicates = () => {
+    const duplicates: string[] = [];
+    const seen = new Map<string, string>(); // name -> firstId
+
+    clients.forEach(client => {
+      const name = normalizeString(client.name || '');
+      if (!name || name === 'sans nom') return;
+      
+      if (seen.has(name)) {
+        duplicates.push(client.id);
+      } else {
+        seen.set(name, client.id);
+      }
+    });
+
+    if (duplicates.length > 0) {
+      setSelectedIds(duplicates);
+      toast.info(`${duplicates.length} doublons potentiels identifiés et sélectionnés. Vous pouvez maintenant utiliser la suppression groupée.`);
+    } else {
+      toast.info("Aucun doublon détecté.");
     }
   };
 
@@ -510,7 +623,7 @@ const Directory: React.FC<DirectoryProps> = ({
       setIsImportModalOpen(false);
     } catch (error) {
       console.error("Error importing clients:", error);
-      alert("Erreur lors de l'importation");
+      toast.error("Erreur lors de l'importation");
     } finally {
       setIsImporting(false);
     }
@@ -518,11 +631,8 @@ const Directory: React.FC<DirectoryProps> = ({
 
   const uniqueAgenceurs = useMemo(() => {
     const names = clients.map(c => c.details?.referent || c.addedBy?.name || 'Sans agenceur');
-    const unique = Array.from(new Set(names)).sort();
-    // Placer 'Sans agenceur' en premier
-    const filtered = unique.filter(n => n !== 'Sans agenceur');
-    filtered.unshift('Sans agenceur');
-    return filtered;
+    const unique = Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+    return unique;
   }, [clients]);
   const uniqueOrigines = useMemo(() => Array.from(new Set(clients.map(c => c.category || c.details?.category || c.origin).filter(Boolean))).sort(), [clients]);
   const uniqueLocations = useMemo(() => {
@@ -571,6 +681,58 @@ const Directory: React.FC<DirectoryProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
+            <div className="relative">
+              <button 
+                onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
+                disabled={selectedIds.length === 0}
+                className={`flex items-center px-6 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all shadow-sm border ${
+                  selectedIds.length > 0 
+                  ? 'bg-white text-gray-900 border-gray-200 hover:bg-gray-50 shadow-md' 
+                  : 'bg-gray-100 text-gray-400 border-gray-100 cursor-not-allowed'
+                }`}
+              >
+                Actions
+                <ChevronDown size={14} className={`ml-2 transition-transform ${isActionsMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isActionsMenuOpen && selectedIds.length > 0 && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsActionsMenuOpen(false)}></div>
+                  <div className="absolute right-0 top-full mt-2 bg-white border border-gray-100 rounded-xl shadow-2xl z-50 py-2 w-56 animate-in fade-in zoom-in-95 duration-150">
+                    <button 
+                      onClick={() => { setIsBulkUpdateModalOpen(true); setIsActionsMenuOpen(false); }}
+                      className="w-full text-left px-5 py-3 text-[11px] font-black uppercase tracking-widest text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                    >
+                      <UserPlus size={16} className="text-gray-400" /> Changer l'agenceur
+                    </button>
+                    <button 
+                      onClick={() => { setIsBulkStatusModalOpen(true); setIsActionsMenuOpen(false); }}
+                      className="w-full text-left px-5 py-3 text-[11px] font-black uppercase tracking-widest text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                    >
+                      <Filter size={16} className="text-gray-400" /> Changer le statut
+                    </button>
+                    <div className="h-px bg-gray-50 my-1 mx-2" />
+                    <button 
+                      onClick={() => { setIsBulkDeleteModalOpen(true); setIsActionsMenuOpen(false); }}
+                      className="w-full text-left px-5 py-3 text-[11px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 flex items-center gap-3 transition-colors"
+                    >
+                      <Trash2 size={16} className="text-red-500" /> Supprimer
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {mode === 'contacts' && (
+                <button
+                    onClick={handleFindDuplicates}
+                    className="flex items-center px-4 py-3 bg-white text-indigo-600 border border-indigo-100 rounded-2xl text-sm font-bold hover:bg-indigo-50 transition-all shadow-sm"
+                    title="Identifier les doublons potentiels"
+                >
+                    <AlertCircle size={18} className="mr-2" />
+                    Nettoyer les doublons
+                </button>
+            )}
             {mode === 'contacts' && (
                 <button
                     onClick={() => setIsImportModalOpen(true)}
@@ -694,25 +856,35 @@ const Directory: React.FC<DirectoryProps> = ({
             <div className="flex flex-col h-full overflow-hidden relative">
                 {/* Bulk Action Bar */}
                 {selectedIds.length > 0 && (
-                  <div className="absolute top-0 left-0 right-0 bg-gray-900 text-white p-4 z-30 flex items-center justify-between shadow-2xl animate-in slide-in-from-top duration-300">
-                    <div className="flex items-center gap-4">
-                      <button 
-                        onClick={() => setSelectedIds([])}
-                        className="p-1 hover:bg-white/10 rounded-lg transition-colors"
-                      >
-                        <X size={20} />
-                      </button>
-                      <span className="text-sm font-black uppercase tracking-widest">
-                        {selectedIds.length} fiche{selectedIds.length > 1 ? 's' : ''} sélectionnée{selectedIds.length > 1 ? 's' : ''}
-                      </span>
+                  <div className="absolute top-0 left-0 right-0 bg-[#1e293b] text-white p-4 z-30 flex items-center justify-between shadow-2xl animate-in slide-in-from-top duration-300">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-4">
+                        <button 
+                          onClick={() => { setSelectedIds([]); setSelectAllAcrossPages(false); }}
+                          className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+                        >
+                          <X size={20} />
+                        </button>
+                        <span className="text-sm font-black uppercase tracking-widest">
+                          {selectedIds.length} ligne{selectedIds.length > 1 ? 's' : ''} sélectionnée{selectedIds.length > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      {!selectAllAcrossPages && filteredClients.length > paginatedClients.length && (
+                        <button 
+                          onClick={handleSelectAllAcrossPages}
+                          className="text-[11px] text-indigo-400 hover:text-indigo-300 font-bold mt-1 ml-9 text-left transition-colors"
+                        >
+                          Sélectionner toutes les fiches de l'annuaire ({filteredClients.length})
+                        </button>
+                      )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    
+                    <div className="flex items-center gap-3 relative">
                       <button 
-                        onClick={() => setIsBulkUpdateModalOpen(true)}
-                        className="flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg"
+                        onClick={() => { setSelectedIds([]); setSelectAllAcrossPages(false); }}
+                        className="text-xs font-black uppercase tracking-widest text-gray-400 hover:text-white transition-colors"
                       >
-                        <UserPlus size={16} className="mr-2" />
-                        Changer l'agenceur
+                        Fermer
                       </button>
                     </div>
                   </div>
@@ -726,11 +898,14 @@ const Directory: React.FC<DirectoryProps> = ({
                                   <button 
                                     onClick={toggleSelectAll}
                                     className="p-1 hover:bg-gray-100 rounded-md transition-colors"
-                                    title="Tout sélectionner (fiches modifiables)"
+                                    title="Tout sélectionner sur cette page"
                                   >
                                     {(() => {
-                                      const modifiableCount = filteredClients.filter(canModifyClient).length;
-                                      if (modifiableCount > 0 && selectedIds.length === modifiableCount) {
+                                      const modifiableOnPage = paginatedClients.filter(canModifyClient);
+                                      const modifiableOnPageIds = modifiableOnPage.map(c => c.id);
+                                      const allSelectedOnPage = modifiableOnPageIds.length > 0 && modifiableOnPageIds.every(id => selectedIds.includes(id));
+                                      
+                                      if (allSelectedOnPage) {
                                         return <CheckSquare size={18} className="text-indigo-600" />;
                                       }
                                       return <Square size={18} className="text-gray-300" />;
@@ -835,7 +1010,7 @@ const Directory: React.FC<DirectoryProps> = ({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {filteredClients.map((client, index) => {
+                            {paginatedClients.map((client, index) => {
                                 const effectiveStatus = getEffectiveStatus(client);
                                 const isSelected = selectedIds.includes(client.id);
                                 const modifiable = canModifyClient(client);
@@ -942,7 +1117,9 @@ const Directory: React.FC<DirectoryProps> = ({
                                                                     referrerPolicy="no-referrer"
                                                                 />
                                                             )}
-                                                            <span className="text-[13px] font-bold text-gray-700">{formatFullNameFirstLast(referentName)}</span>
+                                                            <span className={`text-[13px] font-bold ${referentName === 'Sans agenceur' ? 'text-gray-300 italic' : 'text-gray-700'}`}>
+                                                                {formatFullNameFirstLast(referentName)}
+                                                            </span>
                                                         </>
                                                     );
                                                 })()}
@@ -951,17 +1128,35 @@ const Directory: React.FC<DirectoryProps> = ({
                                     )}
                                     <td className="px-4 py-5 text-[13px] font-bold text-gray-500 uppercase">
                                         {mode === 'suppliers' ? (
-                                            <span className="text-gray-900">{client.details?.branch}</span>
+                                            <span className={client.details?.branch ? "text-gray-900" : "text-gray-300 italic"}>
+                                                {client.details?.branch || 'Non renseigné'}
+                                            </span>
                                         ) : (
                                             <div className="flex flex-col">
-                                                <span className="text-gray-900">{client.category || client.details?.category || client.origin}</span>
+                                                <span className={client.category || client.details?.category || client.origin ? "text-gray-900" : "text-gray-300 italic"}>
+                                                    {client.category || client.details?.category || client.origin || 'Non renseigné'}
+                                                </span>
                                                 {(client.category || client.details?.category) && client.origin && client.origin !== 'Import CSV' && (
                                                     <span className="text-[10px] text-gray-400 font-medium lowercase">({client.origin})</span>
                                                 )}
                                             </div>
                                         )}
                                     </td>
-                                    {mode !== 'suppliers' && <td className="px-4 py-5 text-[13px] font-bold text-gray-500">{client.location}</td>}
+                                    {mode !== 'suppliers' && (
+                                      <td className="px-4 py-5 text-[13px] font-bold text-gray-500">
+                                        <div className="max-w-[220px] line-clamp-2 leading-tight uppercase overflow-hidden whitespace-normal">
+                                          {(() => {
+                                            const mainProp = client.details?.properties?.find((p: any) => p.isMain);
+                                            const addr = mainProp?.address || client.details?.address || client.location;
+                                            return (
+                                                <span className={addr ? "text-gray-900" : "text-gray-300 italic"}>
+                                                    {addr || 'Non renseignée'}
+                                                </span>
+                                            );
+                                          })()}
+                                        </div>
+                                      </td>
+                                    )}
                                     {mode === 'contacts' && (
                                       <td className="px-4 py-5">
                                           {!client.projectCount || client.projectCount === 0 ? (
@@ -1014,12 +1209,22 @@ const Directory: React.FC<DirectoryProps> = ({
                                     </td>
                                     {mode === 'suppliers' && (
                                         <td className="px-4 py-5 text-[12px] font-bold text-gray-500 lowercase truncate max-w-[150px]">
-                                            {client.details?.email || '-'}
+                                            <span className={client.details?.email ? "text-gray-500" : "text-gray-300 italic"}>
+                                                {client.details?.email || '-'}
+                                            </span>
                                         </td>
                                     )}
                                     {mode === 'suppliers' && (
                                         <td className="px-4 py-5 text-[12px] font-bold text-gray-500 whitespace-nowrap">
-                                            {formatPhone(client.details?.phone)}
+                                            {(() => {
+                                                const formatted = formatPhone(client.details?.phone);
+                                                const isDefault = !formatted || formatted === '00 00 00 00 00';
+                                                return (
+                                                    <span className={isDefault ? "text-gray-300 italic" : "text-gray-500"}>
+                                                        {formatted || '-'}
+                                                    </span>
+                                                );
+                                            })()}
                                         </td>
                                     )}
                                     {mode !== 'suppliers' && <td className="px-4 py-5 text-[13px] font-black text-gray-400 italic">{client.dateAdded}</td>}
@@ -1063,13 +1268,63 @@ const Directory: React.FC<DirectoryProps> = ({
                 </div>
                 
                 <div className="p-6 border-t border-gray-100 flex items-center justify-between text-[11px] font-bold text-gray-400 bg-white shrink-0">
-                    <div>Vue <span className="font-black text-gray-900">1 à {filteredClients.length}</span> sur <span className="font-black text-gray-900">{filteredClients.length}</span> résultats</div>
+                    <div>Vue <span className="font-black text-gray-900">{(currentPage - 1) * itemsPerPage + 1} à {Math.min(currentPage * itemsPerPage, filteredClients.length)}</span> sur <span className="font-black text-gray-900">{filteredClients.length}</span> résultats</div>
                     <div className="flex items-center gap-2">
-                        <button className="p-2 border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-300"><ChevronsLeft size={16} /></button>
-                        <button className="p-2 border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-300"><ChevronLeft size={16} /></button>
-                        <button className="w-10 h-10 bg-gray-900 text-white rounded-xl text-[12px] font-black shadow-xl">1</button>
-                        <button className="p-2 border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-300"><ChevronRight size={16} /></button>
-                        <button className="p-2 border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-300 rotate-180"><ChevronsLeft size={16} /></button>
+                        <button 
+                          onClick={() => setCurrentPage(1)}
+                          disabled={currentPage === 1}
+                          className="p-2 border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <ChevronsLeft size={16} />
+                        </button>
+                        <button 
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                          className="p-2 border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        
+                        {(() => {
+                          const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
+                          const pages = [];
+                          let startPage = Math.max(1, currentPage - 2);
+                          let endPage = Math.min(totalPages, startPage + 4);
+                          
+                          if (endPage - startPage < 4) {
+                            startPage = Math.max(1, endPage - 4);
+                          }
+
+                          for (let i = startPage; i <= endPage; i++) {
+                            pages.push(
+                              <button 
+                                key={i}
+                                onClick={() => setCurrentPage(i)}
+                                className={`w-10 h-10 rounded-xl text-[12px] font-black transition-all ${
+                                  currentPage === i ? 'bg-gray-900 text-white shadow-xl' : 'text-gray-400 hover:bg-gray-50 border border-gray-100'
+                                }`}
+                              >
+                                {i}
+                              </button>
+                            );
+                          }
+                          return pages;
+                        })()}
+
+                        <button 
+                          onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredClients.length / itemsPerPage), prev + 1))}
+                          disabled={currentPage === Math.ceil(filteredClients.length / itemsPerPage) || filteredClients.length === 0}
+                          className="p-2 border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <ChevronLeft size={16} className="rotate-180" />
+                        </button>
+                        <button 
+                          onClick={() => setCurrentPage(Math.ceil(filteredClients.length / itemsPerPage))}
+                          disabled={currentPage === Math.ceil(filteredClients.length / itemsPerPage) || filteredClients.length === 0}
+                          className="p-2 border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <ChevronsLeft size={16} className="rotate-180" />
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1091,6 +1346,88 @@ const Directory: React.FC<DirectoryProps> = ({
                 <button onClick={() => setClientToDelete(null)} className="flex-1 px-6 py-4 bg-gray-50 text-gray-600 rounded-2xl font-bold text-[13px] hover:bg-gray-100 transition-all">Annuler</button>
                 <button onClick={() => { setIsDeleting(true); deleteDoc(doc(db, 'clients', clientToDelete.id)).then(() => { setClientToDelete(null); setIsDeleting(false); }); }} disabled={isDeleting} className="flex-1 px-6 py-4 bg-red-600 text-white rounded-2xl font-bold text-[13px] hover:bg-red-700 shadow-xl shadow-red-100 flex items-center justify-center gap-2">
                   {isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} className="text-red-600" />} Supprimer
+                </button>
+              </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Update Status Modal */}
+      {isBulkStatusModalOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 p-10">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+                  <Filter size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Changer le statut</h3>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{selectedIds.length} fiches sélectionnées</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-10">
+                {['Lead', 'Prospect', 'Client'].map(status => (
+                  <button
+                    key={status}
+                    onClick={() => setBulkNewStatus(status)}
+                    className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                      bulkNewStatus === status 
+                      ? 'border-indigo-600 bg-indigo-50 shadow-md' 
+                      : 'border-gray-100 hover:border-gray-200 bg-gray-50/50'
+                    }`}
+                  >
+                    <span className={`text-sm font-black uppercase tracking-widest ${bulkNewStatus === status ? 'text-indigo-900' : 'text-gray-900'}`}>
+                      {status}
+                    </span>
+                    {bulkNewStatus === status && (
+                      <div className="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center text-white">
+                        <Check size={14} />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-4 w-full">
+                <button 
+                  onClick={() => { setIsBulkStatusModalOpen(false); setBulkNewStatus(''); }} 
+                  className="flex-1 px-6 py-4 bg-gray-50 text-gray-600 rounded-2xl font-bold text-[13px] hover:bg-gray-100 transition-all uppercase tracking-widest"
+                >
+                  Annuler
+                </button>
+                <button 
+                  onClick={handleBulkUpdateStatus} 
+                  disabled={isBulkUpdating || !bulkNewStatus} 
+                  className="flex-1 px-6 py-4 bg-gray-900 text-white rounded-2xl font-bold text-[13px] hover:bg-black shadow-xl shadow-gray-200 flex items-center justify-center gap-2 uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isBulkUpdating ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />} Valider
+                </button>
+              </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Modal */}
+      {isBulkDeleteModalOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 p-10 flex flex-col items-center text-center">
+              <div className="w-20 h-20 bg-red-50 rounded-[28px] flex items-center justify-center text-red-500 mb-8 shadow-inner">
+                <AlertTriangle size={40} />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 mb-2 uppercase tracking-tighter">Supprimer la sélection ?</h3>
+              <p className="text-[14px] text-gray-500 leading-relaxed mb-10">
+                Êtes-vous sûr de vouloir supprimer les <span className="font-bold text-gray-900">[{selectedIds.length}]</span> fiches sélectionnées ?<br/>
+                Cette action est irréversible.
+              </p>
+              <div className="flex gap-4 w-full">
+                <button onClick={() => setIsBulkDeleteModalOpen(false)} className="flex-1 px-6 py-4 bg-gray-50 text-gray-600 rounded-2xl font-bold text-[13px] hover:bg-gray-100 transition-all uppercase tracking-widest">Annuler</button>
+                <button 
+                  onClick={handleBulkDelete} 
+                  disabled={isBulkUpdating} 
+                  className="flex-1 px-6 py-4 bg-red-600 text-white rounded-2xl font-bold text-[13px] hover:bg-red-700 shadow-xl shadow-red-100 flex items-center justify-center gap-2 uppercase tracking-widest"
+                >
+                  {isBulkUpdating ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} className="text-red-600" />} Supprimer
                 </button>
               </div>
           </div>

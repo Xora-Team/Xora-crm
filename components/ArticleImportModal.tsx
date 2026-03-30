@@ -1,6 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { X, Upload, AlertCircle, FileSpreadsheet, ArrowLeft, Check, Loader2, Save } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ArticleImportModalProps {
   isOpen: boolean;
@@ -74,7 +75,7 @@ const ArticleImportModal: React.FC<ArticleImportModalProps> = ({ isOpen, onClose
       setPreviewData(parsedItems);
       setStep('preview');
     } else {
-      alert(`Aucune donnée valide trouvée. Vérifiez que votre fichier utilise le séparateur "${separator}" et contient des données.`);
+      toast.error(`Aucune donnée valide trouvée. Vérifiez que votre fichier utilise le séparateur "${separator}" et contient des données.`);
     }
   };
 

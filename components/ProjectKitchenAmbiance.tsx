@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, Trees, Factory, Wind, Columns, Plus, HelpCircle, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
-import { doc, updateDoc } from '@firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 
 // --- Sous-composants UI Déplacés hors du rendu pour éviter la perte de focus ---
 

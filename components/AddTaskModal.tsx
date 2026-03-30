@@ -3,7 +3,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, ChevronDown, Plus, CheckSquare, Calendar as CalendarIcon, Loader2, Save, CalendarClock, Clock, Search, User as UserIcon, AlertTriangle, Trash2, Info, Layers, UserCheck, Check, Link } from 'lucide-react';
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
-import { collection, addDoc, query, where, onSnapshot, getDocs, doc, updateDoc, getCountFromServer, deleteDoc, getDoc } from '@firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, getDocs, doc, updateDoc, getCountFromServer, deleteDoc, getDoc } from 'firebase/firestore';
+import { toast } from 'sonner';
 import { formatFullNameFirstLast, normalizeString } from '../utils';
 import { Task } from '../types';
 
@@ -487,7 +488,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
       setAgendaDate('');
     } catch (e) {
       console.error("Erreur suppression RDV:", e);
-      alert("Une erreur est survenue lors de la suppression.");
+      toast.error("Une erreur est survenue lors de la suppression du rendez-vous.");
     } finally {
       setIsDeletingAppointment(false);
     }
@@ -632,7 +633,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
       onClose();
     } catch (error) {
       console.error("Erreur Firestore tâche:", error);
-      alert("Une erreur est survenue.");
+      toast.error("Une erreur est survenue lors de l'enregistrement de la tâche.");
     } finally {
       setIsLoading(false);
     }

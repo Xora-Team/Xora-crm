@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { db } from '../firebase';
 // Use @firebase/firestore to fix named export resolution issues
-import { doc, updateDoc } from '@firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 
 // --- Sous-composants UI modernisés (Design épuré XORA) ---
 

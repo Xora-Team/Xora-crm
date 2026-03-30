@@ -16,7 +16,8 @@ import {
   Search
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, writeBatch } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { toast } from 'sonner';
 import { Task } from '../types';
 import AddTaskModal from './AddTaskModal';
 import { formatFullNameFirstLast, normalizeString } from '../utils';
@@ -137,7 +138,7 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
       setActiveMenuId(null);
     } catch (e) {
       console.error("Erreur suppression tâche:", e);
-      alert("Une erreur est survenue lors de la suppression.");
+      toast.error("Une erreur est survenue lors de la suppression.");
     } finally {
       setIsDeleting(false);
     }
@@ -167,7 +168,7 @@ const ClientTasks: React.FC<ClientTasksProps> = ({ clientId, clientName, userPro
       setNoteEditingTask(null);
     } catch (e) {
       console.error("Erreur sauvegarde note:", e);
-      alert("Erreur lors de la sauvegarde de la note.");
+      toast.error("Erreur lors de la sauvegarde de la note.");
     } finally {
       setIsSavingNote(false);
     }

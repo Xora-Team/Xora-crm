@@ -21,8 +21,9 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, deleteDoc, writeBatch, serverTimestamp } from '@firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { Article } from '../types';
+import { toast } from 'sonner';
 import AddArticleModal from './AddArticleModal';
 import ArticleImportModal from './ArticleImportModal';
 
@@ -138,7 +139,7 @@ const Articles: React.FC<ArticlesProps> = ({ userProfile }) => {
       setArticleToDelete(null);
     } catch (e) {
       console.error("Erreur suppression:", e);
-      alert("Une erreur est survenue lors de la suppression de l'article.");
+      toast.error("Une erreur est survenue lors de la suppression de l'article.");
     } finally {
       setIsDeleting(false);
     }
@@ -188,9 +189,9 @@ const Articles: React.FC<ArticlesProps> = ({ userProfile }) => {
     } catch (err: any) {
       console.error("Erreur d'importation :", err);
       if (err.code === 'resource-exhausted' || err.message?.includes('exhausted')) {
-        alert("⚠️ Quota Firebase atteint lors de l'importation. Veuillez réessayer dans quelques minutes.");
+        toast.error("⚠️ Quota Firebase atteint lors de l'importation. Veuillez réessayer dans quelques minutes.");
       } else {
-        alert("Une erreur est survenue lors de l'importation des données.");
+        toast.error("Une erreur est survenue lors de l'importation des données.");
       }
     } finally {
       setIsImporting(false);

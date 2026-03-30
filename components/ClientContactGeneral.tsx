@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronDown, ChevronUp, Plus, Search, MapPin, Loader2, Trash2, Check, User, Phone, Mail, AlertTriangle, X, ShieldCheck } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Search, MapPin, Loader2, Trash2, Check, User, Phone, Mail, AlertTriangle, X, ShieldCheck, PenSquare, Link as LinkIcon } from 'lucide-react';
 import { Client } from '../types';
 import { db } from '../firebase';
-import { doc, updateDoc, onSnapshot, query, collection, where, getDocs } from '@firebase/firestore';
+import { doc, updateDoc, onSnapshot, query, collection, where, getDocs, getDoc, deleteField } from 'firebase/firestore';
+import { useClickAway } from 'react-use';
 
 // Structure de données hiérarchique unifiée (Source de vérité)
 const HIERARCHY_DATA: Record<string, Record<string, string[]>> = {
@@ -204,8 +205,8 @@ const ContactCard: React.FC<ContactCardProps> = ({
                   value={data.phone} 
                   onChange={(e) => onFieldChange('phone', formatPhone(e.target.value))}
                   onBlur={onBlur}
-                  placeholder="06 12 34 56 78" 
-                  className="flex-1 bg-white border border-gray-200 rounded-r-xl px-4 py-2.5 text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 shadow-sm" 
+                  placeholder="00 00 00 00 00" 
+                  className="flex-1 bg-white border border-gray-200 rounded-r-xl px-4 py-2.5 text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 shadow-sm placeholder:text-gray-300 focus:placeholder-transparent" 
                 />
               </div>
             </div>
@@ -220,8 +221,8 @@ const ContactCard: React.FC<ContactCardProps> = ({
                   value={data.fixed} 
                   onChange={(e) => onFieldChange('fixed', formatPhone(e.target.value))}
                   onBlur={onBlur}
-                  placeholder="04 67 00 00 00" 
-                  className="flex-1 bg-white border border-gray-200 rounded-r-xl px-4 py-2.5 text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 shadow-sm" 
+                  placeholder="00 00 00 00 00" 
+                  className="flex-1 bg-white border border-gray-200 rounded-r-xl px-4 py-2.5 text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 shadow-sm placeholder:text-gray-300 focus:placeholder-transparent" 
                 />
               </div>
             </div>
@@ -250,7 +251,20 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
   const [sponsorLink, setSponsorLink] = useState('');
   const [sponsorSuggestions, setSponsorSuggestions] = useState<any[]>([]);
   const [isSponsorSearching, setIsSponsorSearching] = useState(false);
+  const [showSponsorResults, setShowSponsorResults] = useState(false);
   const sponsorSearchRef = useRef<HTMLDivElement>(null);
+
+  const [prescriberSearch, setPrescriberSearch] = useState('');
+  const [prescriberSuggestions, setPrescriberSuggestions] = useState<any[]>([]);
+  const [isPrescriberSearching, setIsPrescriberSearching] = useState(false);
+  const [showPrescriberResults, setShowPrescriberResults] = useState(false);
+  const prescriberSearchRef = useRef<HTMLDivElement>(null);
+
+  const [isEditingOrigin, setIsEditingOrigin] = useState(false);
+  const [isEditingAffectation, setIsEditingAffectation] = useState(false);
+
+  useClickAway(sponsorSearchRef, () => setShowSponsorResults(false));
+  useClickAway(prescriberSearchRef, () => setShowPrescriberResults(false));
 
   const [mainContact, setMainContact] = useState({
     civility: '', lastName: '', firstName: '', email: '', phone: '', fixed: ''
@@ -394,11 +408,56 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
     return () => clearTimeout(timer);
   }, [addressSearch, client.details?.address]);
 
-  // Initialisation des champs parrain - seulement au changement de client
+  // Initialisation des champs parrain et prescripteur - seulement au changement de client
   useEffect(() => {
     setSponsorSearch(initialClient.details?.sponsorName || '');
     setSponsorLink(initialClient.details?.sponsorLink || '');
+    setPrescriberSearch(initialClient.details?.prescriberName || '');
   }, [initialClient.id]);
+
+  // Sync names if ID is present
+  useEffect(() => {
+    const fetchNames = async () => {
+      let updated = false;
+      const updates: any = {};
+
+      if (client.details?.sponsorId) {
+        try {
+          const docRef = doc(db, 'clients', client.details.sponsorId);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (client.details.sponsorName !== data.name) {
+              updates['details.sponsorName'] = data.name;
+              setSponsorSearch(data.name);
+              updated = true;
+            }
+          }
+        } catch (e) { console.error(e); }
+      }
+
+      if (client.details?.prescriberId) {
+        try {
+          const docRef = doc(db, 'prescribers', client.details.prescriberId);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (client.details.prescriberName !== data.name) {
+              updates['details.prescriberName'] = data.name;
+              setPrescriberSearch(data.name);
+              updated = true;
+            }
+          }
+        } catch (e) { console.error(e); }
+      }
+
+      if (updated && client.id) {
+        await updateDoc(doc(db, 'clients', client.id), updates);
+      }
+    };
+
+    fetchNames();
+  }, [client.id, client.details?.sponsorId, client.details?.prescriberId]);
 
   // Recherche de parrains dans l'annuaire
   useEffect(() => {
@@ -431,27 +490,71 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
     return () => clearTimeout(timer);
   }, [sponsorSearch, userProfile?.companyId, client.id, isSponsorSearching]);
 
-  // Fermer les suggestions si clic ailleurs
+  // Recherche de prescripteurs dans l'annuaire
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (sponsorSearchRef.current && !sponsorSearchRef.current.contains(event.target as Node)) {
-        setIsSponsorSearching(false);
+    const searchPrescribers = async () => {
+      if (prescriberSearch.length < 2 || !userProfile?.companyId || !isPrescriberSearching) {
+        setPrescriberSuggestions([]);
+        return;
+      }
+      
+      try {
+        const q = query(
+          collection(db, 'prescribers'),
+          where('companyId', '==', userProfile.companyId)
+        );
+        const snap = await getDocs(q);
+        const results = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const filtered = results.filter((p: any) => {
+          return normalizeString(p.name || '').includes(normalizeString(prescriberSearch));
+        }).slice(0, 5);
+        setPrescriberSuggestions(filtered);
+      } catch (e) {
+        console.error("Erreur recherche prescripteur:", e);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+
+    const timer = setTimeout(searchPrescribers, 300);
+    return () => clearTimeout(timer);
+  }, [prescriberSearch, userProfile?.companyId, isPrescriberSearching]);
 
   const handleSelectSponsor = async (sponsor: any) => {
     try {
       const sponsorName = formatFullNameFirstLast(sponsor.name);
       setSponsorSearch(sponsorName);
       setIsSponsorSearching(false);
+      setShowSponsorResults(false);
       setSponsorSuggestions([]);
       
       await updateDoc(doc(db, 'clients', client.id), {
         "details.sponsorName": sponsorName,
         "details.sponsorId": sponsor.id
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSelectPrescriber = async (prescriber: any) => {
+    try {
+      setPrescriberSearch(prescriber.name);
+      setIsPrescriberSearching(false);
+      setShowPrescriberResults(false);
+      setPrescriberSuggestions([]);
+      
+      await updateDoc(doc(db, 'clients', client.id), {
+        "details.prescriberName": prescriber.name,
+        "details.prescriberId": prescriber.id
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const savePrescriberName = async () => {
+    try {
+      await updateDoc(doc(db, 'clients', client.id), {
+        "details.prescriberName": prescriberSearch
       });
     } catch (e) {
       console.error(e);
@@ -545,7 +648,16 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
   const subOrigins = useMemo(() => (currentCategory && currentOrigin) ? (HIERARCHY_DATA[currentCategory]?.[currentOrigin] || []) : [], [currentCategory, currentOrigin]);
 
   const handleCategoryChange = async (val: string) => {
-    await updateDoc(doc(db, 'clients', client.id), { "details.category": val, "origin": "", "details.subOrigin": "" });
+    const updates: any = { "details.category": val, "origin": "", "details.subOrigin": "" };
+    if (val !== 'Parrainage') {
+      updates['details.sponsorId'] = deleteField();
+      updates['details.sponsorName'] = deleteField();
+    }
+    if (val !== 'Prescripteur') {
+      updates['details.prescriberId'] = deleteField();
+      updates['details.prescriberName'] = deleteField();
+    }
+    await updateDoc(doc(db, 'clients', client.id), updates);
   };
 
   const handleOriginChange = async (val: string) => {
@@ -664,86 +776,185 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
 
       {/* Section Origine client - CANAL D'ACQUISITION UNIFIÉ */}
       <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm space-y-6">
-        <h3 className="text-[15px] font-black text-gray-900 uppercase tracking-tight">Canal d'acquisition</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-[15px] font-black text-gray-900 uppercase tracking-tight">Canal d'acquisition</h3>
+          <button 
+            onClick={() => setIsEditingOrigin(!isEditingOrigin)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-[11px] font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
+          >
+            {isEditingOrigin ? <Check size={14} className="text-green-500" /> : <PenSquare size={14} />}
+            {isEditingOrigin ? 'Valider' : 'Modifier'}
+          </button>
+        </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Origine</label>
-            <div className="relative">
-              <select 
-                className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-indigo-400 transition-all font-bold shadow-sm" 
-                value={currentCategory}
-                onChange={(e) => handleCategoryChange(e.target.value)}
-              >
-                <option value="">Sélectionner</option>
-                {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-              </select>
-              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+        {!isEditingOrigin ? (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Origine</p>
+              <p className="text-[14px] font-bold text-gray-900">{currentCategory || 'Non renseignée'}</p>
             </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sous-origine</p>
+              <p className="text-[14px] font-bold text-gray-900">{currentOrigin || '-'}</p>
+            </div>
+            {currentSubOrigin && (
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Source</p>
+                <p className="text-[14px] font-bold text-gray-900">{currentSubOrigin}</p>
+              </div>
+            )}
+            {currentCategory === 'Parrainage' && (
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Parrain</p>
+                <p className="text-[14px] font-bold text-indigo-600 uppercase">{client.details?.sponsorName || 'Non identifié'}</p>
+              </div>
+            )}
+            {currentCategory === 'Prescripteur' && (
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Prescripteur</p>
+                <p className="text-[14px] font-bold text-indigo-600 uppercase">{client.details?.prescriberName || 'Non identifié'}</p>
+              </div>
+            )}
           </div>
-          
-          {origins.length > 0 && (
-            <div className="space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
-              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Sous-origine</label>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-300">
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Origine</label>
               <div className="relative">
                 <select 
-                  disabled={!currentCategory}
-                  className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-indigo-400 transition-all font-bold shadow-sm disabled:bg-gray-50" 
-                  value={currentOrigin}
-                  onChange={(e) => handleOriginChange(e.target.value)}
+                  className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-indigo-400 transition-all font-bold shadow-sm" 
+                  value={currentCategory}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
                 >
                   <option value="">Sélectionner</option>
-                  {origins.map(orig => <option key={orig} value={orig}>{orig}</option>)}
+                  {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                 </select>
                 <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
               </div>
             </div>
-          )}
-
-          {subOrigins.length > 0 && (
-            <div className="space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
-              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Source</label>
-              <div className="relative">
-                <select 
-                  disabled={!currentOrigin}
-                  className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-800 outline-none focus:border-indigo-400 transition-all shadow-sm disabled:bg-gray-50" 
-                  value={currentSubOrigin}
-                  onChange={(e) => updateDoc(doc(db, 'clients', client.id), { "details.subOrigin": e.target.value })}
-                >
-                  <option value="">Sélectionner</option>
-                  {subOrigins.map(so => <option key={so} value={so}>{so}</option>)}
-                </select>
-                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+            
+            {origins.length > 0 && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Sous-origine</label>
+                <div className="relative">
+                  <select 
+                    disabled={!currentCategory}
+                    className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 outline-none focus:border-indigo-400 transition-all font-bold shadow-sm disabled:bg-gray-50" 
+                    value={currentOrigin}
+                    onChange={(e) => handleOriginChange(e.target.value)}
+                  >
+                    <option value="">Sélectionner</option>
+                    {origins.map(orig => <option key={orig} value={orig}>{orig}</option>)}
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {currentCategory === 'Parrainage' && (
-            <>
-              <div className="space-y-2 animate-in slide-in-from-top-2 duration-300" ref={sponsorSearchRef}>
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">NOM DU PARRAIN</label>
+            {subOrigins.length > 0 && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Source</label>
+                <div className="relative">
+                  <select 
+                    disabled={!currentOrigin}
+                    className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-800 outline-none focus:border-indigo-400 transition-all shadow-sm disabled:bg-gray-50" 
+                    value={currentSubOrigin}
+                    onChange={(e) => updateDoc(doc(db, 'clients', client.id), { "details.subOrigin": e.target.value })}
+                  >
+                    <option value="">Sélectionner</option>
+                    {subOrigins.map(so => <option key={so} value={so}>{so}</option>)}
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                </div>
+              </div>
+            )}
+
+            {currentCategory === 'Parrainage' && (
+              <>
+                <div className="space-y-2 animate-in slide-in-from-top-2 duration-300" ref={sponsorSearchRef}>
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">NOM DU PARRAIN</label>
+                  <div className="relative group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
+                    <input 
+                      type="text" 
+                      value={sponsorSearch} 
+                      onChange={(e) => {
+                        setSponsorSearch(e.target.value);
+                        setIsSponsorSearching(true);
+                        setShowSponsorResults(true);
+                      }}
+                      onFocus={() => setShowSponsorResults(true)}
+                      onBlur={saveSponsorName}
+                      placeholder="Rechercher ou saisir un nom..."
+                      className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-100 rounded-2xl text-sm font-medium text-gray-800 focus:outline-none focus:border-gray-400 transition-all shadow-sm placeholder:text-gray-400" 
+                    />
+                    {showSponsorResults && sponsorSuggestions.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl z-[100] max-h-60 overflow-y-auto border-gray-100">
+                        {sponsorSuggestions.map(s => (
+                          <button 
+                            key={s.id}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleSelectSponsor(s);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-indigo-50 flex items-center gap-3 border-b border-gray-50 last:border-0 group transition-colors"
+                          >
+                            <div className="p-1.5 bg-gray-50 rounded-lg text-gray-400 group-hover:text-indigo-600 transition-colors">
+                              <User size={14} />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[13px] font-bold text-gray-900">{formatFullNameFirstLast(s.name)}</span>
+                              <span className="text-[11px] text-gray-400">{s.status}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">LIEN DU PARRAIN</label>
+                  <input 
+                    type="text" 
+                    value={sponsorLink} 
+                    onChange={(e) => setSponsorLink(e.target.value)}
+                    onBlur={saveSponsorLink}
+                    placeholder="Ex: Ami, Famille..."
+                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 transition-all shadow-sm" 
+                  />
+                </div>
+              </>
+            )}
+
+            {currentCategory === 'Prescripteur' && (
+              <div className="space-y-2 animate-in slide-in-from-top-2 duration-300" ref={prescriberSearchRef}>
+                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Identification du Prescripteur</label>
                 <div className="relative group">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
                   <input 
                     type="text" 
-                    value={sponsorSearch} 
+                    value={prescriberSearch} 
                     onChange={(e) => {
-                      setSponsorSearch(e.target.value);
-                      setIsSponsorSearching(true);
+                      setPrescriberSearch(e.target.value);
+                      setIsPrescriberSearching(true);
+                      setShowPrescriberResults(true);
                     }}
-                    onBlur={saveSponsorName}
-                    placeholder="Rechercher ou saisir un nom..."
+                    onFocus={() => setShowPrescriberResults(true)}
+                    onBlur={savePrescriberName}
+                    placeholder="Rechercher un prescripteur..."
                     className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-100 rounded-2xl text-sm font-medium text-gray-800 focus:outline-none focus:border-gray-400 transition-all shadow-sm placeholder:text-gray-400" 
                   />
-                  {isSponsorSearching && sponsorSuggestions.length > 0 && (
+                  {showPrescriberResults && prescriberSuggestions.length > 0 && (
                     <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl z-[100] max-h-60 overflow-y-auto border-gray-100">
-                      {sponsorSuggestions.map(s => (
+                      {prescriberSuggestions.map(p => (
                         <button 
-                          key={s.id}
+                          key={p.id}
                           type="button"
                           onMouseDown={(e) => {
                             e.preventDefault();
-                            handleSelectSponsor(s);
+                            handleSelectPrescriber(p);
                           }}
                           className="w-full px-4 py-3 text-left hover:bg-indigo-50 flex items-center gap-3 border-b border-gray-50 last:border-0 group transition-colors"
                         >
@@ -751,8 +962,8 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
                             <User size={14} />
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-[13px] font-bold text-gray-900">{formatFullNameFirstLast(s.name)}</span>
-                            <span className="text-[11px] text-gray-400">{s.status}</span>
+                            <span className="text-[13px] font-bold text-gray-900">{p.name}</span>
+                            <span className="text-[11px] text-gray-400">{p.details?.trade || 'Prescripteur'}</span>
                           </div>
                         </button>
                       ))}
@@ -760,90 +971,126 @@ const ClientContactGeneral: React.FC<ClientContactGeneralProps> = ({ client: ini
                   )}
                 </div>
               </div>
-
-              <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">LIEN DU PARRAIN</label>
-                <input 
-                  type="text" 
-                  value={sponsorLink} 
-                  onChange={(e) => setSponsorLink(e.target.value)}
-                  onBlur={saveSponsorLink}
-                  placeholder="Ex: Ami, Famille..."
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 outline-none focus:border-indigo-400 transition-all shadow-sm" 
-                />
-              </div>
-            </>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Section Affectation */}
       <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm space-y-6">
-        <h3 className="text-[15px] font-black text-gray-900 uppercase tracking-tight">Affectation</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-[15px] font-black text-gray-900 uppercase tracking-tight">Affectation & Accès</h3>
+          <button 
+            onClick={() => setIsEditingAffectation(!isEditingAffectation)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-[11px] font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
+          >
+            {isEditingAffectation ? <Check size={14} className="text-green-500" /> : <PenSquare size={14} />}
+            {isEditingAffectation ? 'Valider' : 'Modifier'}
+          </button>
+        </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Agenceur Référent */}
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Agenceur référent</label>
-            <div className="relative group">
-              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10">
-                {(client.details?.referent || client.addedBy?.name) === "Sans agenceur" ? (
-                  <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200 shadow-sm">
-                    <X size={14} className="text-gray-900" />
-                  </div>
+        {!isEditingAffectation ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Agenceur référent</p>
+              <div className="flex items-center gap-2">
+                {client.details?.referent || client.addedBy?.name ? (
+                  <>
+                    {teamMembers.find(m => m.name === (client.details?.referent || client.addedBy?.name))?.avatar ? (
+                      <img 
+                        src={teamMembers.find(m => m.name === (client.details?.referent || client.addedBy?.name))?.avatar} 
+                        alt="" 
+                        className="w-6 h-6 rounded-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-600">
+                        {(client.details?.referent || client.addedBy?.name || '?').charAt(0)}
+                      </div>
+                    )}
+                    <span className="text-[14px] font-bold text-gray-900">{client.details?.referent || client.addedBy?.name}</span>
+                  </>
                 ) : (
-                  <img 
-                    src={teamMembers.find(m => m.name === (client.details?.referent || client.addedBy?.name))?.avatar || 'https://i.pravatar.cc/150?u=fallback'} 
-                    alt="" 
-                    className="w-7 h-7 rounded-full border border-white shadow-sm" 
-                  />
+                  <span className="text-[14px] font-bold text-gray-400 italic uppercase">Sans agenceur</span>
                 )}
               </div>
-              <select 
-                value={client.details?.referent || client.addedBy?.name || ''}
-                onChange={(e) => handleUpdateAffectation('referent', e.target.value)}
-                className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-10 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm"
-              >
-                <option value="">Sélectionner un collaborateur</option>
-                <option value="Sans agenceur">Sans agenceur</option>
-                {/* Afficher le référent actuel s'il n'est pas dans la liste des collaborateurs */}
-                {client.details?.referent && client.details?.referent !== "Sans agenceur" && !teamMembers.find(m => m.name === client.details?.referent) && (
-                  <option value={client.details.referent}>
-                    {formatFullNameFirstLast(client.details.referent)}
-                  </option>
-                )}
-                {teamMembers.map((member) => (
-                  <option key={member.uid} value={member.name}>
-                    {formatFullNameFirstLast(member.name)} {member.uid === userProfile?.uid ? '(Moi)' : ''}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Compte accès client</p>
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${client.details?.clientAccessAccount ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                <span className="text-[14px] font-bold text-gray-900">
+                  {client.details?.clientAccessAccount ? 'Activé' : 'Désactivé'}
+                </span>
+              </div>
             </div>
           </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Agenceur Référent */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Agenceur référent</label>
+              <div className="relative group">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10">
+                  {(client.details?.referent || client.addedBy?.name) === "Sans agenceur" ? (
+                    <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200 shadow-sm">
+                      <X size={14} className="text-gray-900" />
+                    </div>
+                  ) : (
+                    <img 
+                      src={teamMembers.find(m => m.name === (client.details?.referent || client.addedBy?.name))?.avatar || 'https://i.pravatar.cc/150?u=fallback'} 
+                      alt="" 
+                      className="w-7 h-7 rounded-full border border-white shadow-sm" 
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                </div>
+                <select 
+                  value={client.details?.referent || client.addedBy?.name || ''}
+                  onChange={(e) => handleUpdateAffectation('referent', e.target.value)}
+                  className="w-full appearance-none bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-10 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 transition-all shadow-sm"
+                >
+                  <option value="">Sélectionner un collaborateur</option>
+                  <option value="Sans agenceur">Sans agenceur</option>
+                  {/* Afficher le référent actuel s'il n'est pas dans la liste des collaborateurs */}
+                  {client.details?.referent && client.details?.referent !== "Sans agenceur" && !teamMembers.find(m => m.name === client.details?.referent) && (
+                    <option value={client.details.referent}>
+                      {formatFullNameFirstLast(client.details.referent)}
+                    </option>
+                  )}
+                  {teamMembers.map((member) => (
+                    <option key={member.uid} value={member.name}>
+                      {formatFullNameFirstLast(member.name)} {member.uid === userProfile?.uid ? '(Moi)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+              </div>
+            </div>
 
-          {/* Compte accès client */}
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Compte accès client</label>
-            <div className="bg-gray-50 rounded-2xl border border-gray-100 px-6 py-3 flex items-center justify-between shadow-inner">
-               <div className="flex items-center gap-2">
-                  <ShieldCheck size={16} className={client.details?.clientAccessAccount ? 'text-indigo-600' : 'text-gray-300'} />
-                  <span className="text-[13px] font-bold text-gray-700">Autoriser l'accès client</span>
-               </div>
-               <div className="flex items-center space-x-4">
-                  <span className={`text-[12px] font-bold transition-colors ${!client.details?.clientAccessAccount ? 'text-gray-900' : 'text-gray-300'}`}>Non</span>
-                  <button 
-                      type="button"
-                      onClick={() => handleUpdateAffectation('clientAccessAccount', !client.details?.clientAccessAccount)}
-                      className={`w-14 h-7 rounded-full relative transition-all duration-300 shadow-sm ${client.details?.clientAccessAccount ? 'bg-indigo-600' : 'bg-gray-300'}`}
-                  >
-                      <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-md ${client.details?.clientAccessAccount ? 'right-1' : 'left-1'}`}></div>
-                  </button>
-                  <span className={`text-[12px] font-bold transition-colors ${client.details?.clientAccessAccount ? 'text-gray-900' : 'text-gray-300'}`}>Oui</span>
-               </div>
+            {/* Compte accès client */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Compte accès client</label>
+              <div className="bg-gray-50 rounded-2xl border border-gray-100 px-6 py-3 flex items-center justify-between shadow-inner">
+                 <div className="flex items-center gap-2">
+                    <ShieldCheck size={16} className={client.details?.clientAccessAccount ? 'text-indigo-600' : 'text-gray-300'} />
+                    <span className="text-[13px] font-bold text-gray-700">Autoriser l'accès client</span>
+                 </div>
+                 <div className="flex items-center space-x-4">
+                    <span className={`text-[12px] font-bold transition-colors ${!client.details?.clientAccessAccount ? 'text-gray-900' : 'text-gray-300'}`}>Non</span>
+                    <button 
+                        type="button"
+                        onClick={() => handleUpdateAffectation('clientAccessAccount', !client.details?.clientAccessAccount)}
+                        className={`w-14 h-7 rounded-full relative transition-all duration-300 shadow-sm ${client.details?.clientAccessAccount ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                    >
+                        <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-md ${client.details?.clientAccessAccount ? 'right-1' : 'left-1'}`}></div>
+                    </button>
+                    <span className={`text-[12px] font-bold transition-colors ${client.details?.clientAccessAccount ? 'text-gray-900' : 'text-gray-300'}`}>Oui</span>
+                 </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Confirmation suppression contact */}

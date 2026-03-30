@@ -3,7 +3,7 @@ import React from 'react';
 // Added Check icon to imports
 import { Calculator, Euro, Info, Receipt, Percent, Truck, Check } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, updateDoc } from '@firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 
 interface ProjectKitchenEstimationProps {
   project: any;

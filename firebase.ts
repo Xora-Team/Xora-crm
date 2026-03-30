@@ -137,7 +137,7 @@ export const seedDatabase = async (companyId: string, currentUser: any) => {
       addedBy: { uid: currentUser.uid, name: currentUser.name, avatar: currentUser.avatar },
       details: {
         address: "12 Rue de la Loge, 34000 Montpellier",
-        phone: "06 12 34 56 78",
+        phone: "00 00 00 00 00",
         email: "charles.dubois@gmail.com",
         properties: [
           { id: "p1", number: 1, address: "12 Rue de la Loge, 34000 Montpellier", isMain: true },

@@ -24,7 +24,7 @@ import { Construction, AlertCircle, Loader2, ShieldAlert } from 'lucide-react';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 // Use @firebase/firestore to fix named export resolution issues
-import { doc, setDoc, onSnapshot, collection, query, where, getDocs, updateDoc, writeBatch } from '@firebase/firestore';
+import { doc, setDoc, onSnapshot, collection, query, where, getDocs, updateDoc, writeBatch } from 'firebase/firestore';
 
 // Wrapper component to handle ClientDetails with URL params
 const ClientDetailsWrapper = ({ userProfile, onProjectSelect }: { userProfile: any, onProjectSelect: (project: any) => void }) => {
@@ -95,6 +95,8 @@ const ProjectDetailsWrapper: React.FC<{ userProfile: any }> = ({ userProfile }) 
     />
   );
 };
+
+import { Toaster } from 'sonner';
 
 function App() {
   const navigate = useNavigate();
@@ -246,6 +248,55 @@ function App() {
   }, [isAuthenticated, userProfile?.companyId]);
 
   useEffect(() => {
+    const runRgpdMigration = async () => {
+      if (!isAuthenticated || !userProfile?.companyId) return;
+      
+      const migrationDone = localStorage.getItem('xora_rgpd_migration_done');
+      if (migrationDone) return;
+
+      try {
+        const clientsRef = collection(db, 'clients');
+        const q = query(clientsRef, where('companyId', '==', userProfile.companyId));
+        const querySnapshot = await getDocs(q);
+        
+        const docsToUpdate: { id: string, data: any }[] = [];
+        
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const details = data.details || {};
+          
+          // If rgpd exists but rgpdConsent doesn't, or they are different
+          if (details.rgpd !== undefined && details.rgpdConsent === undefined) {
+            docsToUpdate.push({
+              id: docSnap.id,
+              data: { 'details.rgpdConsent': details.rgpd }
+            });
+          }
+        });
+
+        if (docsToUpdate.length > 0) {
+          const BATCH_SIZE = 500;
+          for (let i = 0; i < docsToUpdate.length; i += BATCH_SIZE) {
+            const batch = writeBatch(db);
+            const chunk = docsToUpdate.slice(i, i + BATCH_SIZE);
+            chunk.forEach(item => {
+              batch.update(doc(db, 'clients', item.id), item.data);
+            });
+            await batch.commit();
+          }
+          console.log(`${docsToUpdate.length} clients updated for RGPD consent.`);
+        }
+        
+        localStorage.setItem('xora_rgpd_migration_done', 'true');
+      } catch (error) {
+        console.error("Erreur lors de la migration RGPD:", error);
+      }
+    };
+
+    runRgpdMigration();
+  }, [isAuthenticated, userProfile?.companyId]);
+
+  useEffect(() => {
     if (!userProfile?.companyId) return;
     const unsub = onSnapshot(doc(db, 'companies', userProfile.companyId), (docSnap) => {
       if (docSnap.exists()) {
@@ -318,7 +369,9 @@ function App() {
 
   const handleClientCreated = (clientId: string, clientName: string) => {
     setIsModalOpen(false);
+    // Rafraîchir la vue en se positionnant sur l'onglet Lead
     if (modalMode === 'contacts') {
+      setDirectoryActiveTab('Lead');
       setTimeout(() => {
         setTaskModalForClient({ id: clientId, name: clientName });
         setIsLeadAutoTaskActive(true); 
@@ -403,6 +456,7 @@ function App() {
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans">
+      <Toaster position="top-right" richColors />
       <Sidebar 
         currentPage={currentPage} 
         setCurrentPage={(page) => handlePageChange(page)} 

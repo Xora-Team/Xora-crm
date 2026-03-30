@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, Plus, Loader2, Gift, Check, Box } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from '@firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Article } from '../types';
+import { toast } from 'sonner';
 
 interface AddGiftModalProps {
   isOpen: boolean;
@@ -49,7 +50,6 @@ const AddGiftModal: React.FC<AddGiftModalProps> = ({ isOpen, onClose, userProfil
     } catch (error) {
       console.error("Error searching articles:", error);
     } finally {
-      setIsLoading(true); // Wait, should be false
       setIsLoading(false);
     }
   };
@@ -66,6 +66,13 @@ const AddGiftModal: React.FC<AddGiftModalProps> = ({ isOpen, onClose, userProfil
   const handleCreateNewGift = async () => {
     if (!newGiftName.trim() || !userProfile?.companyId) return;
     setIsLoading(true);
+
+    // Timeout de secours
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false);
+      toast.error("Le serveur met trop de temps à répondre, veuillez vérifier votre connexion.");
+    }, 10000);
+
     try {
       // Create a basic article for this gift
       const articleData = {
@@ -88,11 +95,13 @@ const AddGiftModal: React.FC<AddGiftModalProps> = ({ isOpen, onClose, userProfil
         name: newGiftName,
         articleId: docRef.id
       });
-      onClose();
     } catch (error) {
       console.error("Error creating gift article:", error);
+      toast.error("Une erreur est survenue lors de l'enregistrement.");
     } finally {
+      clearTimeout(timeoutId);
       setIsLoading(false);
+      onClose();
     }
   };
 
